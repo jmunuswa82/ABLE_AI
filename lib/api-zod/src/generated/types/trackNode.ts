@@ -5,10 +5,15 @@
  * Ableton AI Track Completion Studio API
  * OpenAPI spec version: 0.1.0
  */
+import type { AutomationLane } from "./automationLane";
+import type { ClipNode } from "./clipNode";
+import type { DeviceNode } from "./deviceNode";
+import type { TrackRouting } from "./trackRouting";
 
 export interface TrackNode {
   id: string;
   name: string;
+  /** audio | midi | group | return | master */
   type: string;
   /** @nullable */
   parentGroupId?: string | null;
@@ -19,10 +24,15 @@ export interface TrackNode {
   armed: boolean;
   /** @nullable */
   color?: number | null;
+  /** kick | snare | hihat | bass | lead | synth_stab | drone | texture | fx | vocal | return_fx | percussion | transition | utility | unknown */
   inferredRole: string;
   inferredConfidence: number;
   clipCount: number;
   deviceCount: number;
   automationPoints: number;
+  clips: ClipNode[];
+  devices: DeviceNode[];
+  automationLanes: AutomationLane[];
+  routing?: TrackRouting;
   warnings: string[];
 }

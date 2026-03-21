@@ -103,12 +103,12 @@ React + Vite frontend. Dark DAW-inspired UI with violet/purple accent.
 - Pages:
   - **Dashboard**: Upload form, project grid, live polling for job status
   - **ProjectDetail**: Stat cards, track list, job history, quick-nav buttons
-  - **TimelineView**: DAW-style clip timeline with multi-view modes (Arrange, Automation, Sidechain), zoom controls, automation lane visualization (SVG), sidechain relationship map, track inspector panel
-  - **CompletionPlanView**: Action cards by priority/category with filter tabs
+  - **TimelineView**: DAW-style clip timeline with 5 view modes (Arrangement, Automation, Sidechain, AI Proposed, Diff), zoom controls, automation lane visualization (SVG), sidechain relationship map, track inspector panel, mutation overlay rendering (dashed green/blue overlays), locateAtBeat scrolling
+  - **CompletionPlanView**: Action cards by priority/category with filter tabs, mutation payload detail rows, "Locate in Timeline" button per action and per mutation that navigates to timeline with scrolled position
   - **ExportView**: Artifact download cards with type-specific icons/colors, ALS Patch Package hero section
 - Components: Layout.tsx (sidebar nav with project sub-nav)
 - Hooks: use-polling.ts (polls project status every 2s when jobs are running)
-- Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId)
+- Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId, locateAtBeat, locateActionId)
 - Utils: lib/utils.ts (cn, formatScore, formatBars, beatsToBar, getStatusColor, getRoleColor, getTrackColor, formatBytes)
 - **Time units**: All internal data is in **beats** (quarter notes). 4 beats = 1 bar in 4/4 time. The frontend converts beats→bars for display (ruler labels, tooltips, headers). `beatsToBar(n)` = `n/4`. `formatBars(beats)` shows bar count.
 - Styling: Dark DAW theme in index.css, always dark-mode, violet primary accent (--primary: 262 52% 58%)

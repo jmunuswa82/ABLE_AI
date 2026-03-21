@@ -493,6 +493,181 @@ components:
         - createdAt
         - updatedAt
 
+    AutomationPoint:
+      type: object
+      properties:
+        time:
+          type: number
+          description: Time in beats (quarter notes)
+        value:
+          type: number
+      required:
+        - time
+        - value
+
+    AutomationLane:
+      type: object
+      properties:
+        targetPath:
+          type: string
+        parameterName:
+          type: string
+          description: Human-readable parameter name resolved from PointeeId lookup
+        pointeeId:
+          type: ["string", "null"]
+          description: Ableton internal PointeeId reference
+        deviceClass:
+          type: ["string", "null"]
+          description: Device class that owns this automation target
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutomationPoint"
+        density:
+          type: number
+        shapeSummary:
+          type: string
+          description: "static | sparse | gentle_ramp | ramp | complex"
+        confidence:
+          type: number
+      required:
+        - targetPath
+        - parameterName
+        - points
+        - density
+        - shapeSummary
+        - confidence
+
+    MidiNote:
+      type: object
+      properties:
+        pitch:
+          type: integer
+          description: MIDI pitch 0-127
+        time:
+          type: number
+          description: Time in beats relative to clip start
+        duration:
+          type: number
+          description: Duration in beats
+        velocity:
+          type: integer
+          description: MIDI velocity 0-127
+      required:
+        - pitch
+        - time
+        - duration
+        - velocity
+
+    ClipNode:
+      type: object
+      properties:
+        id:
+          type: string
+        trackId:
+          type: string
+        clipType:
+          type: string
+          description: "audio | midi"
+        start:
+          type: number
+          description: Arrangement start position in beats (quarter notes)
+        end:
+          type: number
+          description: Arrangement end position in beats (quarter notes)
+        loop:
+          type: boolean
+        sourceRef:
+          type: ["string", "null"]
+        midiNoteCount:
+          type: integer
+        midiNotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MidiNote"
+        gainInfo:
+          type: number
+        contentSummary:
+          type: string
+        clipColor:
+          type: ["integer", "null"]
+        name:
+          type: ["string", "null"]
+      required:
+        - id
+        - trackId
+        - clipType
+        - start
+        - end
+        - loop
+        - midiNoteCount
+        - midiNotes
+        - gainInfo
+        - contentSummary
+
+    DeviceNode:
+      type: object
+      properties:
+        id:
+          type: string
+        deviceClass:
+          type: string
+          description: Ableton device class (e.g. Compressor2, AutoFilter)
+        pluginName:
+          type: ["string", "null"]
+          description: VST/AU plugin name if applicable
+        enabled:
+          type: boolean
+        inferredPurpose:
+          type: string
+          description: "dynamics | reverb | delay | eq_filter | sampler_instrument | synth | drum_machine | modulation_distortion | utility | midi_effect | effect"
+        hasSidechainInput:
+          type: boolean
+          description: Whether this device has actual sidechain input wiring detected in XML
+        parameters:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - deviceClass
+        - enabled
+        - inferredPurpose
+        - hasSidechainInput
+
+    RoutingTarget:
+      type: object
+      properties:
+        target:
+          type: string
+        upper:
+          type: string
+        lower:
+          type: string
+      required:
+        - target
+        - upper
+        - lower
+
+    TrackRouting:
+      type: object
+      properties:
+        audioInput:
+          $ref: "#/components/schemas/RoutingTarget"
+        audioOutput:
+          $ref: "#/components/schemas/RoutingTarget"
+        sends:
+          type: array
+          items:
+            type: object
+            properties:
+              active:
+                type: boolean
+              amount:
+                type: number
+            required:
+              - active
+              - amount
+
     TrackNode:
       type: object
       properties:
@@ -502,6 +677,7 @@ components:
           type: string
         type:
           type: string
+          description: "audio | midi | group | return | master"
         parentGroupId:
           type: ["string", "null"]
         orderIndex:
@@ -518,6 +694,7 @@ components:
           type: ["integer", "null"]
         inferredRole:
           type: string
+          description: "kick | snare | hihat | bass | lead | synth_stab | drone | texture | fx | vocal | return_fx | percussion | transition | utility | unknown"
         inferredConfidence:
           type: number
         clipCount:
@@ -526,6 +703,20 @@ components:
           type: integer
         automationPoints:
           type: integer
+        clips:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClipNode"
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceNode"
+        automationLanes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutomationLane"
+        routing:
+          $ref: "#/components/schemas/TrackRouting"
         warnings:
           type: array
           items:
@@ -544,6 +735,9 @@ components:
         - clipCount
         - deviceCount
         - automationPoints
+        - clips
+        - devices
+        - automationLanes
         - warnings
 
     ArrangementSection:
@@ -555,8 +749,10 @@ components:
           type: string
         startBar:
           type: number
+          description: Start position in beats (quarter notes)
         endBar:
           type: number
+          description: End position in beats (quarter notes)
         energyScore:
           type: number
         densityScore:
@@ -582,6 +778,61 @@ components:
         - missingElements
         - transitionQuality
 
+    SidechainLink:
+      type: object
+      properties:
+        sourceTrackId:
+          type: string
+        targetTrackId:
+          type: string
+        sourceTrackName:
+          type: string
+        targetTrackName:
+          type: string
+        deviceClass:
+          type: string
+        deviceId:
+          type: string
+        confidence:
+          type: number
+        relationType:
+          type: string
+          description: "DETECTED_COMPRESSOR_SIDECHAIN | INFERRED_KICK_TO_BASS_DUCK | INFERRED_KICK_TO_TEXTURE_DUCK | AI_PROPOSED_KICK_TO_BASS_DUCK | AI_PROPOSED_KICK_TO_TEXTURE_DUCK"
+        purpose:
+          type: string
+        bars:
+          type: ["array", "null"]
+          items:
+            type: number
+        automationEvidence:
+          type: boolean
+        deviceEvidence:
+          type: boolean
+      required:
+        - sourceTrackId
+        - targetTrackId
+        - sourceTrackName
+        - targetTrackName
+        - deviceClass
+        - deviceId
+        - confidence
+        - relationType
+        - purpose
+        - automationEvidence
+        - deviceEvidence
+
+    Locator:
+      type: object
+      properties:
+        time:
+          type: number
+          description: Position in beats
+        name:
+          type: string
+      required:
+        - time
+        - name
+
     ProjectGraph:
       type: object
       properties:
@@ -595,7 +846,12 @@ components:
           type: integer
         arrangementLength:
           type: number
+          description: Total arrangement length in beats (quarter notes)
         tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackNode"
+        returnTracks:
           type: array
           items:
             $ref: "#/components/schemas/TrackNode"
@@ -603,6 +859,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ArrangementSection"
+        sidechainLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SidechainLink"
+        locators:
+          type: array
+          items:
+            $ref: "#/components/schemas/Locator"
         parseQuality:
           type: number
         warnings:
@@ -628,7 +892,10 @@ components:
         - timeSignatureDenominator
         - arrangementLength
         - tracks
+        - returnTracks
         - sections
+        - sidechainLinks
+        - locators
         - parseQuality
         - warnings
         - styleTags
@@ -637,6 +904,55 @@ components:
         - returnTrackCount
         - masterTrackPresent
 
+    MutationPayload:
+      type: object
+      description: Machine-executable mutation descriptor for a completion action
+      properties:
+        mutationType:
+          type: string
+          description: "add_clip | add_automation | add_locator | add_sidechain_proposal | extend_clip"
+        targetTrackId:
+          type: ["string", "null"]
+        targetTrackName:
+          type: ["string", "null"]
+        startBeat:
+          type: ["number", "null"]
+          description: Start position in beats
+        endBeat:
+          type: ["number", "null"]
+          description: End position in beats
+        newTrackName:
+          type: ["string", "null"]
+        newTrackType:
+          type: ["string", "null"]
+        automationParameter:
+          type: ["string", "null"]
+        automationPoints:
+          type: ["array", "null"]
+          items:
+            type: object
+            properties:
+              time:
+                type: number
+              value:
+                type: number
+        clipType:
+          type: ["string", "null"]
+        notes:
+          type: ["array", "null"]
+          items:
+            type: object
+        locatorName:
+          type: ["string", "null"]
+        safe:
+          type: boolean
+          description: Whether this mutation can be auto-applied
+        reason:
+          type: ["string", "null"]
+      required:
+        - mutationType
+        - safe
+
     CompletionAction:
       type: object
       properties:
@@ -644,6 +960,7 @@ components:
           type: string
         category:
           type: string
+          description: "structure | drums | bass | automation | transitions | ending | texture | sidechain | mixing"
         title:
           type: string
         description:
@@ -654,6 +971,30 @@ components:
             type: string
         affectedBars:
           type: ["string", "null"]
+          description: Human-readable bar range (e.g. "32–48")
+        startBeat:
+          type: ["number", "null"]
+          description: Exact start position in beats derived from section coordinates
+        endBeat:
+          type: ["number", "null"]
+          description: Exact end position in beats derived from section coordinates
+        targetTrackIds:
+          type: array
+          items:
+            type: string
+          description: Actual track IDs from the parsed project
+        createsNewTrack:
+          type: boolean
+        addsAutomation:
+          type: boolean
+        addsSidechain:
+          type: boolean
+        mutationPayloads:
+          type: array
+          items:
+            $ref: "#/components/schemas/MutationPayload"
+        sectionLabel:
+          type: ["string", "null"]
         confidence:
           type: number
         expectedImpact:
@@ -662,6 +1003,7 @@ components:
           type: string
         priority:
           type: string
+          description: "critical | high | medium | low"
       required:
         - id
         - category
@@ -672,6 +1014,11 @@ components:
         - expectedImpact
         - rationale
         - priority
+        - targetTrackIds
+        - createsNewTrack
+        - addsAutomation
+        - addsSidechain
+        - mutationPayloads
 
     CompletionPlan:
       type: object
@@ -705,6 +1052,8 @@ components:
         generatedAt:
           type: string
           format: date-time
+        mutationPlanVersion:
+          type: string
       required:
         - projectId
         - summary
@@ -726,6 +1075,7 @@ components:
           type: string
         type:
           type: string
+          description: "original_als | patched_als | project_graph | completion_plan | instructions | patch_package"
         fileName:
           type: string
         fileSize:

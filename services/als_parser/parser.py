@@ -5,6 +5,8 @@ ALS Parser: Robust Ableton Live Set (.als) file parser.
 - Safely decompresses with size limits (gzip bomb protection)
 - Parses XML with lxml (tolerant mode)
 - Extracts: tempo, time signature, tracks, clips, devices, automation, returns, master
+- Builds automation target map (PointeeId -> parameter name) for real parameter names
+- Detects sidechain evidence from actual device XML (SidechainInput, routing)
 - Degrades gracefully on unknown nodes, emitting precise warnings
 - Returns a canonical ProjectGraph
 """
@@ -30,6 +32,84 @@ logger = logging.getLogger(__name__)
 MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024  # 256 MB safety limit
 MAX_COMPRESSED_BYTES = 64 * 1024 * 1024     # 64 MB input limit
 
+# Ableton native device parameter names — maps element tag to human-readable parameter name
+NATIVE_PARAM_NAMES: Dict[str, str] = {
+    "Cutoff": "Filter Cutoff",
+    "Resonance": "Filter Resonance",
+    "Q": "Filter Q",
+    "Drive": "Drive",
+    "Gain": "Gain",
+    "Volume": "Volume",
+    "Pan": "Pan",
+    "Sends": "Send",
+    "Send": "Send Amount",
+    "Threshold": "Threshold",
+    "Ratio": "Ratio",
+    "Attack": "Attack",
+    "Release": "Release",
+    "Knee": "Knee",
+    "GainCompensation": "Makeup Gain",
+    "LimiterCeiling": "Limiter Ceiling",
+    "Frequency": "Frequency",
+    "BandFrequency": "Band Frequency",
+    "BandGain": "Band Gain",
+    "BandQ": "Band Q",
+    "DelayTime": "Delay Time",
+    "Feedback": "Feedback",
+    "DryWet": "Dry/Wet",
+    "ChorusAmount": "Chorus Amount",
+    "FlangerRate": "Flanger Rate",
+    "CoarseFreq": "Coarse Frequency",
+    "DeviceOn": "Device On/Off",
+    "SendAmount": "Send Amount",
+    "PreFadeVolume": "Pre-Fader Volume",
+    "SpeakerOn": "Speaker On",
+    "CrossfadeAmount": "Crossfade",
+    "TransposeSemitones": "Transpose",
+    "PitchShift": "Pitch Shift",
+    "FormantShift": "Formant Shift",
+    "LoopLength": "Loop Length",
+    "LoopPosition": "Loop Position",
+    "SustainMode": "Sustain Mode",
+    "Amount": "Amount",
+    "Depth": "Depth",
+    "Rate": "Rate",
+    "Spread": "Spread",
+    "Color": "Color",
+    "Tone": "Tone",
+    "WarmDrive": "Warm Drive",
+}
+
+# Device class -> category label for automation parameter display
+DEVICE_CLASS_LABELS: Dict[str, str] = {
+    "AutoFilter": "AutoFilter",
+    "Compressor2": "Compressor",
+    "GlueCompressor": "Glue Compressor",
+    "MultibandDynamics": "Multiband Dynamics",
+    "Gate": "Gate",
+    "Limiter": "Limiter",
+    "Eq8": "EQ Eight",
+    "Reverb": "Reverb",
+    "Delay": "Delay",
+    "FilterDelay": "Filter Delay",
+    "Chorus": "Chorus/Flanger",
+    "Flanger": "Flanger",
+    "Saturator": "Saturator",
+    "Overdrive": "Overdrive",
+    "Redux": "Redux",
+    "Resonator": "Resonator",
+    "FrequencyShifter": "Frequency Shifter",
+    "Utility": "Utility",
+    "AutoPan": "Auto Pan",
+    "Simpler": "Simpler",
+    "Sampler": "Sampler",
+    "Operator": "Operator",
+    "Wavetable": "Wavetable",
+    "Meld": "Meld",
+    "Drift": "Drift",
+    "Impulse": "Impulse",
+}
+
 
 class ALSParseError(Exception):
     pass
@@ -47,10 +127,6 @@ class ALSParser:
         self._track_counter = 0
 
     def parse(self, path_or_bytes) -> ProjectGraph:
-        """
-        Main entry point. Accepts file path (str/Path) or raw bytes.
-        Returns a ProjectGraph.
-        """
         raw_bytes = self._load_bytes(path_or_bytes)
         xml_bytes = self._decompress(raw_bytes)
         root = self._parse_xml(xml_bytes)
@@ -148,6 +224,13 @@ class ALSParser:
             return True
         if val == "false":
             return False
+        child = el.find(attr)
+        if child is not None:
+            v = child.get("Value", "").lower()
+            if v == "true":
+                return True
+            if v == "false":
+                return False
         return default
 
     def _text_value(self, el, default: str = "") -> str:
@@ -160,26 +243,17 @@ class ALSParser:
             source_file=self.source_file,
         )
 
-        # LiveSet is the main container
         liveset = root.find("LiveSet")
         if liveset is None:
             liveset = root
             self.warnings.append("Could not find <LiveSet> element, using root")
 
-        # Tempo
         graph.tempo = self._extract_tempo(liveset)
-
-        # Time signature
         graph.time_signature_numerator, graph.time_signature_denominator = \
             self._extract_time_signature(liveset)
-
-        # Arrangement length (from transport)
         graph.arrangement_length = self._extract_arrangement_length(liveset)
-
-        # Locators
         graph.locators = self._extract_locators(liveset)
 
-        # Tracks
         tracks_el = liveset.find("Tracks")
         if tracks_el is None:
             self.warnings.append("No <Tracks> element found")
@@ -210,23 +284,17 @@ class ALSParser:
                 else:
                     self.warnings.append(f"Unknown track type: <{tag}>")
 
-        # Master track
         master_el = liveset.find("MasterTrack")
         if master_el is not None:
             graph.master_track = self._extract_track(master_el, "master", 0)
 
-        # Sidechain detection (after all tracks are parsed)
         graph.sidechain_links = self._detect_sidechain_links(graph)
-
         graph.warnings = self.warnings
         return graph
 
     def _extract_tempo(self, liveset: etree._Element) -> float:
-        # Try Master track tempo
         master = liveset.find("MasterTrack")
         if master is not None:
-            tempo_el = master.find(".//AutomatedParameterProperty/AutomatedParameter/Automation")
-            # Simpler: try direct ManualTempo
             mt = master.find(".//DeviceChain/Mixer/Tempo/Manual")
             if mt is not None:
                 try:
@@ -234,11 +302,8 @@ class ALSParser:
                 except ValueError:
                     pass
 
-        # Try Transport
         transport = liveset.find("Transport")
         if transport is not None:
-            tempo_el = transport.find("CurrentTime")
-            # LiveSet often has a "Tempo" attribute on transport
             tempo_val = transport.get("Tempo")
             if tempo_val:
                 try:
@@ -246,7 +311,6 @@ class ALSParser:
                 except ValueError:
                     pass
 
-        # Fallback: search for any Tempo element
         for el in liveset.iter("Tempo"):
             val = el.get("Value") or el.get("Manual")
             if val:
@@ -257,7 +321,6 @@ class ALSParser:
                 except ValueError:
                     pass
 
-        # Search for manual tempo in master device chain
         for el in liveset.iter("Manual"):
             parent = el.getparent()
             if parent is not None and "Tempo" in parent.tag:
@@ -272,7 +335,6 @@ class ALSParser:
         return 120.0
 
     def _extract_time_signature(self, liveset: etree._Element) -> Tuple[int, int]:
-        # Search for time signature numerator/denominator
         for el in liveset.iter():
             if "TimeSignature" in el.tag:
                 num = self._safe_int(el, "Numerator", 4)
@@ -280,7 +342,6 @@ class ALSParser:
                 if num > 0 and den > 0:
                     return num, den
 
-        # Try MasterTrack
         for el in liveset.iter("TimeSignature"):
             num = self._safe_int(el, "Numerator", 4)
             den = self._safe_int(el, "Denominator", 4)
@@ -324,11 +385,74 @@ class ALSParser:
 
         return locators
 
+    def _build_automation_target_map(self, track_el: etree._Element) -> Dict[str, Dict[str, str]]:
+        """
+        Build a map from PointeeId -> {param_name, device_class} by scanning
+        all AutomationTarget elements in the track's device chain.
+
+        In Ableton's XML, each automatable parameter inside a device has an
+        <AutomationTarget Id="12345" /> sibling element. The parent of that
+        element is the parameter element (e.g. <Cutoff>, <Gain>, <DryWet>).
+        The parent of that is the device element.
+        """
+        target_map: Dict[str, Dict[str, str]] = {}
+
+        for auto_target in track_el.iter("AutomationTarget"):
+            target_id = auto_target.get("Id")
+            if not target_id:
+                continue
+
+            # Parent = the parameter element (e.g. <Cutoff>)
+            param_el = auto_target.getparent()
+            if param_el is None:
+                continue
+
+            param_tag = param_el.tag
+            param_name = NATIVE_PARAM_NAMES.get(param_tag, param_tag)
+
+            # Grandparent = the device element or a mixer sub-element
+            device_el = param_el.getparent()
+            device_class = "unknown"
+            if device_el is not None:
+                device_class = DEVICE_CLASS_LABELS.get(device_el.tag, device_el.tag)
+
+                # For Mixer-level params (Volume, Pan, Sends), go up one more
+                if device_el.tag in ("Mixer", "Send", "Sends"):
+                    mixer_parent = device_el.getparent()
+                    if mixer_parent is not None:
+                        device_class = "Mixer"
+
+            # If param_tag is "Manual" or "Value", get more context from parent
+            if param_tag in ("Manual", "Value", "LomId"):
+                grandparam = param_el.getparent()
+                if grandparam is not None:
+                    actual_param = grandparam.tag
+                    param_name = NATIVE_PARAM_NAMES.get(actual_param, actual_param)
+
+            target_map[target_id] = {
+                "param_name": param_name,
+                "device_class": device_class,
+            }
+
+        # Also map mixer-level targets (Volume, Pan, Sends on mixer)
+        mixer_el = track_el.find(".//Mixer")
+        if mixer_el is not None:
+            for sub in mixer_el:
+                sub_tag = sub.tag
+                for at in sub.iter("AutomationTarget"):
+                    tid = at.get("Id")
+                    if tid and tid not in target_map:
+                        target_map[tid] = {
+                            "param_name": NATIVE_PARAM_NAMES.get(sub_tag, sub_tag),
+                            "device_class": "Mixer",
+                        }
+
+        return target_map
+
     def _extract_track(self, track_el: etree._Element, track_type: str, order: int) -> TrackNode:
         track_id_attr = self._safe_int(track_el, "Id", 0)
         track_id = f"track_{track_type}_{track_id_attr}_{order}"
 
-        # Name
         name_el = track_el.find("Name")
         if name_el is not None:
             eff_name = name_el.find("EffectiveName")
@@ -342,22 +466,19 @@ class ALSParser:
         else:
             name = f"{track_type.title()} {order + 1}"
 
-        # State flags
         muted = False
         solo = False
         frozen = False
         armed = False
         color = None
 
-        muted_el = track_el.find(".//TrackDelay/IsSendActive")
-        if muted_el is None:
-            muted_el = track_el.find(".//Mute")
+        muted_el = track_el.find(".//Mute")
         if muted_el is not None:
             muted = self._safe_bool(muted_el, "Value", False)
 
-        solo_el = track_el.find(".//Solo")
+        solo_el = track_el.find("Solo")
         if solo_el is None:
-            solo_el = track_el.find("Solo")
+            solo_el = track_el.find(".//Solo")
         if solo_el is not None:
             solo = self._safe_bool(solo_el, "Value", False)
 
@@ -391,7 +512,6 @@ class ALSParser:
             color=color,
         )
 
-        # Group parenting
         group_id_el = track_el.find("TrackGroupId")
         if group_id_el is None:
             group_id_el = track_el.find(".//TrackGroupId")
@@ -400,16 +520,12 @@ class ALSParser:
             if gid >= 0:
                 track.parent_group_id = f"group_{gid}"
 
-        # Devices
+        # Build automation target map first for this track
+        auto_target_map = self._build_automation_target_map(track_el)
+
         track.devices = self._extract_devices(track_el, track_id)
-
-        # Clips
         track.clips = self._extract_clips(track_el, track_id)
-
-        # Automation lanes
-        track.automation_lanes = self._extract_automation_lanes(track_el)
-
-        # Routing info
+        track.automation_lanes = self._extract_automation_lanes(track_el, auto_target_map)
         track.routing = self._extract_routing(track_el)
 
         return track
@@ -436,13 +552,13 @@ class ALSParser:
             elif tag.endswith("Device") or "Plugin" in tag or tag in (
                 "PluginDevice", "AuPluginDevice", "VstPluginDevice", "Vst3PluginDevice",
                 "InstrumentGroupDevice", "DrumGroupDevice", "EffectGroupDevice",
-                "Eq8", "Compressor2", "Gate", "AutoFilter", "Saturator",
+                "Eq8", "Compressor2", "GlueCompressor", "Gate", "AutoFilter", "Saturator",
                 "Reverb", "Delay", "Looper", "Beat", "Resonator",
                 "Corpus", "Redux", "Chorus", "Flanger", "FrequencyShifter",
                 "MultibandDynamics", "Overdrive", "Pedal",
                 "Limiter", "Vinyl", "Pitch", "Dynamic",
                 "Simpler", "Impulse", "Operator", "Wavetable", "Meld", "Drift",
-                "OriginalSimpler", "MultiSampler",
+                "OriginalSimpler", "MultiSampler", "AutoPan", "Utility",
             ):
                 device = self._parse_device_element(el, track_id, device_counter)
                 if device:
@@ -459,7 +575,6 @@ class ALSParser:
         dev_id = f"{track_id}_dev_{counter}"
         plugin_name = None
 
-        # Try to get plugin name from nested elements
         for name_tag in ("PluginDesc", "VstPluginInfo", "AuPluginInfo", "Vst3PluginInfo"):
             desc_el = el.find(f".//{name_tag}")
             if desc_el is not None:
@@ -475,8 +590,19 @@ class ALSParser:
         if enabled_el is not None:
             enabled = self._safe_bool(enabled_el, "Value", True)
 
-        # Infer purpose from tag name
         inferred_purpose = self._infer_device_purpose(tag, plugin_name or "")
+
+        # Detect sidechain input — Ableton's Compressor2/GlueCompressor have SidechainInput
+        has_sidechain_input = False
+        sc_el = el.find(".//SidechainInput")
+        if sc_el is not None:
+            has_sidechain_input = True
+        # Alternative: check for AudioInputRouting on device with "Ext." or track reference
+        sc_routing = el.find(".//SidechainInputRouting")
+        if sc_routing is not None:
+            target = sc_routing.find("Target")
+            if target is not None and target.get("Value", ""):
+                has_sidechain_input = True
 
         return DeviceNode(
             id=dev_id,
@@ -484,6 +610,7 @@ class ALSParser:
             plugin_name=plugin_name,
             enabled=enabled,
             inferred_purpose=inferred_purpose,
+            has_sidechain_input=has_sidechain_input,
         )
 
     def _infer_device_purpose(self, tag: str, plugin_name: str) -> str:
@@ -495,11 +622,11 @@ class ALSParser:
             return "reverb"
         if any(k in combined for k in ["delay", "echo", "dub"]):
             return "delay"
-        if any(k in combined for k in ["compressor", "compress", "limiter", "dynamics", "gate"]):
+        if any(k in combined for k in ["compressor", "compress", "limiter", "dynamics", "gate", "glue"]):
             return "dynamics"
         if any(k in combined for k in ["eq", "filter", "autofilter", "freq"]):
             return "eq_filter"
-        if any(k in combined for k in ["distort", "saturator", "overdrive", "chorus", "flanger", "modulation"]):
+        if any(k in combined for k in ["distort", "saturator", "overdrive", "chorus", "flanger", "modulation", "autopan"]):
             return "modulation_distortion"
         if any(k in combined for k in ["simpler", "sampler", "impulse", "instrument"]):
             return "sampler_instrument"
@@ -517,7 +644,7 @@ class ALSParser:
         clips = []
         clip_counter = 0
 
-        # Arrangement clips are in ArrangerAutomation > ClipTimeable
+        # Arrangement clips are in ArrangerAutomation > Events
         arr_auto = track_el.find(".//ArrangerAutomation")
         if arr_auto is not None:
             events = arr_auto.find("Events")
@@ -528,7 +655,7 @@ class ALSParser:
                         clips.append(clip)
                         clip_counter += 1
 
-        # Session clips in ClipSlotList > ClipSlot > ClipSlot > ...
+        # Session clips in ClipSlotList
         clip_slot_list = track_el.find(".//ClipSlotList")
         if clip_slot_list is not None:
             for slot_el in clip_slot_list:
@@ -546,16 +673,15 @@ class ALSParser:
     def _parse_clip_element(self, el: etree._Element, track_id: str, counter: int) -> Optional[ClipNode]:
         tag = el.tag
         if tag not in ("AudioClip", "MidiClip", "AudioClipRef", "MidiClipRef"):
-            # Could be an automation event
-            if tag not in ("AutomationEvent",):
-                return None
             return None
 
         clip_id = f"{track_id}_clip_{counter}"
         clip_type = "audio" if "Audio" in tag else "midi"
 
+        # Time and CurrentEnd are the arrangement position attributes
         start = self._safe_float(el, "Time", 0.0)
         end = self._safe_float(el, "CurrentEnd", 0.0)
+
         if end <= start:
             loop_el_pre = el.find("Loop")
             if loop_el_pre is not None:
@@ -571,7 +697,6 @@ class ALSParser:
         if loop_el is not None:
             loop = self._safe_bool(loop_el, "LoopOn", False)
 
-        # Clip color (some ALS use ColorIndex child element, others use Color attribute)
         clip_color: Optional[int] = None
         color_idx_val = self._safe_int(el, "ColorIndex", -1)
         if color_idx_val >= 0:
@@ -581,13 +706,20 @@ class ALSParser:
             if color_attr_val >= 0:
                 clip_color = color_attr_val
 
-        # Gain
         gain_val = 1.0
         gain_el = el.find(".//Gain")
         if gain_el is not None:
             gain_val = self._safe_float(gain_el, "Value", 1.0)
 
-        # MIDI notes — KeyTrack holds pitch via MidiKey attribute on KeyTrack itself
+        # Clip name
+        clip_name = None
+        name_el = el.find("Name")
+        if name_el is None:
+            name_el = el.find(".//Name")
+        if name_el is not None:
+            clip_name = name_el.get("Value", "") or None
+
+        # MIDI notes
         midi_notes = []
         if clip_type == "midi":
             notes_el = el.find(".//Notes")
@@ -606,7 +738,7 @@ class ALSParser:
                         except Exception:
                             pass
 
-        content_summary = f"{clip_type} clip, {end - start:.1f} bars"
+        content_summary = f"{clip_type} clip, {(end - start) / 4:.1f} bars"
         if midi_notes:
             content_summary += f", {len(midi_notes)} notes"
 
@@ -621,67 +753,108 @@ class ALSParser:
             midi_notes=midi_notes,
             content_summary=content_summary,
             clip_color=clip_color,
+            name=clip_name,
         )
 
-    def _extract_automation_lanes(self, track_el: etree._Element) -> List[AutomationLane]:
+    def _extract_automation_lanes(
+        self, track_el: etree._Element, auto_target_map: Dict[str, Dict[str, str]]
+    ) -> List[AutomationLane]:
         lanes = []
         lane_counter = 0
 
-        auto_el = track_el.find("AutomationEnvelopes")
-        if auto_el is None:
-            auto_el = track_el.find(".//AutomationEnvelopes")
-
-        if auto_el is None:
-            return lanes
-
-        for envelope_el in auto_el.iter("AutomationEnvelope"):
-            # Get parameter info
-            param_el = envelope_el.find(".//EnvelopeTarget/PointeeId")
-            param_name = "unknown"
-
-            for pname_el in envelope_el.iter("AutomationTarget"):
-                pname_attr = pname_el.get("Id") or pname_el.get("ParameterName")
-                if pname_attr:
-                    param_name = pname_attr
-                    break
-
-            target_path = f"envelope_{lane_counter}"
-
-            # Extract automation points
-            points = []
-            for event_el in envelope_el.iter("AutomationEvent"):
-                t = self._safe_float(event_el, "Time", 0.0)
-                v = self._safe_float(event_el, "Value", 0.0)
-                points.append(AutomationPoint(time=t, value=v))
-
-            if not points:
-                continue
-
-            density = len(points) / max(1.0, points[-1].time - points[0].time) if len(points) > 1 else 0.0
-
-            # Determine shape
-            if len(points) <= 1:
-                shape = "static"
-            elif len(points) <= 3:
-                shape = "sparse"
-            elif density < 0.5:
-                shape = "gentle_ramp"
+        # AutomationEnvelopes may be directly under the track or under ArrangerAutomation
+        for auto_env_el in track_el.iter("AutomationEnvelopes"):
+            envelopes_el = auto_env_el.find("Envelopes")
+            if envelopes_el is None:
+                # Try direct children
+                envelope_els = [c for c in auto_env_el if c.tag == "AutomationEnvelope"]
             else:
-                shape = "complex"
+                envelope_els = list(envelopes_el)
 
-            lane = AutomationLane(
-                target_path=target_path,
-                parameter_name=param_name,
-                points=points,
-                density=min(density, 100.0),
-                shape_summary=shape,
-                confidence=0.7,
-            )
-            lanes.append(lane)
-            lane_counter += 1
+            for envelope_el in envelope_els:
+                if envelope_el.tag != "AutomationEnvelope":
+                    continue
+
+                # Get PointeeId to look up parameter name
+                pointee_id = None
+                envelope_target = envelope_el.find("EnvelopeTarget")
+                if envelope_target is not None:
+                    pointee_el = envelope_target.find("PointeeId")
+                    if pointee_el is not None:
+                        pointee_id = pointee_el.get("Value")
+
+                # Resolve parameter name from target map
+                param_name = "unknown"
+                device_class = None
+                if pointee_id and pointee_id in auto_target_map:
+                    info = auto_target_map[pointee_id]
+                    param_name = info["param_name"]
+                    device_class = info["device_class"]
+                elif pointee_id:
+                    # Fallback: use the ID itself
+                    param_name = f"param_{pointee_id}"
+
+                target_path = f"envelope_{lane_counter}"
+
+                # Extract automation points from Automation/Events
+                points = []
+                automation_el = envelope_el.find("Automation")
+                if automation_el is not None:
+                    events_el = automation_el.find("Events")
+                    if events_el is not None:
+                        for event_el in events_el:
+                            if event_el.tag == "AutomationEvent":
+                                t = self._safe_float(event_el, "Time", 0.0)
+                                v = self._safe_float(event_el, "Value", 0.0)
+                                points.append(AutomationPoint(time=t, value=v))
+
+                # Fallback: iter all AutomationEvent descendants
+                if not points:
+                    for event_el in envelope_el.iter("AutomationEvent"):
+                        t = self._safe_float(event_el, "Time", 0.0)
+                        v = self._safe_float(event_el, "Value", 0.0)
+                        points.append(AutomationPoint(time=t, value=v))
+
+                if not points:
+                    continue
+
+                # Sort by time
+                points.sort(key=lambda p: p.time)
+
+                time_span = points[-1].time - points[0].time if len(points) > 1 else 1.0
+                density = len(points) / max(1.0, time_span)
+
+                # Determine shape
+                if len(points) <= 1:
+                    shape = "static"
+                elif len(points) <= 3:
+                    shape = "sparse"
+                else:
+                    vals = [p.value for p in points]
+                    val_range = max(vals) - min(vals)
+                    if val_range < 0.01:
+                        shape = "static"
+                    elif density < 0.3:
+                        shape = "gentle_ramp"
+                    elif density < 2.0:
+                        shape = "ramp"
+                    else:
+                        shape = "complex"
+
+                lane = AutomationLane(
+                    target_path=target_path,
+                    parameter_name=param_name,
+                    pointee_id=pointee_id,
+                    device_class=device_class,
+                    points=points,
+                    density=min(density, 100.0),
+                    shape_summary=shape,
+                    confidence=0.85 if pointee_id in auto_target_map else 0.4,
+                )
+                lanes.append(lane)
+                lane_counter += 1
 
         return lanes
-
 
     def _extract_routing(self, track_el: etree._Element) -> Dict[str, Any]:
         routing: Dict[str, Any] = {}
@@ -690,7 +863,6 @@ class ALSParser:
         if device_chain is None:
             return routing
 
-        # Audio input routing
         audio_in = device_chain.find("AudioInputRouting")
         if audio_in is not None:
             target = audio_in.find("Target")
@@ -702,7 +874,6 @@ class ALSParser:
                 "lower": lower.get("Value", "") if lower is not None else "",
             }
 
-        # Audio output routing
         audio_out = device_chain.find("AudioOutputRouting")
         if audio_out is not None:
             target = audio_out.find("Target")
@@ -714,7 +885,6 @@ class ALSParser:
                 "lower": lower.get("Value", "") if lower is not None else "",
             }
 
-        # Sends
         sends = device_chain.find(".//Sends")
         if sends is not None:
             send_list = []
@@ -735,38 +905,65 @@ class ALSParser:
         return routing
 
     def _detect_sidechain_links(self, graph: ProjectGraph) -> List[SidechainLink]:
+        """
+        Detect sidechain relationships using multi-source evidence:
+        1. Actual SidechainInput XML elements in compressor devices
+        2. Routing evidence (track output routing to sidechain)
+        3. Heuristic inference (compressor on bass/synth = likely SC from kick)
+        4. AI-proposed sidechain when none detected but would be beneficial
+        """
         links: List[SidechainLink] = []
 
         all_tracks = list(graph.tracks) + list(graph.return_tracks)
         if graph.master_track:
             all_tracks.append(graph.master_track)
 
-        track_map: Dict[str, TrackNode] = {t.id: t for t in all_tracks}
+        kick_tracks = [t for t in graph.tracks if t.inferred_role == "kick"]
+        bass_tracks = [t for t in graph.tracks if t.inferred_role in ("bass", "rumble")]
+        synth_tracks = [t for t in graph.tracks if t.inferred_role in ("lead", "synth_stab", "drone", "texture")]
+
+        detected_count = 0
 
         for track in all_tracks:
             for device in track.devices:
                 if device.device_class not in ("Compressor2", "GlueCompressor", "MultibandDynamics", "Gate"):
                     continue
 
-                # Heuristic sidechain detection:
-                # 1. Compressor on non-kick track that has a kick track in the project = likely sidechain
-                # 2. Check routing for sidechain indicators
                 if track.inferred_role == "kick":
                     continue
 
-                kick_tracks = [t for t in graph.tracks if t.inferred_role == "kick"]
+                # DETECTED: Device has actual sidechain input wiring
+                if device.has_sidechain_input:
+                    if kick_tracks:
+                        source = kick_tracks[0]
+                    else:
+                        # Find any drum-role track as source
+                        drum_tracks = [t for t in graph.tracks if t.inferred_role in ("kick", "percussion", "snare")]
+                        source = drum_tracks[0] if drum_tracks else None
+
+                    if source:
+                        links.append(SidechainLink(
+                            source_track_id=source.id,
+                            target_track_id=track.id,
+                            source_track_name=source.name,
+                            target_track_name=track.name,
+                            device_class=device.device_class,
+                            device_id=device.id,
+                            confidence=0.92,
+                            relation_type="DETECTED_COMPRESSOR_SIDECHAIN",
+                            purpose="kick_duck",
+                            device_evidence=True,
+                        ))
+                        detected_count += 1
+                    continue
+
+                # INFERRED: Heuristic — compressor on bass/synth near kick
                 if not kick_tracks:
                     continue
 
-                # A compressor on a bass/pad/synth track likely has sidechain from kick
-                if track.inferred_role in ("bass", "rumble", "lead", "synth_stab", "drone", "texture", "vocal"):
+                if track.inferred_role in ("bass", "rumble"):
                     source = kick_tracks[0]
-                    confidence = 0.6
-                    if device.device_class == "Compressor2":
-                        confidence = 0.75
-                    if track.inferred_role in ("bass", "rumble"):
-                        confidence = 0.85
-
+                    confidence = 0.82 if device.device_class == "Compressor2" else 0.65
                     links.append(SidechainLink(
                         source_track_id=source.id,
                         target_track_id=track.id,
@@ -775,16 +972,64 @@ class ALSParser:
                         device_class=device.device_class,
                         device_id=device.id,
                         confidence=confidence,
+                        relation_type="INFERRED_KICK_TO_BASS_DUCK",
+                        purpose="low_end_groove",
+                        device_evidence=True,
                     ))
+                    detected_count += 1
+
+                elif track.inferred_role in ("lead", "synth_stab", "drone", "texture", "vocal"):
+                    source = kick_tracks[0]
+                    links.append(SidechainLink(
+                        source_track_id=source.id,
+                        target_track_id=track.id,
+                        source_track_name=source.name,
+                        target_track_name=track.name,
+                        device_class=device.device_class,
+                        device_id=device.id,
+                        confidence=0.58,
+                        relation_type="INFERRED_KICK_TO_TEXTURE_DUCK",
+                        purpose="texture_pumping",
+                        device_evidence=True,
+                    ))
+                    detected_count += 1
+
+        # AI-PROPOSED: When no sidechain detected but project would benefit from it
+        if detected_count == 0 and kick_tracks:
+            # Propose kick -> bass sidechain if bass exists
+            for bass in bass_tracks[:1]:
+                links.append(SidechainLink(
+                    source_track_id=kick_tracks[0].id,
+                    target_track_id=bass.id,
+                    source_track_name=kick_tracks[0].name,
+                    target_track_name=bass.name,
+                    device_class="Compressor2",
+                    device_id="ai_proposed_sc_0",
+                    confidence=0.88,
+                    relation_type="AI_PROPOSED_KICK_TO_BASS_DUCK",
+                    purpose="Add pumping groove — kick ducking bass is standard in techno/dance",
+                ))
+
+            # Propose kick -> main synth/texture sidechain
+            for synth in synth_tracks[:1]:
+                links.append(SidechainLink(
+                    source_track_id=kick_tracks[0].id,
+                    target_track_id=synth.id,
+                    source_track_name=kick_tracks[0].name,
+                    target_track_name=synth.name,
+                    device_class="Compressor2",
+                    device_id="ai_proposed_sc_1",
+                    confidence=0.72,
+                    relation_type="AI_PROPOSED_KICK_TO_TEXTURE_DUCK",
+                    purpose="Texture pumping — sidechain creates rhythmic movement in pads/synths",
+                ))
 
         return links
 
 
 def parse_als_file(path_or_bytes, project_id: str, source_file: str = "") -> Tuple[ProjectGraph, List[str]]:
     """
-    High-level parse function.
-    Returns (ProjectGraph, warnings).
-    Never raises — always returns something with a quality score.
+    High-level parse function. Returns (ProjectGraph, warnings). Never raises.
     """
     parser = ALSParser(project_id=project_id, source_file=source_file)
     try:
@@ -792,7 +1037,6 @@ def parse_als_file(path_or_bytes, project_id: str, source_file: str = "") -> Tup
         return graph, parser.warnings
     except ALSParseError as e:
         logger.error(f"ALS parse error: {e}")
-        # Return minimal graph with error
         graph = ProjectGraph(
             project_id=project_id,
             source_file=source_file,

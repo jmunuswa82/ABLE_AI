@@ -18,4 +18,5 @@ export interface CompletionPlan {
   warnings: string[];
   rationale: string;
   generatedAt: Date;
+  mutationPlanVersion?: string;
 }

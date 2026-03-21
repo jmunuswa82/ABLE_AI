@@ -1,0 +1,430 @@
+You are now in FINAL RECOVERY + RELEASE HARDENING mode.
+
+Do not give planning prose.
+Do not give partial fixes.
+Do not preserve broken assumptions.
+Do not use mock timeline state anywhere in real project mode.
+Do not ship any exporter that is not aggressively validated.
+
+We are building a category-defining product:
+Ableton AI Track Completion Studio
+
+The current product is still not releaseable.
+
+CURRENT FAILURES TO FIX
+1. Timeline geometry is not faithful to the uploaded Ableton set
+   - clip spacing is inaccurate compared with the original ALS
+   - bar alignment and section alignment are off
+   - arrangement is visually simplified in a way that misrepresents the source set
+   - clip widths, gaps, and exact start/end positions are not reliably mapped from the source data
+
+2. Automation view is not real
+   - it does not show actual parsed automation from the uploaded ALS
+   - it does not show existing automation lanes, parameter targets, or envelope data properly
+   - it is visually too close to the arrangement view instead of being a true automation model
+
+3. Sidechain detection is weak/incorrect
+   - app says “No sidechain relationships detected”
+   - original ALS likely contains sidechain-relevant routing or device-chain clues
+   - if true sidechain is absent, AI must propose sidechain intelligently and show exact source, target, device strategy, and bars affected
+
+4. AI Proposed and Diff are not strong enough
+   - Proposed view must show concrete generated changes, not generic reused visual state
+   - Diff must compare original vs AI-modified arrangement precisely
+   - each proposed change must show exact placement in the timeline
+
+5. Completion plan is not anchored strongly enough in timeline coordinates
+   - for every action, app must show EXACT bars / sections / tracks / lanes affected
+   - example:
+     Add Tension Sweeps at Section Boundaries
+     must show:
+       - exact bar start/end
+       - exact target section
+       - exact target/new track
+       - exact automation/device targets
+       - exact clip or envelope objects to be created
+
+6. Export must produce a robust modified ALS
+   - not just suggestions
+   - not just patch JSON
+   - app must generate the strongest possible valid modified .als candidate
+   - exporter must not corrupt metadata
+   - exporter must not mislabel files
+   - exporter must not break version compatibility
+
+7. Entire app must be truthful and functional
+   - no fake tabs
+   - no false detections
+   - no placeholder logic in real project mode
+   - no “AI analysis detected…” text without data-backed evidence
+   - no superficial implementation
+
+PRODUCT STANDARD
+This is not a basic app.
+This is not a weak prototype.
+This is a deep-system invention and must be built like one.
+
+Use the following engineering direction:
+
+REFERENCE DIRECTION TO INCORPORATE
+There is public groundwork showing:
+- official Ableton Live Set Export exists
+- reverse-engineered parsers/manipulators exist
+- ALS should be treated as compressed XML with version-sensitive structure
+- safe export should prefer conservative mutation and validation over loose regeneration
+
+Inspiration sources to study and incorporate into architecture:
+- official Ableton Live Set Export library
+- offlinemark/dawtool
+- elixirbeats/abletoolz
+- GinoLucianoRojo/ableton
+- UR91K/seula
+- krfantasy/alsdiff
+- older parser references like loive
+Do not blindly copy any repo.
+Extract the architectural lessons and implement a stronger product-grade system.
+
+ABSOLUTE ENGINEERING RULES
+- Never regenerate the whole ALS from scratch unless a subsystem is explicitly designed for exact compatible compilation
+- Keep original ALS bytes and original decompressed XML
+- Preserve original root metadata and version-identifying structure unless exact compatibility logic is proven
+- Preserve untouched branches whenever possible
+- Use a minimal mutation plan and patcher
+- Build a validation harness before calling anything “Patched ALS”
+- Separate:
+  - source arrangement model
+  - parsed automation model
+  - sidechain graph model
+  - AI proposal model
+  - diff model
+  - export mutation model
+
+PHASE 1 — REBUILD TIMELINE ENGINE FOR ACCURACY
+Replace any approximate/fake mapping with a real timeline mapping engine.
+
+Implement:
+1. canonical time mapping layer
+   - map raw Ableton timing to bars/beats with proper timeline normalization
+   - support arrangement positions, clip boundaries, locator positions, section boundaries
+   - preserve exact source coordinates as raw fields alongside normalized display fields
+
+2. geometry engine
+   - clip x-position derived from exact arrangement time
+   - clip width derived from exact duration
+   - no artificial spacing between consecutive clips unless source data implies a gap
+   - group rows, return rows, and master rows rendered distinctly
+   - section headers aligned to exact bar starts
+   - bars/beats ruler accurate
+   - support zoom levels with consistent math
+
+3. fidelity mode
+   - add a “source fidelity” render mode that prioritizes exact geometry over cosmetic simplification
+   - current/original arrangement view must be driven by source ALS data only
+
+4. raw-to-display debug overlay in dev mode
+   - show raw start, raw end, displayed start bar, displayed end bar for selected clip
+   - allow debugging of mapping errors
+
+PHASE 2 — BUILD TRUE MULTI-MODE TIMELINE MODELS
+Create distinct data models and render pipelines for:
+
+A. Original Arrangement
+- exact parsed source tracks
+- exact clip placements
+- actual locators/sections
+- actual track hierarchy
+- actual detected devices if parseable
+- actual existing automation summaries
+
+B. Automation View
+- show parsed automation lanes if present
+- lanes grouped by track and target parameter
+- show envelope points/segments
+- distinguish:
+  - existing automation from source ALS
+  - AI-proposed automation overlays
+- if automation parsing is incomplete, show partial coverage warnings, not fake automation
+
+C. Sidechain View
+- build a real sidechain graph model
+- detect:
+  - compressor-like native devices
+  - routing clues
+  - volume-ducking automation patterns
+  - kick-source / duck-target relationships
+- if source sidechain cannot be confidently extracted, run inference and label it clearly:
+  - DETECTED
+  - INFERRED
+  - AI-PROPOSED
+- if no sidechain exists, AI must propose smart sidechain additions:
+  - source track
+  - target track
+  - device strategy
+  - parameter strategy
+  - bars/sections
+  - expected groove impact
+
+D. AI Proposed View
+- show actual AI-generated changes only
+- new tracks
+- new clips
+- new automation
+- sidechain additions
+- structural edits
+- transitions
+- breakdown repair
+- outro completion
+- distinguish existing vs new vs modified
+
+E. Diff View
+- compare original vs AI-proposed
+- exact overlays with categories:
+  - ADD
+  - MODIFY
+  - EXTEND
+  - AUTOMATE
+  - SIDECHAIN
+  - REMOVE/SIMPLIFY
+- clicking a diff item must focus exact bars/tracks/lane
+
+PHASE 3 — REBUILD COMPLETION PLAN AS AN EXECUTABLE TIMELINE PLAN
+The completion plan must stop being generic advisory text.
+
+For every AI action, generate:
+- title
+- priority
+- confidence
+- impact
+- exact start bar
+- exact end bar
+- target section
+- target track(s)
+- target lane(s)
+- whether it creates a new track
+- whether it modifies existing clips
+- whether it adds automation
+- whether it adds sidechain behavior
+- rationale
+- machine-executable mutation payload
+
+Each action card must include a “Locate in Timeline” behavior.
+
+For example:
+Add Tension Sweeps at Section Boundaries
+must include:
+- placement:
+  - bars 61–64 before DROP
+  - bars 109–112 before PEAK
+- target:
+  - new FX Sweep track
+  - optional pitch envelope on ACID GROUP lead
+- mutation payload:
+  - create audio/MIDI placeholder or riser clip
+  - create filter/open automation
+  - create downward pitch envelope at drop hit
+- view integration:
+  - action highlights exact clips and envelopes in Proposed and Diff
+
+PHASE 4 — BUILD AN ACTUAL AI MUTATION ENGINE
+Do not stop at suggestion text.
+
+Implement a mutation engine that produces:
+1. track additions
+2. clip additions/extensions
+3. automation lane additions
+4. locator/section updates
+5. sidechain proposals
+6. optional device parameter changes where safely supported
+
+Mutation engine output format:
+- deterministic JSON mutation plan
+- linked to canonical ProjectGraph ids
+- linked to export patch system
+
+AI must be hybrid:
+- deterministic structural analysis
+- genre-aware rule system
+- confidence scoring
+- proposal generation
+
+At minimum AI must intelligently handle:
+- missing bass/sub continuity
+- weak transition energy
+- static hats/percussion
+- absent automation
+- missing return FX movement
+- unfinished outro
+- weak post-break impact
+- absent or weak sidechain groove
+
+PHASE 5 — SIDECHAIN SYSTEM MUST BE REAL
+Implement a SidechainGraph model:
+- sourceTrackId
+- targetTrackId
+- relationType
+- confidence
+- deviceEvidence
+- automationEvidence
+- bars
+- purpose
+
+relationType examples:
+- DETECTED_COMPRESSOR_SIDECHAIN
+- DETECTED_DUCKING_AUTOMATION
+- INFERRED_KICK_TO_BASS_DUCK
+- AI_PROPOSED_KICK_TO_TEXTURE_DUCK
+
+If no sidechain is present, AI must propose robust sidechain additions for appropriate layers.
+Do not leave Sidechain tab empty if the project would benefit from it.
+
+PHASE 6 — EXPORTER MUST PRODUCE A STRONG MODIFIED ALS
+Build a robust export architecture.
+
+A. Artifact classes
+- Original Uploaded ALS
+- Parsed Project JSON
+- Analysis JSON
+- Completion Plan JSON
+- Mutation Plan JSON
+- Patched ALS Candidate
+- Safe Patch Bundle
+
+B. Export strategy
+1. Preserve original ALS bytes
+2. Decompress to XML
+3. Parse into source tree
+4. Apply minimal safe mutations from mutation plan
+5. Preserve untouched XML branches
+6. Recompress correctly
+7. Run validation
+8. Only then expose Patched ALS Candidate
+
+C. Exporter truthfulness
+If a requested mutation is unsafe for direct ALS patching:
+- fall back to Safe Patch Bundle
+- do not corrupt ALS
+- do not silently skip changes
+- report exactly which mutations were applied vs deferred
+
+D. Validation harness
+Required checks:
+- gzip validity
+- XML well-formedness
+- root/header preservation
+- version markers preserved unless exact compatibility rule exists
+- no app-brand metadata inserted into creator/version fields
+- known required structural branches still present
+- sane track/clip counts
+- no duplicate ids in touched regions where ids apply
+- delta report between source XML and output XML
+
+E. Export trust labels
+- VERIFIED_PATCHED_ALS
+- STRUCTURALLY_VALID_ALS_CANDIDATE
+- SAFE_PATCH_BUNDLE_ONLY
+
+Never claim 100% certainty unless validation proves it.
+
+PHASE 7 — AUTOMATION EXTRACTION AND GENERATION
+Rebuild automation as a first-class subsystem.
+
+Source automation extraction:
+- parse track automation if present
+- parse device automation where identifiable
+- map target parameter names
+- map points/segments with timeline positions
+- support existing automation summaries in Detail page
+
+AI automation generation:
+- filter cutoff sweeps
+- resonance ramps where appropriate
+- send throws
+- utility gain movement
+- breakdown filtering
+- transition ramps
+- drop release automation
+- ducking envelopes if sidechain is proposed
+
+Automation must appear:
+- in the automation timeline
+- in the plan cards
+- in the diff model
+- in mutation payloads
+- in export patching where supported
+
+PHASE 8 — TESTING AND RELEASE HARDENING
+Add full tests.
+
+1. timeline fidelity tests
+- clip spacing matches source coordinates
+- no artificial gap between contiguous clips
+- sections align to correct bars
+
+2. automation tests
+- source automation visible when present
+- proposed automation distinct from source automation
+
+3. sidechain tests
+- detected sidechain maps when source evidence exists
+- AI-proposed sidechain appears when beneficial but absent
+
+4. plan tests
+- every action has exact bar placement
+- every action has linked track/lane targets
+- Locate in Timeline works
+
+5. exporter tests
+- patched ALS remains compressed correctly
+- patched ALS remains XML-valid
+- source header/version metadata preserved
+- export endpoint returns correct artifact type
+- no JSON mislabeled as ALS
+- unsafe mutations correctly route to Safe Patch Bundle
+
+6. end-to-end tests
+- upload -> parse -> analyze -> propose -> diff -> export
+- real project mode contains no mock timeline data
+- tabs use distinct models
+
+PHASE 9 — UX / PRODUCT QUALITY
+Make the flow coherent and professional.
+
+Required navigation flow:
+- Dashboard
+- Detail
+- Timeline
+  - Original
+  - Automation
+  - Sidechain
+  - AI Proposed
+  - Diff
+- Plan
+- Export
+
+Each plan action must:
+- link to exact timeline location
+- show exact affected tracks/layers
+- show whether new track is created
+- show exact automation/sidechain payload
+- show export applicability
+
+OUTPUT RULES
+- Do not summarize
+- Create/update actual files
+- Fix architecture, not cosmetics only
+- Remove all fake/shared tab state
+- Prioritize timeline fidelity, real automation, real sidechain, executable AI plan, and exporter reliability
+- After first pass, perform one hardening pass focused on:
+  - timeline math
+  - source automation parsing
+  - sidechain inference
+  - mutation/export safety
+  - test coverage
+
+FINAL REMINDER
+This is not a suggestion engine.
+This product must generate a robust modified ALS candidate and a truthful safe fallback package.
+No partial implementation.
+No fake behavior.
+No repeated workaround.
+Build the real mechanism.

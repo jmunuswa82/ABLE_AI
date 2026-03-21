@@ -189,12 +189,14 @@ export const GetProjectGraphResponse = zod.object({
   tempo: zod.number(),
   timeSignatureNumerator: zod.number(),
   timeSignatureDenominator: zod.number(),
-  arrangementLength: zod.number(),
+  arrangementLength: zod
+    .number()
+    .describe("Total arrangement length in beats (quarter notes)"),
   tracks: zod.array(
     zod.object({
       id: zod.string(),
       name: zod.string(),
-      type: zod.string(),
+      type: zod.string().describe("audio | midi | group | return | master"),
       parentGroupId: zod.string().nullish(),
       orderIndex: zod.number(),
       muted: zod.boolean(),
@@ -202,11 +204,257 @@ export const GetProjectGraphResponse = zod.object({
       frozen: zod.boolean(),
       armed: zod.boolean(),
       color: zod.number().nullish(),
-      inferredRole: zod.string(),
+      inferredRole: zod
+        .string()
+        .describe(
+          "kick | snare | hihat | bass | lead | synth_stab | drone | texture | fx | vocal | return_fx | percussion | transition | utility | unknown",
+        ),
       inferredConfidence: zod.number(),
       clipCount: zod.number(),
       deviceCount: zod.number(),
       automationPoints: zod.number(),
+      clips: zod.array(
+        zod.object({
+          id: zod.string(),
+          trackId: zod.string(),
+          clipType: zod.string().describe("audio | midi"),
+          start: zod
+            .number()
+            .describe("Arrangement start position in beats (quarter notes)"),
+          end: zod
+            .number()
+            .describe("Arrangement end position in beats (quarter notes)"),
+          loop: zod.boolean(),
+          sourceRef: zod.string().nullish(),
+          midiNoteCount: zod.number(),
+          midiNotes: zod.array(
+            zod.object({
+              pitch: zod.number().describe("MIDI pitch 0-127"),
+              time: zod
+                .number()
+                .describe("Time in beats relative to clip start"),
+              duration: zod.number().describe("Duration in beats"),
+              velocity: zod.number().describe("MIDI velocity 0-127"),
+            }),
+          ),
+          gainInfo: zod.number(),
+          contentSummary: zod.string(),
+          clipColor: zod.number().nullish(),
+          name: zod.string().nullish(),
+        }),
+      ),
+      devices: zod.array(
+        zod.object({
+          id: zod.string(),
+          deviceClass: zod
+            .string()
+            .describe("Ableton device class (e.g. Compressor2, AutoFilter)"),
+          pluginName: zod
+            .string()
+            .nullish()
+            .describe("VST\/AU plugin name if applicable"),
+          enabled: zod.boolean(),
+          inferredPurpose: zod
+            .string()
+            .describe(
+              "dynamics | reverb | delay | eq_filter | sampler_instrument | synth | drum_machine | modulation_distortion | utility | midi_effect | effect",
+            ),
+          hasSidechainInput: zod
+            .boolean()
+            .describe(
+              "Whether this device has actual sidechain input wiring detected in XML",
+            ),
+          parameters: zod.record(zod.string(), zod.unknown()).optional(),
+        }),
+      ),
+      automationLanes: zod.array(
+        zod.object({
+          targetPath: zod.string(),
+          parameterName: zod
+            .string()
+            .describe(
+              "Human-readable parameter name resolved from PointeeId lookup",
+            ),
+          pointeeId: zod
+            .string()
+            .nullish()
+            .describe("Ableton internal PointeeId reference"),
+          deviceClass: zod
+            .string()
+            .nullish()
+            .describe("Device class that owns this automation target"),
+          points: zod.array(
+            zod.object({
+              time: zod.number().describe("Time in beats (quarter notes)"),
+              value: zod.number(),
+            }),
+          ),
+          density: zod.number(),
+          shapeSummary: zod
+            .string()
+            .describe("static | sparse | gentle_ramp | ramp | complex"),
+          confidence: zod.number(),
+        }),
+      ),
+      routing: zod
+        .object({
+          audioInput: zod
+            .object({
+              target: zod.string(),
+              upper: zod.string(),
+              lower: zod.string(),
+            })
+            .optional(),
+          audioOutput: zod
+            .object({
+              target: zod.string(),
+              upper: zod.string(),
+              lower: zod.string(),
+            })
+            .optional(),
+          sends: zod
+            .array(
+              zod.object({
+                active: zod.boolean(),
+                amount: zod.number(),
+              }),
+            )
+            .optional(),
+        })
+        .optional(),
+      warnings: zod.array(zod.string()),
+    }),
+  ),
+  returnTracks: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      type: zod.string().describe("audio | midi | group | return | master"),
+      parentGroupId: zod.string().nullish(),
+      orderIndex: zod.number(),
+      muted: zod.boolean(),
+      solo: zod.boolean(),
+      frozen: zod.boolean(),
+      armed: zod.boolean(),
+      color: zod.number().nullish(),
+      inferredRole: zod
+        .string()
+        .describe(
+          "kick | snare | hihat | bass | lead | synth_stab | drone | texture | fx | vocal | return_fx | percussion | transition | utility | unknown",
+        ),
+      inferredConfidence: zod.number(),
+      clipCount: zod.number(),
+      deviceCount: zod.number(),
+      automationPoints: zod.number(),
+      clips: zod.array(
+        zod.object({
+          id: zod.string(),
+          trackId: zod.string(),
+          clipType: zod.string().describe("audio | midi"),
+          start: zod
+            .number()
+            .describe("Arrangement start position in beats (quarter notes)"),
+          end: zod
+            .number()
+            .describe("Arrangement end position in beats (quarter notes)"),
+          loop: zod.boolean(),
+          sourceRef: zod.string().nullish(),
+          midiNoteCount: zod.number(),
+          midiNotes: zod.array(
+            zod.object({
+              pitch: zod.number().describe("MIDI pitch 0-127"),
+              time: zod
+                .number()
+                .describe("Time in beats relative to clip start"),
+              duration: zod.number().describe("Duration in beats"),
+              velocity: zod.number().describe("MIDI velocity 0-127"),
+            }),
+          ),
+          gainInfo: zod.number(),
+          contentSummary: zod.string(),
+          clipColor: zod.number().nullish(),
+          name: zod.string().nullish(),
+        }),
+      ),
+      devices: zod.array(
+        zod.object({
+          id: zod.string(),
+          deviceClass: zod
+            .string()
+            .describe("Ableton device class (e.g. Compressor2, AutoFilter)"),
+          pluginName: zod
+            .string()
+            .nullish()
+            .describe("VST\/AU plugin name if applicable"),
+          enabled: zod.boolean(),
+          inferredPurpose: zod
+            .string()
+            .describe(
+              "dynamics | reverb | delay | eq_filter | sampler_instrument | synth | drum_machine | modulation_distortion | utility | midi_effect | effect",
+            ),
+          hasSidechainInput: zod
+            .boolean()
+            .describe(
+              "Whether this device has actual sidechain input wiring detected in XML",
+            ),
+          parameters: zod.record(zod.string(), zod.unknown()).optional(),
+        }),
+      ),
+      automationLanes: zod.array(
+        zod.object({
+          targetPath: zod.string(),
+          parameterName: zod
+            .string()
+            .describe(
+              "Human-readable parameter name resolved from PointeeId lookup",
+            ),
+          pointeeId: zod
+            .string()
+            .nullish()
+            .describe("Ableton internal PointeeId reference"),
+          deviceClass: zod
+            .string()
+            .nullish()
+            .describe("Device class that owns this automation target"),
+          points: zod.array(
+            zod.object({
+              time: zod.number().describe("Time in beats (quarter notes)"),
+              value: zod.number(),
+            }),
+          ),
+          density: zod.number(),
+          shapeSummary: zod
+            .string()
+            .describe("static | sparse | gentle_ramp | ramp | complex"),
+          confidence: zod.number(),
+        }),
+      ),
+      routing: zod
+        .object({
+          audioInput: zod
+            .object({
+              target: zod.string(),
+              upper: zod.string(),
+              lower: zod.string(),
+            })
+            .optional(),
+          audioOutput: zod
+            .object({
+              target: zod.string(),
+              upper: zod.string(),
+              lower: zod.string(),
+            })
+            .optional(),
+          sends: zod
+            .array(
+              zod.object({
+                active: zod.boolean(),
+                amount: zod.number(),
+              }),
+            )
+            .optional(),
+        })
+        .optional(),
       warnings: zod.array(zod.string()),
     }),
   ),
@@ -214,13 +462,41 @@ export const GetProjectGraphResponse = zod.object({
     zod.object({
       id: zod.string(),
       label: zod.string(),
-      startBar: zod.number(),
-      endBar: zod.number(),
+      startBar: zod
+        .number()
+        .describe("Start position in beats (quarter notes)"),
+      endBar: zod.number().describe("End position in beats (quarter notes)"),
       energyScore: zod.number(),
       densityScore: zod.number(),
       dominantRoles: zod.array(zod.string()),
       missingElements: zod.array(zod.string()),
       transitionQuality: zod.number(),
+    }),
+  ),
+  sidechainLinks: zod.array(
+    zod.object({
+      sourceTrackId: zod.string(),
+      targetTrackId: zod.string(),
+      sourceTrackName: zod.string(),
+      targetTrackName: zod.string(),
+      deviceClass: zod.string(),
+      deviceId: zod.string(),
+      confidence: zod.number(),
+      relationType: zod
+        .string()
+        .describe(
+          "DETECTED_COMPRESSOR_SIDECHAIN | INFERRED_KICK_TO_BASS_DUCK | INFERRED_KICK_TO_TEXTURE_DUCK | AI_PROPOSED_KICK_TO_BASS_DUCK | AI_PROPOSED_KICK_TO_TEXTURE_DUCK",
+        ),
+      purpose: zod.string(),
+      bars: zod.array(zod.number()).nullish(),
+      automationEvidence: zod.boolean(),
+      deviceEvidence: zod.boolean(),
+    }),
+  ),
+  locators: zod.array(
+    zod.object({
+      time: zod.number().describe("Position in beats"),
+      name: zod.string(),
     }),
   ),
   parseQuality: zod.number(),
@@ -248,21 +524,86 @@ export const GetCompletionPlanResponse = zod.object({
   actions: zod.array(
     zod.object({
       id: zod.string(),
-      category: zod.string(),
+      category: zod
+        .string()
+        .describe(
+          "structure | drums | bass | automation | transitions | ending | texture | sidechain | mixing",
+        ),
       title: zod.string(),
       description: zod.string(),
       affectedTracks: zod.array(zod.string()),
-      affectedBars: zod.string().nullish(),
+      affectedBars: zod
+        .string()
+        .nullish()
+        .describe('Human-readable bar range (e.g. \"32–48\")'),
+      startBeat: zod
+        .number()
+        .nullish()
+        .describe(
+          "Exact start position in beats derived from section coordinates",
+        ),
+      endBeat: zod
+        .number()
+        .nullish()
+        .describe(
+          "Exact end position in beats derived from section coordinates",
+        ),
+      targetTrackIds: zod
+        .array(zod.string())
+        .describe("Actual track IDs from the parsed project"),
+      createsNewTrack: zod.boolean(),
+      addsAutomation: zod.boolean(),
+      addsSidechain: zod.boolean(),
+      mutationPayloads: zod.array(
+        zod
+          .object({
+            mutationType: zod
+              .string()
+              .describe(
+                "add_clip | add_automation | add_locator | add_sidechain_proposal | extend_clip",
+              ),
+            targetTrackId: zod.string().nullish(),
+            targetTrackName: zod.string().nullish(),
+            startBeat: zod
+              .number()
+              .nullish()
+              .describe("Start position in beats"),
+            endBeat: zod.number().nullish().describe("End position in beats"),
+            newTrackName: zod.string().nullish(),
+            newTrackType: zod.string().nullish(),
+            automationParameter: zod.string().nullish(),
+            automationPoints: zod
+              .array(
+                zod.object({
+                  time: zod.number().optional(),
+                  value: zod.number().optional(),
+                }),
+              )
+              .nullish(),
+            clipType: zod.string().nullish(),
+            notes: zod.array(zod.object({}).passthrough()).nullish(),
+            locatorName: zod.string().nullish(),
+            safe: zod
+              .boolean()
+              .describe("Whether this mutation can be auto-applied"),
+            reason: zod.string().nullish(),
+          })
+          .describe(
+            "Machine-executable mutation descriptor for a completion action",
+          ),
+      ),
+      sectionLabel: zod.string().nullish(),
       confidence: zod.number(),
       expectedImpact: zod.string(),
       rationale: zod.string(),
-      priority: zod.string(),
+      priority: zod.string().describe("critical | high | medium | low"),
     }),
   ),
   weaknesses: zod.array(zod.string()),
   warnings: zod.array(zod.string()),
   rationale: zod.string(),
   generatedAt: zod.date(),
+  mutationPlanVersion: zod.string().optional(),
 });
 
 /**
@@ -275,7 +616,11 @@ export const ListProjectArtifactsParams = zod.object({
 export const ListProjectArtifactsResponseItem = zod.object({
   id: zod.string(),
   projectId: zod.string(),
-  type: zod.string(),
+  type: zod
+    .string()
+    .describe(
+      "original_als | patched_als | project_graph | completion_plan | instructions | patch_package",
+    ),
   fileName: zod.string(),
   fileSize: zod.number(),
   mimeType: zod.string(),

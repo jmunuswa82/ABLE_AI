@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useParams } from "wouter";
-import { useGetProjectGraph } from "@workspace/api-client-react";
+import { useGetProjectGraph, useGetCompletionPlan } from "@workspace/api-client-react";
 import { getRoleColor, getTrackColor, getAbletonColor, formatBars, cn } from "@/lib/utils";
 import { useStudioStore } from "@/lib/store";
 
-type ViewMode = "arrangement" | "automation" | "sidechain";
+type ViewMode = "arrangement" | "automation" | "sidechain" | "proposed" | "diff";
 
 const TRACK_HEIGHT = 52;
 const AUTO_LANE_HEIGHT = 44;
@@ -19,7 +19,8 @@ export default function TimelineView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { data: graph, isLoading } = useGetProjectGraph(id);
-  const { selectedTrackId, setSelectedTrack } = useStudioStore();
+  const { data: plan } = useGetCompletionPlan(id);
+  const { selectedTrackId, setSelectedTrack, locateAtBeat, locateActionId, setLocateAtBeat } = useStudioStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("arrangement");
@@ -43,6 +44,22 @@ export default function TimelineView() {
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
   }, [handleWheel]);
+
+  // Scroll to locateAtBeat when set from CompletionPlanView
+  useEffect(() => {
+    if (locateAtBeat == null || !scrollContainerRef.current) return;
+    const barPx = pixelsPerBar * 4;
+    const targetX = (locateAtBeat / 4) * barPx;
+    const container = scrollContainerRef.current;
+    const containerWidth = container.clientWidth;
+    const scrollTo = Math.max(0, targetX - containerWidth / 4);
+    container.scrollTo({ left: scrollTo, behavior: "smooth" });
+    // Switch to proposed view to show what's being located
+    setViewMode("proposed");
+    // Clear after a delay
+    const timer = setTimeout(() => setLocateAtBeat(null), 3000);
+    return () => clearTimeout(timer);
+  }, [locateAtBeat, locateActionId]);
 
   if (isLoading) {
     return (
@@ -69,6 +86,18 @@ export default function TimelineView() {
   const timelineWidth = totalBars * pixelsPerBar * 4;
   const selectedTrack = allTracks.find((t: any) => t.id === selectedTrackId) ?? null;
 
+  // Collect all mutation payloads from the completion plan
+  const allMutations = useMemo(() => {
+    if (!plan?.actions) return [];
+    const payloads: any[] = [];
+    for (const action of (plan.actions as any[])) {
+      for (const mp of (action.mutationPayloads ?? [])) {
+        payloads.push({ ...mp, actionId: action.id, actionTitle: action.title, priority: action.priority, category: action.category });
+      }
+    }
+    return payloads;
+  }, [plan]);
+
   const toggleAutoExpand = (trackId: string) => {
     setExpandedAutoTracks((prev) => {
       const next = new Set(prev);
@@ -94,6 +123,7 @@ export default function TimelineView() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           graph={graph}
+          plan={plan}
           totalBeats={totalBeats}
           allTracks={allTracks}
           pixelsPerBar={pixelsPerBar}
@@ -234,16 +264,37 @@ export default function TimelineView() {
                       <div className="relative" style={{ width: timelineWidth, height: TRACK_HEIGHT }}>
                         {/* Vertical grid lines */}
                         <GridLines totalBars={totalBars} pixelsPerBar={pixelsPerBar} barInterval={barInterval} majorInterval={majorInterval} />
-                        {/* Clips */}
+                        {/* Clips — dimmed in proposed mode */}
                         {track.clips?.map((clip: any) => (
                           <ClipBlock
                             key={clip.id}
                             clip={clip}
                             trackColor={trackColor}
                             pixelsPerBar={pixelsPerBar}
-                            muted={track.muted}
+                            muted={track.muted || viewMode === "proposed"}
+                            dimmed={viewMode === "proposed"}
                           />
                         ))}
+                        {/* Proposed mutation overlays */}
+                        {(viewMode === "proposed" || viewMode === "diff") && (
+                          <>
+                            {allMutations
+                              .filter((mp: any) =>
+                                mp.targetTrackId === track.id ||
+                                mp.targetTrackName === track.name ||
+                                (mp.mutationType === "add_locator" && !mp.targetTrackId)
+                              )
+                              .map((mp: any, mpIdx: number) => (
+                                <MutationOverlay
+                                  key={`mp-${mpIdx}`}
+                                  mutation={mp}
+                                  pixelsPerBar={pixelsPerBar}
+                                  trackHeight={TRACK_HEIGHT}
+                                  isDiff={viewMode === "diff"}
+                                />
+                              ))}
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -281,30 +332,65 @@ export default function TimelineView() {
 
 // ─── Toolbar ───────────────────────────────────────────────────────────────────
 
+const VIEW_MODE_CONFIG: Record<ViewMode, { label: string; title: string; color?: string }> = {
+  arrangement: { label: "Arrangement", title: "Show clips in arrangement" },
+  automation: { label: "Automation", title: "Show automation lanes" },
+  sidechain: { label: "Sidechain", title: "Show sidechain routing" },
+  proposed: { label: "AI Proposed", title: "Show AI-proposed additions overlaid on arrangement", color: "#22c55e" },
+  diff: { label: "Diff", title: "Show difference between original and AI proposal", color: "#f59e0b" },
+};
+
 function Toolbar({
-  viewMode, setViewMode, graph, totalBeats, allTracks, pixelsPerBar, zoomIn, zoomOut,
+  viewMode, setViewMode, graph, plan, totalBeats, allTracks, pixelsPerBar, zoomIn, zoomOut,
 }: {
   viewMode: ViewMode; setViewMode: (m: ViewMode) => void;
-  graph: any; totalBeats: number; allTracks: any[]; pixelsPerBar: number;
+  graph: any; plan: any; totalBeats: number; allTracks: any[]; pixelsPerBar: number;
   zoomIn: () => void; zoomOut: () => void;
 }) {
   const totalClips = allTracks.reduce((s: number, t: any) => s + (t.clips?.length ?? 0), 0);
+  const hasPlan = plan?.actions?.length > 0;
+  const mutationCount = hasPlan
+    ? (plan.actions as any[]).reduce((s: number, a: any) => s + (a.mutationPayloads?.length ?? 0), 0)
+    : 0;
+
   return (
     <div className="flex items-center gap-1 px-3 py-1 shrink-0" style={{ borderBottom: "1px solid #2a2a2a", background: "#222" }}>
-      <div className="flex items-center gap-0.5 bg-[#2a2a2a] rounded p-0.5 mr-3">
-        {(["arrangement", "automation", "sidechain"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setViewMode(tab)}
-            className={cn(
-              "px-2.5 py-1 text-[10px] rounded font-medium transition-colors capitalize",
-              viewMode === tab ? "bg-[#484848] text-white" : "text-[#666] hover:text-[#aaa]"
-            )}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="flex items-center gap-0.5 bg-[#2a2a2a] rounded p-0.5 mr-2">
+        {(Object.keys(VIEW_MODE_CONFIG) as ViewMode[]).map((tab) => {
+          const config = VIEW_MODE_CONFIG[tab];
+          const isActive = viewMode === tab;
+          const isSpecial = tab === "proposed" || tab === "diff";
+          return (
+            <button
+              key={tab}
+              onClick={() => setViewMode(tab)}
+              title={config.title}
+              className={cn(
+                "px-2 py-1 text-[10px] rounded font-medium transition-colors",
+                isActive
+                  ? isSpecial
+                    ? "text-white"
+                    : "bg-[#484848] text-white"
+                  : "text-[#666] hover:text-[#aaa]",
+                !hasPlan && isSpecial && "opacity-40 cursor-not-allowed",
+              )}
+              style={isActive && config.color ? { backgroundColor: config.color + "40", color: config.color } : {}}
+              disabled={!hasPlan && isSpecial}
+            >
+              {config.label}
+              {isSpecial && hasPlan && !isActive && (
+                <span className="ml-0.5 text-[8px]" style={{ color: config.color }}>●</span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {(viewMode === "proposed" || viewMode === "diff") && (
+        <div className="px-2 py-0.5 rounded text-[9px] mr-2" style={{ background: "#1a2a1a", border: "1px solid #22c55e40", color: "#22c55e" }}>
+          {mutationCount} mutation{mutationCount !== 1 ? "s" : ""}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 text-[10px] text-[#777] font-mono mr-auto">
         <span className="text-[#bbb] font-semibold">{graph.tempo} BPM</span>
@@ -482,17 +568,16 @@ function SectionMarker({ section, pixelsPerBar, totalBeats }: {
 
 // ─── Clip block ────────────────────────────────────────────────────────────────
 
-function ClipBlock({ clip, trackColor, pixelsPerBar, muted }: {
-  clip: any; trackColor: string; pixelsPerBar: number; muted: boolean;
+function ClipBlock({ clip, trackColor, pixelsPerBar, muted, dimmed }: {
+  clip: any; trackColor: string; pixelsPerBar: number; muted: boolean; dimmed?: boolean;
 }) {
   const barPx = pixelsPerBar * 4;
   const left = (clip.start / 4) * barPx;
   const width = Math.max(((clip.end - clip.start) / 4) * barPx, 2);
   const isMidi = clip.clipType === "midi";
 
-  // Use the clip's own color if set, otherwise fall back to track color
   const clipColor = clip.clipColor != null ? getAbletonColor(clip.clipColor, trackColor) : trackColor;
-  const opacity = muted ? 0.3 : 1;
+  const opacity = muted ? 0.3 : dimmed ? 0.2 : 1;
 
   return (
     <div
@@ -585,6 +670,76 @@ function MidiFallbackPreview({ noteCount, width, height }: {
     <svg width={width} height={height} className="absolute inset-0">
       {rects}
     </svg>
+  );
+}
+
+// ─── Mutation overlay ─────────────────────────────────────────────────────────
+
+const MUTATION_COLORS: Record<string, { bg: string; border: string; label: string }> = {
+  add_clip:          { bg: "#22c55e20", border: "#22c55e", label: "＋ Clip" },
+  add_automation:    { bg: "#3b82f620", border: "#3b82f6", label: "≋ Auto" },
+  add_locator:       { bg: "#f59e0b20", border: "#f59e0b", label: "▾ Mark" },
+  add_sidechain_proposal: { bg: "#a855f720", border: "#a855f7", label: "⊃ SC" },
+  extend_clip:       { bg: "#06b6d420", border: "#06b6d4", label: "→ Ext" },
+};
+
+function MutationOverlay({ mutation, pixelsPerBar, trackHeight, isDiff }: {
+  mutation: any; pixelsPerBar: number; trackHeight: number; isDiff: boolean;
+}) {
+  const barPx = pixelsPerBar * 4;
+  const start = mutation.startBeat ?? 0;
+  const end = mutation.endBeat ?? (start + 16);
+  const left = (start / 4) * barPx;
+  const width = Math.max(((end - start) / 4) * barPx, 2);
+
+  const config = MUTATION_COLORS[mutation.mutationType] ?? MUTATION_COLORS.add_clip;
+
+  if (mutation.mutationType === "add_locator") {
+    return (
+      <div
+        className="absolute top-0 bottom-0 flex flex-col items-start"
+        style={{ left, zIndex: 5 }}
+        title={`${config.label}: ${mutation.locatorName || mutation.actionTitle}`}
+      >
+        <div className="absolute top-0 bottom-0" style={{ width: 2, backgroundColor: config.border, opacity: 0.9 }} />
+        <div
+          className="absolute top-0 px-1 py-0.5 rounded-r text-[7px] font-medium whitespace-nowrap"
+          style={{ background: config.border + "dd", color: "white", left: 2 }}
+        >
+          {mutation.locatorName || config.label}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="absolute top-[3px] overflow-hidden"
+      style={{
+        left,
+        width,
+        bottom: 3,
+        backgroundColor: config.bg,
+        border: `1px dashed ${config.border}`,
+        borderRadius: 2,
+        zIndex: 5,
+      }}
+      title={`${config.label}: ${mutation.actionTitle} — bars ${Math.round(start/4)+1}–${Math.round(end/4)}`}
+    >
+      {width > 20 && (
+        <div
+          className="flex items-center px-1 gap-1"
+          style={{ height: 14, backgroundColor: config.border + "40" }}
+        >
+          <span className="text-[7px] font-bold" style={{ color: config.border }}>{config.label}</span>
+          {width > 50 && (
+            <span className="text-[7px] truncate" style={{ color: config.border + "cc" }}>
+              {mutation.automationParameter || mutation.actionTitle}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

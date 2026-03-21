@@ -78,7 +78,7 @@ export async function runPipelineJob(
       return;
     }
 
-    const { project_graph, completion_plan, warnings } = result;
+    const { project_graph, completion_plan, warnings, patched_als_path, patch_summary } = result;
 
     // Save parse result
     const parseId = randomUUID();
@@ -180,7 +180,32 @@ export async function runPipelineJob(
       description: "Human-readable completion instructions",
     });
 
-    // 5. Build ALS Patch Package (zip containing original + all analysis artifacts)
+    // 5. Register patched ALS if available
+    let registeredPatchedAlsPath: string | null = null;
+    if (patched_als_path) {
+      try {
+        const patchedStats = await fs.stat(patched_als_path);
+        const patchedAlsId = randomUUID();
+        const patchedFileName = path.basename(patched_als_path);
+        await db.insert(artifactFilesTable).values({
+          id: patchedAlsId,
+          projectId,
+          jobId,
+          type: "patched_als",
+          fileName: patchedFileName,
+          filePath: patched_als_path,
+          fileSize: patchedStats.size,
+          mimeType: "application/x-ableton-live-set",
+          description: `AI-patched .als — ${patch_summary?.trustLabel ?? "unknown trust"} · ${patch_summary?.mutationsApplied ?? 0} mutations applied`,
+        });
+        registeredPatchedAlsPath = patched_als_path;
+        logger.info({ patchedFileName, trustLabel: patch_summary?.trustLabel }, "Registered patched ALS artifact");
+      } catch (e) {
+        logger.warn({ err: e }, "Could not register patched ALS artifact");
+      }
+    }
+
+    // 6. Build ALS Patch Package (zip containing original + all analysis artifacts)
     let patchPackageBuilt = false;
     try {
       const safeName = sanitizeFileName(originalFileName);
@@ -194,6 +219,8 @@ export async function runPipelineJob(
         graphPath,
         planPath,
         instrPath,
+        patchedAlsPath: registeredPatchedAlsPath,
+        patchSummary: patch_summary,
         projectGraph: project_graph,
         completionPlan: completion_plan,
       });
@@ -357,6 +384,8 @@ async function buildPatchPackageZip(
     graphPath: string;
     planPath: string;
     instrPath: string;
+    patchedAlsPath?: string | null;
+    patchSummary?: any;
     projectGraph: any;
     completionPlan: any;
   }
@@ -385,8 +414,14 @@ async function buildPatchPackageZip(
     archive.file(opts.planPath, { name: "analysis/completion-plan.json" });
     archive.file(opts.instrPath, { name: "analysis/completion-instructions.md" });
 
+    // Include patched ALS if available
+    if (opts.patchedAlsPath) {
+      const patchedName = `patched/${safeEntryName.replace(/\.als$/i, "_ai_patch.als")}`;
+      archive.file(opts.patchedAlsPath, { name: patchedName });
+    }
+
     const manifest = {
-      version: "1.0.0",
+      version: "2.0.0",
       generatedAt: new Date().toISOString(),
       generator: "Ableton AI Track Completion Studio",
       originalFile: opts.originalFileName,
@@ -394,9 +429,16 @@ async function buildPatchPackageZip(
       completionScore: opts.completionPlan?.completionScore,
       styleTags: opts.completionPlan?.styleTags,
       actionCount: opts.completionPlan?.actions?.length ?? 0,
+      mutationPlanVersion: opts.completionPlan?.mutationPlanVersion ?? "1.0.0",
+      patchSummary: opts.patchSummary ?? null,
+      hasPatchedAls: !!opts.patchedAlsPath,
     };
 
     archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
+
+    const patchTrust = opts.patchSummary?.trustLabel ?? "none";
+    const patchApplied = opts.patchSummary?.mutationsApplied ?? 0;
+    const patchSkipped = opts.patchSummary?.mutationsSkipped ?? 0;
 
     const readme = [
       "# ALS Patch Package",
@@ -406,9 +448,12 @@ async function buildPatchPackageZip(
       "",
       "## Contents",
       "",
-      "- `original/` — Your original .als file",
+      "- `original/` — Your original .als file (unchanged)",
+      ...(opts.patchedAlsPath ? [
+        `- \`patched/\` — AI-patched .als candidate (trust: ${patchTrust}, ${patchApplied} mutations applied, ${patchSkipped} skipped)`,
+      ] : []),
       "- `analysis/project-graph.json` — Full parsed project structure",
-      "- `analysis/completion-plan.json` — AI completion plan with ranked actions",
+      "- `analysis/completion-plan.json` — AI completion plan with ranked actions and mutation payloads",
       "- `analysis/completion-instructions.md` — Human-readable completion guide",
       "- `manifest.json` — Package metadata",
       "",
@@ -416,8 +461,15 @@ async function buildPatchPackageZip(
       "",
       "1. Open `analysis/completion-instructions.md` for step-by-step guidance",
       "2. Open `original/" + opts.originalFileName + "` in Ableton Live",
-      "3. Follow the completion plan actions in priority order",
-      "4. Reference `analysis/project-graph.json` for detailed track/clip data",
+      ...(opts.patchedAlsPath ? [
+        `3. (Optional) Open the patched ALS in \`patched/\` — trust label: ${patchTrust}`,
+        "   - SAFE_LOCATOR_ONLY: Only locator markers were added",
+        "   - SAFE_AUTOMATION_ADDED: Locators + automation envelopes added",
+        "   - STRUCTURALLY_VALID_ALS: Clips were also added (review before using in a live set)",
+        "   - REQUIRES_MANUAL_REVIEW: Mutations required manual steps (not auto-applied)",
+      ] : []),
+      "4. Follow the completion plan actions in priority order",
+      "5. Reference `analysis/project-graph.json` for detailed track/clip data",
       "",
     ].join("\n");
 

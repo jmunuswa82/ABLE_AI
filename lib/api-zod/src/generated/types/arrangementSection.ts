@@ -9,7 +9,9 @@
 export interface ArrangementSection {
   id: string;
   label: string;
+  /** Start position in beats (quarter notes) */
   startBar: number;
+  /** End position in beats (quarter notes) */
   endBar: number;
   energyScore: number;
   densityScore: number;

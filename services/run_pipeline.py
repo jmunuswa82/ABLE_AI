@@ -8,8 +8,9 @@ Outputs a JSON result to stdout.
 import sys
 import json
 import logging
+import os
+import tempfile
 
-# Configure logging to stderr only
 logging.basicConfig(
     stream=sys.stderr,
     level=logging.INFO,
@@ -18,10 +19,10 @@ logging.basicConfig(
 
 logger = logging.getLogger("run_pipeline")
 
-# Make sure the als_parser package is importable
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 
 from als_parser.pipeline import run_full_pipeline
+from als_parser.als_patcher import patch_als
 
 
 def main():
@@ -51,11 +52,47 @@ def main():
             source_file=source_file,
         )
 
+        # Collect safe mutation payloads from completion plan
+        mutation_payloads = []
+        for action in plan.actions:
+            for mp in action.mutation_payloads:
+                if mp.safe:
+                    mutation_payloads.append(mp.to_dict())
+
+        # Attempt ALS patching
+        patched_als_path = None
+        patch_summary = None
+
+        if mutation_payloads and os.path.exists(file_path):
+            try:
+                logger.info(f"Applying {len(mutation_payloads)} mutation payloads to ALS")
+                with open(file_path, "rb") as f:
+                    als_bytes = f.read()
+
+                patch_result = patch_als(als_bytes, mutation_payloads)
+
+                if patch_result.als_bytes:
+                    # Save next to original with _ai_patch suffix
+                    base = os.path.splitext(file_path)[0]
+                    patched_als_path = f"{base}_ai_patch.als"
+                    with open(patched_als_path, "wb") as f:
+                        f.write(patch_result.als_bytes)
+                    logger.info(f"Patched ALS saved to {patched_als_path} ({len(patch_result.als_bytes)} bytes)")
+
+                patch_summary = patch_result.to_summary_dict()
+                logger.info(f"Patch summary: {patch_summary}")
+
+            except Exception as e:
+                logger.error(f"ALS patching failed: {e}")
+                patch_summary = {"error": str(e), "trustLabel": "FAILED", "mutationsApplied": 0, "mutationsSkipped": len(mutation_payloads)}
+
         result = {
             "success": True,
             "project_graph": graph.to_dict(),
             "completion_plan": plan.to_dict(),
-            "warnings": warnings[:100],  # cap warnings
+            "warnings": warnings[:100],
+            "patch_summary": patch_summary,
+            "patched_als_path": patched_als_path,
         }
 
         print(json.dumps(result))

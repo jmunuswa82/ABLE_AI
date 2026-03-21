@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ArrangementSection } from "./arrangementSection";
+import type { Locator } from "./locator";
+import type { SidechainLink } from "./sidechainLink";
 import type { TrackNode } from "./trackNode";
 
 export interface ProjectGraph {
@@ -13,9 +15,13 @@ export interface ProjectGraph {
   tempo: number;
   timeSignatureNumerator: number;
   timeSignatureDenominator: number;
+  /** Total arrangement length in beats (quarter notes) */
   arrangementLength: number;
   tracks: TrackNode[];
+  returnTracks: TrackNode[];
   sections: ArrangementSection[];
+  sidechainLinks: SidechainLink[];
+  locators: Locator[];
   parseQuality: number;
   warnings: string[];
   styleTags: string[];

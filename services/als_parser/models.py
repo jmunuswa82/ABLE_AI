@@ -1,6 +1,5 @@
 """
 Canonical data models for the ALS parser and analysis engine.
-These are the internal representation of an Ableton Live project.
 """
 
 from __future__ import annotations
@@ -18,6 +17,8 @@ class AutomationPoint:
 class AutomationLane:
     target_path: str
     parameter_name: str
+    pointee_id: Optional[str] = None
+    device_class: Optional[str] = None
     points: List[AutomationPoint] = field(default_factory=list)
     density: float = 0.0
     shape_summary: str = "static"
@@ -27,6 +28,8 @@ class AutomationLane:
         return {
             "targetPath": self.target_path,
             "parameterName": self.parameter_name,
+            "pointeeId": self.pointee_id,
+            "deviceClass": self.device_class,
             "points": [{"time": p.time, "value": p.value} for p in self.points],
             "density": self.density,
             "shapeSummary": self.shape_summary,
@@ -42,6 +45,7 @@ class DeviceNode:
     enabled: bool = True
     inferred_purpose: str = "unknown"
     parameters: Dict[str, Any] = field(default_factory=dict)
+    has_sidechain_input: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -51,6 +55,7 @@ class DeviceNode:
             "enabled": self.enabled,
             "inferredPurpose": self.inferred_purpose,
             "parameters": self.parameters,
+            "hasSidechainInput": self.has_sidechain_input,
         }
 
 
@@ -75,6 +80,7 @@ class ClipNode:
     gain_info: float = 1.0
     content_summary: str = ""
     clip_color: Optional[int] = None
+    name: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -90,6 +96,7 @@ class ClipNode:
             "gainInfo": self.gain_info,
             "contentSummary": self.content_summary,
             "clipColor": self.clip_color,
+            "name": self.name,
         }
 
 
@@ -184,6 +191,11 @@ class SidechainLink:
     device_class: str
     device_id: str
     confidence: float = 0.7
+    relation_type: str = "INFERRED_KICK_TO_BASS_DUCK"
+    purpose: str = "groove_ducking"
+    bars: Optional[List[float]] = None
+    automation_evidence: bool = False
+    device_evidence: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -194,6 +206,11 @@ class SidechainLink:
             "deviceClass": self.device_class,
             "deviceId": self.device_id,
             "confidence": self.confidence,
+            "relationType": self.relation_type,
+            "purpose": self.purpose,
+            "bars": self.bars,
+            "automationEvidence": self.automation_evidence,
+            "deviceEvidence": self.device_evidence,
         }
 
 
@@ -251,6 +268,43 @@ class ProjectGraph:
 
 
 @dataclass
+class MutationPayload:
+    """Machine-executable mutation descriptor for a single completion action."""
+    mutation_type: str   # "add_clip", "add_automation", "add_locator", "add_sidechain_proposal", "extend_clip"
+    target_track_id: Optional[str] = None
+    target_track_name: Optional[str] = None
+    start_beat: Optional[float] = None
+    end_beat: Optional[float] = None
+    new_track_name: Optional[str] = None
+    new_track_type: Optional[str] = None
+    automation_parameter: Optional[str] = None
+    automation_points: Optional[List[Dict[str, float]]] = None
+    clip_type: Optional[str] = None
+    notes: Optional[List[Dict[str, Any]]] = None
+    locator_name: Optional[str] = None
+    safe: bool = True
+    reason: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "mutationType": self.mutation_type,
+            "targetTrackId": self.target_track_id,
+            "targetTrackName": self.target_track_name,
+            "startBeat": self.start_beat,
+            "endBeat": self.end_beat,
+            "newTrackName": self.new_track_name,
+            "newTrackType": self.new_track_type,
+            "automationParameter": self.automation_parameter,
+            "automationPoints": self.automation_points,
+            "clipType": self.clip_type,
+            "notes": self.notes,
+            "locatorName": self.locator_name,
+            "safe": self.safe,
+            "reason": self.reason,
+        }
+
+
+@dataclass
 class CompletionAction:
     id: str
     category: str
@@ -262,6 +316,14 @@ class CompletionAction:
     rationale: str
     priority: str
     affected_bars: Optional[str] = None
+    start_beat: Optional[float] = None
+    end_beat: Optional[float] = None
+    target_track_ids: List[str] = field(default_factory=list)
+    creates_new_track: bool = False
+    adds_automation: bool = False
+    adds_sidechain: bool = False
+    mutation_payloads: List[MutationPayload] = field(default_factory=list)
+    section_label: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -275,6 +337,14 @@ class CompletionAction:
             "expectedImpact": self.expected_impact,
             "rationale": self.rationale,
             "priority": self.priority,
+            "startBeat": self.start_beat,
+            "endBeat": self.end_beat,
+            "targetTrackIds": self.target_track_ids,
+            "createsNewTrack": self.creates_new_track,
+            "addsAutomation": self.adds_automation,
+            "addsSidechain": self.adds_sidechain,
+            "mutationPayloads": [m.to_dict() for m in self.mutation_payloads],
+            "sectionLabel": self.section_label,
         }
 
 
@@ -290,6 +360,7 @@ class CompletionPlan:
     warnings: List[str]
     rationale: str
     generated_at: str
+    mutation_plan_version: str = "1.0.0"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -303,4 +374,5 @@ class CompletionPlan:
             "warnings": self.warnings,
             "rationale": self.rationale,
             "generatedAt": self.generated_at,
+            "mutationPlanVersion": self.mutation_plan_version,
         }

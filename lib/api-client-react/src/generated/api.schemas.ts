@@ -77,9 +77,106 @@ export interface UploadResponse {
   status: string;
 }
 
+export interface AutomationPoint {
+  /** Time in beats (quarter notes) */
+  time: number;
+  value: number;
+}
+
+export interface AutomationLane {
+  targetPath: string;
+  /** Human-readable parameter name resolved from PointeeId lookup */
+  parameterName: string;
+  /**
+   * Ableton internal PointeeId reference
+   * @nullable
+   */
+  pointeeId?: string | null;
+  /**
+   * Device class that owns this automation target
+   * @nullable
+   */
+  deviceClass?: string | null;
+  points: AutomationPoint[];
+  density: number;
+  /** static | sparse | gentle_ramp | ramp | complex */
+  shapeSummary: string;
+  confidence: number;
+}
+
+export interface MidiNote {
+  /** MIDI pitch 0-127 */
+  pitch: number;
+  /** Time in beats relative to clip start */
+  time: number;
+  /** Duration in beats */
+  duration: number;
+  /** MIDI velocity 0-127 */
+  velocity: number;
+}
+
+export interface ClipNode {
+  id: string;
+  trackId: string;
+  /** audio | midi */
+  clipType: string;
+  /** Arrangement start position in beats (quarter notes) */
+  start: number;
+  /** Arrangement end position in beats (quarter notes) */
+  end: number;
+  loop: boolean;
+  /** @nullable */
+  sourceRef?: string | null;
+  midiNoteCount: number;
+  midiNotes: MidiNote[];
+  gainInfo: number;
+  contentSummary: string;
+  /** @nullable */
+  clipColor?: number | null;
+  /** @nullable */
+  name?: string | null;
+}
+
+export type DeviceNodeParameters = { [key: string]: unknown };
+
+export interface DeviceNode {
+  id: string;
+  /** Ableton device class (e.g. Compressor2, AutoFilter) */
+  deviceClass: string;
+  /**
+   * VST/AU plugin name if applicable
+   * @nullable
+   */
+  pluginName?: string | null;
+  enabled: boolean;
+  /** dynamics | reverb | delay | eq_filter | sampler_instrument | synth | drum_machine | modulation_distortion | utility | midi_effect | effect */
+  inferredPurpose: string;
+  /** Whether this device has actual sidechain input wiring detected in XML */
+  hasSidechainInput: boolean;
+  parameters?: DeviceNodeParameters;
+}
+
+export interface RoutingTarget {
+  target: string;
+  upper: string;
+  lower: string;
+}
+
+export type TrackRoutingSendsItem = {
+  active: boolean;
+  amount: number;
+};
+
+export interface TrackRouting {
+  audioInput?: RoutingTarget;
+  audioOutput?: RoutingTarget;
+  sends?: TrackRoutingSendsItem[];
+}
+
 export interface TrackNode {
   id: string;
   name: string;
+  /** audio | midi | group | return | master */
   type: string;
   /** @nullable */
   parentGroupId?: string | null;
@@ -90,18 +187,25 @@ export interface TrackNode {
   armed: boolean;
   /** @nullable */
   color?: number | null;
+  /** kick | snare | hihat | bass | lead | synth_stab | drone | texture | fx | vocal | return_fx | percussion | transition | utility | unknown */
   inferredRole: string;
   inferredConfidence: number;
   clipCount: number;
   deviceCount: number;
   automationPoints: number;
+  clips: ClipNode[];
+  devices: DeviceNode[];
+  automationLanes: AutomationLane[];
+  routing?: TrackRouting;
   warnings: string[];
 }
 
 export interface ArrangementSection {
   id: string;
   label: string;
+  /** Start position in beats (quarter notes) */
   startBar: number;
+  /** End position in beats (quarter notes) */
   endBar: number;
   energyScore: number;
   densityScore: number;
@@ -110,14 +214,41 @@ export interface ArrangementSection {
   transitionQuality: number;
 }
 
+export interface SidechainLink {
+  sourceTrackId: string;
+  targetTrackId: string;
+  sourceTrackName: string;
+  targetTrackName: string;
+  deviceClass: string;
+  deviceId: string;
+  confidence: number;
+  /** DETECTED_COMPRESSOR_SIDECHAIN | INFERRED_KICK_TO_BASS_DUCK | INFERRED_KICK_TO_TEXTURE_DUCK | AI_PROPOSED_KICK_TO_BASS_DUCK | AI_PROPOSED_KICK_TO_TEXTURE_DUCK */
+  relationType: string;
+  purpose: string;
+  /** @nullable */
+  bars?: number[] | null;
+  automationEvidence: boolean;
+  deviceEvidence: boolean;
+}
+
+export interface Locator {
+  /** Position in beats */
+  time: number;
+  name: string;
+}
+
 export interface ProjectGraph {
   projectId: string;
   tempo: number;
   timeSignatureNumerator: number;
   timeSignatureDenominator: number;
+  /** Total arrangement length in beats (quarter notes) */
   arrangementLength: number;
   tracks: TrackNode[];
+  returnTracks: TrackNode[];
   sections: ArrangementSection[];
+  sidechainLinks: SidechainLink[];
+  locators: Locator[];
   parseQuality: number;
   warnings: string[];
   styleTags: string[];
@@ -127,17 +258,87 @@ export interface ProjectGraph {
   masterTrackPresent: boolean;
 }
 
+export type MutationPayloadAutomationPointsItem = {
+  time?: number;
+  value?: number;
+};
+
+export type MutationPayloadNotesItem = { [key: string]: unknown };
+
+/**
+ * Machine-executable mutation descriptor for a completion action
+ */
+export interface MutationPayload {
+  /** add_clip | add_automation | add_locator | add_sidechain_proposal | extend_clip */
+  mutationType: string;
+  /** @nullable */
+  targetTrackId?: string | null;
+  /** @nullable */
+  targetTrackName?: string | null;
+  /**
+   * Start position in beats
+   * @nullable
+   */
+  startBeat?: number | null;
+  /**
+   * End position in beats
+   * @nullable
+   */
+  endBeat?: number | null;
+  /** @nullable */
+  newTrackName?: string | null;
+  /** @nullable */
+  newTrackType?: string | null;
+  /** @nullable */
+  automationParameter?: string | null;
+  /** @nullable */
+  automationPoints?: MutationPayloadAutomationPointsItem[] | null;
+  /** @nullable */
+  clipType?: string | null;
+  /** @nullable */
+  notes?: MutationPayloadNotesItem[] | null;
+  /** @nullable */
+  locatorName?: string | null;
+  /** Whether this mutation can be auto-applied */
+  safe: boolean;
+  /** @nullable */
+  reason?: string | null;
+}
+
 export interface CompletionAction {
   id: string;
+  /** structure | drums | bass | automation | transitions | ending | texture | sidechain | mixing */
   category: string;
   title: string;
   description: string;
   affectedTracks: string[];
-  /** @nullable */
+  /**
+   * Human-readable bar range (e.g. "32–48")
+   * @nullable
+   */
   affectedBars?: string | null;
+  /**
+   * Exact start position in beats derived from section coordinates
+   * @nullable
+   */
+  startBeat?: number | null;
+  /**
+   * Exact end position in beats derived from section coordinates
+   * @nullable
+   */
+  endBeat?: number | null;
+  /** Actual track IDs from the parsed project */
+  targetTrackIds: string[];
+  createsNewTrack: boolean;
+  addsAutomation: boolean;
+  addsSidechain: boolean;
+  mutationPayloads: MutationPayload[];
+  /** @nullable */
+  sectionLabel?: string | null;
   confidence: number;
   expectedImpact: string;
   rationale: string;
+  /** critical | high | medium | low */
   priority: string;
 }
 
@@ -152,11 +353,13 @@ export interface CompletionPlan {
   warnings: string[];
   rationale: string;
   generatedAt: string;
+  mutationPlanVersion?: string;
 }
 
 export interface ArtifactFile {
   id: string;
   projectId: string;
+  /** original_als | patched_als | project_graph | completion_plan | instructions | patch_package */
   type: string;
   fileName: string;
   fileSize: number;

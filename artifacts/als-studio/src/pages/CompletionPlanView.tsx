@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useGetCompletionPlan, useGetProjectGraph } from "@workspace/api-client-react";
 import { formatScore, getRoleColor, getTrackColor, cn } from "@/lib/utils";
+import { useStudioStore } from "@/lib/store";
 
 const PRIORITY_COLORS: Record<string, { bg: string; border: string; text: string; dot: string }> = {
   critical: { bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-400", dot: "#FF3636" },
@@ -127,6 +128,7 @@ export default function CompletionPlanView() {
             key={action.id}
             action={action}
             graph={graph}
+            projectId={id}
             expanded={expandedId === action.id}
             onToggle={() => setExpandedId(expandedId === action.id ? null : action.id)}
           />
@@ -324,10 +326,32 @@ function parseBarRange(barStr: string | null | undefined, totalBeats: number): [
   return null;
 }
 
-function ActionCard({ action, graph, expanded, onToggle }: {
-  action: any; graph: any; expanded: boolean; onToggle: () => void;
+const MUTATION_TYPE_LABELS: Record<string, { icon: string; label: string; color: string }> = {
+  add_clip:               { icon: "＋", label: "Add Clip",        color: "#22c55e" },
+  add_automation:         { icon: "≋", label: "Add Automation",  color: "#3b82f6" },
+  add_locator:            { icon: "▾", label: "Add Marker",      color: "#f59e0b" },
+  add_sidechain_proposal: { icon: "⊃", label: "Sidechain",       color: "#a855f7" },
+  extend_clip:            { icon: "→", label: "Extend Clip",     color: "#06b6d4" },
+};
+
+function ActionCard({ action, graph, projectId, expanded, onToggle }: {
+  action: any; graph: any; projectId: string; expanded: boolean; onToggle: () => void;
 }) {
   const prio = PRIORITY_COLORS[action.priority] ?? PRIORITY_COLORS.medium;
+  const { setLocateAtBeat } = useStudioStore();
+  const [, navigate] = useLocation();
+
+  const mutations: any[] = action.mutationPayloads ?? [];
+  const firstMutation = mutations[0];
+  const locateBeat = firstMutation?.startBeat ?? action.startBeat ?? null;
+
+  const handleLocate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (locateBeat != null) {
+      setLocateAtBeat(locateBeat, action.id);
+      navigate(`/projects/${projectId}/timeline`);
+    }
+  };
 
   return (
     <div className={cn(
@@ -335,7 +359,6 @@ function ActionCard({ action, graph, expanded, onToggle }: {
       expanded ? `${prio.bg} ${prio.border}` : "bg-[#1e1e1e] border-[#2a2a2a] hover:border-[#444]",
     )}>
       <div className="flex items-start gap-3 p-4 cursor-pointer" onClick={onToggle}>
-        {/* Priority dot */}
         <div className="shrink-0 mt-1">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: prio.dot }} />
         </div>
@@ -349,11 +372,15 @@ function ActionCard({ action, graph, expanded, onToggle }: {
             <span className="text-[10px] text-[#666]">
               {CATEGORY_ICONS[action.category] ?? "◆"} {action.category}
             </span>
+            {mutations.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "#22c55e15", color: "#22c55e", border: "1px solid #22c55e30" }}>
+                {mutations.length} mutation{mutations.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
 
           <p className="text-xs text-[#999] line-clamp-2">{action.description}</p>
 
-          {/* Inline visual bar */}
           <div className="mt-2 flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <div className="w-20 h-1.5 bg-[#333] rounded-full overflow-hidden">
@@ -367,6 +394,16 @@ function ActionCard({ action, graph, expanded, onToggle }: {
             {action.expectedImpact && (
               <span className="text-[10px] text-[#666]">impact: {action.expectedImpact}</span>
             )}
+            {locateBeat != null && (
+              <button
+                onClick={handleLocate}
+                className="ml-auto text-[10px] px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                style={{ background: "#22c55e20", color: "#22c55e", border: "1px solid #22c55e40" }}
+                title="View in Timeline"
+              >
+                ⊢ Locate in Timeline
+              </button>
+            )}
           </div>
         </div>
 
@@ -377,7 +414,53 @@ function ActionCard({ action, graph, expanded, onToggle }: {
         <div className="px-4 pb-4 pt-0 space-y-3 border-t border-[#333]/50 ml-6">
           <p className="text-sm text-[#bbb] leading-relaxed">{action.description}</p>
 
-          {/* Affected tracks visual */}
+          {/* Mutation payloads detail */}
+          {mutations.length > 0 && (
+            <div>
+              <span className="text-[10px] text-[#666] block mb-1.5 uppercase tracking-wider">Proposed Mutations</span>
+              <div className="space-y-1">
+                {mutations.map((mp: any, i: number) => {
+                  const mt = MUTATION_TYPE_LABELS[mp.mutationType] ?? { icon: "◆", label: mp.mutationType, color: "#888" };
+                  const beatStart = mp.startBeat ?? 0;
+                  const beatEnd = mp.endBeat ?? (beatStart + 16);
+                  const barStart = Math.round(beatStart / 4) + 1;
+                  const barEnd = Math.round(beatEnd / 4);
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded"
+                      style={{ background: mt.color + "10", border: `1px dashed ${mt.color}40` }}
+                    >
+                      <span className="text-[10px] font-bold" style={{ color: mt.color }}>{mt.icon}</span>
+                      <span className="text-[10px] font-medium" style={{ color: mt.color }}>{mt.label}</span>
+                      <span className="text-[10px] text-[#888] font-mono">bars {barStart}–{barEnd}</span>
+                      {mp.automationParameter && (
+                        <span className="text-[10px] text-[#777]">param: {mp.automationParameter}</span>
+                      )}
+                      {mp.locatorName && (
+                        <span className="text-[10px] text-[#777]">"{mp.locatorName}"</span>
+                      )}
+                      {mp.targetTrackName && (
+                        <span className="text-[10px] text-[#777]">→ {mp.targetTrackName}</span>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocateAtBeat(mp.startBeat ?? beatStart, action.id);
+                          navigate(`/projects/${projectId}/timeline`);
+                        }}
+                        className="ml-auto text-[9px] px-1.5 py-0.5 rounded"
+                        style={{ background: mt.color + "25", color: mt.color }}
+                      >
+                        ⊢ Locate
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {action.affectedTracks?.length > 0 && graph && (
             <div>
               <span className="text-[10px] text-[#666] block mb-1.5">Affected Tracks</span>

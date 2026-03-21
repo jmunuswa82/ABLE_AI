@@ -9,6 +9,7 @@
 export interface ArtifactFile {
   id: string;
   projectId: string;
+  /** original_als | patched_als | project_graph | completion_plan | instructions | patch_package */
   type: string;
   fileName: string;
   fileSize: number;

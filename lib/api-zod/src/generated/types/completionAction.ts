@@ -5,17 +5,41 @@
  * Ableton AI Track Completion Studio API
  * OpenAPI spec version: 0.1.0
  */
+import type { MutationPayload } from "./mutationPayload";
 
 export interface CompletionAction {
   id: string;
+  /** structure | drums | bass | automation | transitions | ending | texture | sidechain | mixing */
   category: string;
   title: string;
   description: string;
   affectedTracks: string[];
-  /** @nullable */
+  /**
+   * Human-readable bar range (e.g. "32–48")
+   * @nullable
+   */
   affectedBars?: string | null;
+  /**
+   * Exact start position in beats derived from section coordinates
+   * @nullable
+   */
+  startBeat?: number | null;
+  /**
+   * Exact end position in beats derived from section coordinates
+   * @nullable
+   */
+  endBeat?: number | null;
+  /** Actual track IDs from the parsed project */
+  targetTrackIds: string[];
+  createsNewTrack: boolean;
+  addsAutomation: boolean;
+  addsSidechain: boolean;
+  mutationPayloads: MutationPayload[];
+  /** @nullable */
+  sectionLabel?: string | null;
   confidence: number;
   expectedImpact: string;
   rationale: string;
+  /** critical | high | medium | low */
   priority: string;
 }
