@@ -1,7 +1,10 @@
 import { useParams, useLocation } from "wouter";
+import { motion } from "framer-motion";
+import { Activity, Clock, Layers, Waves, AlertTriangle, ArrowRight } from "lucide-react";
 import { useProjectPolling } from "@/hooks/use-polling";
 import { useGetProjectGraph } from "@workspace/api-client-react";
-import { getStatusColor, getStatusLabel, formatScore, formatBars, isJobRunning, getRoleColor } from "@/lib/utils";
+import { getStatusColor, getStatusLabel, formatScore, formatBars, isJobRunning, getRoleColor, cn } from "@/lib/utils";
+import { ANIMATION_VARIANTS } from "@/lib/design";
 
 export default function ProjectDetail() {
   const params = useParams<{ id: string }>();
@@ -17,8 +20,8 @@ export default function ProjectDetail() {
 
   if (!project) {
     return (
-      <div className="p-6 text-center text-muted-foreground">
-        Project not found
+      <div className="p-8 text-center text-muted-foreground h-full flex items-center justify-center">
+        <div className="glass-panel p-8 rounded-2xl">Project anomaly: Not found in databanks.</div>
       </div>
     );
   }
@@ -28,177 +31,160 @@ export default function ProjectDetail() {
   const statusColor = getStatusColor(project.status);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
-          {project.originalFileName && (
-            <p className="text-xs font-mono text-muted-foreground mt-1">{project.originalFileName}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {running && <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />}
-          <span className={`text-sm font-medium ${statusColor}`}>
-            {getStatusLabel(project.status)}
-          </span>
-        </div>
-      </div>
-
-      {/* Status bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Completion Score" value={formatScore(project.completionScore)} />
-        <StatCard label="Status" value={getStatusLabel(project.status)} valueClass={statusColor} />
-        <StatCard label="Tracks" value={graph ? String(graph.tracks?.length ?? 0) : "—"} />
-        <StatCard label="Tempo" value={graph ? `${graph.tempo} BPM` : "—"} />
-      </div>
-
-      {/* Style tags */}
-      {project.styleTags?.length > 0 && (
-        <div className="bg-card border border-card-border rounded-lg p-4">
-          <h2 className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Detected Style</h2>
-          <div className="flex flex-wrap gap-2">
-            {project.styleTags.map((tag: string) => (
-              <span
-                key={tag}
-                className="px-3 py-1 bg-primary/15 text-primary border border-primary/20 rounded-full text-xs font-medium"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Graph summary */}
-      {graph && (
-        <div className="bg-card border border-card-border rounded-lg p-4">
-          <h2 className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Project Structure</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs mb-1">Arrangement</p>
-              <p className="font-mono text-foreground">{(() => {
-                const allT = [...(graph.tracks ?? []), ...(graph.returnTracks ?? [])];
-                const maxEnd = allT.reduce((mx: number, t: any) =>
-                  (t.clips ?? []).reduce((m: number, c: any) => Math.max(m, c.end ?? 0), mx), 0);
-                return formatBars(Math.max(graph.arrangementLength ?? 0, maxEnd));
-              })()}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs mb-1">Time Sig</p>
-              <p className="font-mono text-foreground">
-                {graph.timeSignatureNumerator ?? 4}/{graph.timeSignatureDenominator ?? 4}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs mb-1">Total Clips</p>
-              <p className="font-mono text-foreground">{graph.totalClips ?? 0}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs mb-1">Parse Quality</p>
-              <p className="font-mono text-foreground">{formatScore(graph.parseQuality)}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      {project.status === "exported" && (
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate(`/projects/${id}/timeline`)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium hover:opacity-90"
-          >
-            View Timeline
-          </button>
-          <button
-            onClick={() => navigate(`/projects/${id}/plan`)}
-            className="px-4 py-2 bg-secondary text-secondary-foreground rounded text-sm hover:opacity-90"
-          >
-            Completion Plan
-          </button>
-          <button
-            onClick={() => navigate(`/projects/${id}/export`)}
-            className="px-4 py-2 bg-secondary text-secondary-foreground rounded text-sm hover:opacity-90"
-          >
-            Download Artifacts
-          </button>
-        </div>
-      )}
-
-      {/* Track list */}
-      {graph?.tracks && graph.tracks.length > 0 && (
-        <div className="bg-card border border-card-border rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <h2 className="text-xs text-muted-foreground uppercase tracking-wider">
-              Tracks ({graph.tracks.length})
-            </h2>
-          </div>
-          <div className="divide-y divide-border">
-            {graph.tracks.map((track: any) => (
-              <TrackRow key={track.id} track={track} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Job history */}
-      {project.jobs?.length > 0 && (
-        <div className="bg-card border border-card-border rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <h2 className="text-xs text-muted-foreground uppercase tracking-wider">Job History</h2>
-          </div>
-          <div className="divide-y divide-border">
-            {project.jobs.map((job: any) => (
-              <div key={job.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                <div className="flex items-center gap-3">
-                  <span className="text-muted-foreground font-mono text-xs">{job.type}</span>
-                  {job.message && (
-                    <span className="text-muted-foreground text-xs">{job.message}</span>
-                  )}
-                  {job.error && (
-                    <span className="text-red-400 text-xs truncate max-w-xs">{job.error}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {job.progress != null && isJobRunning(job.state) && (
-                    <div className="w-20 h-1 bg-border rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all"
-                        style={{ width: `${job.progress}%` }}
-                      />
-                    </div>
-                  )}
-                  <span className={`text-xs font-mono ${getStatusColor(job.state)}`}>
-                    {getStatusLabel(job.state)}
-                  </span>
-                </div>
+    <motion.div 
+      className="p-8 max-w-6xl mx-auto space-y-8 w-full"
+      variants={ANIMATION_VARIANTS.staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      {/* Hero Header */}
+      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-3xl p-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-display font-bold text-foreground">{project.name}</h1>
+              <div className={cn("px-2.5 py-1 rounded-full border text-[10px] font-mono uppercase tracking-widest font-semibold flex items-center gap-2 bg-background/50 backdrop-blur", statusColor.replace('text-', 'border-').replace('400', '500/30'), statusColor)}>
+                {running && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                {getStatusLabel(project.status)}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Warnings */}
-      {project.warnings?.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-4">
-          <h2 className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-            Parser Warnings ({project.warnings.length})
-          </h2>
-          <div className="space-y-1">
-            {project.warnings.slice(0, 10).map((w: string, i: number) => (
-              <p key={i} className="text-xs text-yellow-500/80 font-mono">
-                ⚠ {w}
-              </p>
-            ))}
-            {project.warnings.length > 10 && (
-              <p className="text-xs text-muted-foreground">
-                +{project.warnings.length - 10} more warnings
+            </div>
+            {project.originalFileName && (
+              <p className="text-sm font-mono text-muted-foreground flex items-center gap-2">
+                <Layers className="w-4 h-4" /> {project.originalFileName}
               </p>
             )}
           </div>
+          
+          {project.status === "exported" && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate(`/projects/${id}/timeline`)}
+                className="px-5 py-2.5 bg-card border border-primary/20 text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary hover:border-primary transition-all shadow-lg flex items-center gap-2"
+              >
+                <Waves className="w-4 h-4" /> Timeline
+              </button>
+              <button
+                onClick={() => navigate(`/projects/${id}/plan`)}
+                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center gap-2"
+              >
+                Completion Plan <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Stats Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-border/50">
+          <StatBox label="Completion Score" value={formatScore(project.completionScore)} valueClass={project.completionScore > 0.7 ? "text-emerald-400" : "text-primary"} />
+          <StatBox label="Tempo" value={graph ? `${graph.tempo} BPM` : "—"} icon={<Activity className="w-3 h-3 text-muted-foreground" />} />
+          <StatBox label="Arrangement" value={graph ? formatBars(Math.max(graph.arrangementLength ?? 0, 0)) : "—"} icon={<Clock className="w-3 h-3 text-muted-foreground" />} />
+          <StatBox label="Tracks" value={graph ? String(graph.tracks?.length ?? 0) : "—"} icon={<Layers className="w-3 h-3 text-muted-foreground" />} />
+        </div>
+      </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          {/* Tracks List */}
+          {graph?.tracks && graph.tracks.length > 0 && (
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border/50 bg-muted/20">
+                <h2 className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">
+                  Track Analysis ({graph.tracks.length})
+                </h2>
+              </div>
+              <div className="divide-y divide-border/50">
+                {graph.tracks.map((track: any) => (
+                  <TrackRow key={track.id} track={track} />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        <div className="space-y-8">
+          {/* Style Tags */}
+          {project.styleTags?.length > 0 && (
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-6">
+              <h2 className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold mb-4">Detected Style</h2>
+              <div className="flex flex-wrap gap-2">
+                {project.styleTags.map((tag: string) => (
+                  <span key={tag} className="px-3 py-1.5 bg-primary/10 text-primary-foreground border border-primary/20 rounded-lg text-xs font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Job History */}
+          {project.jobs?.length > 0 && (
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border/50 bg-muted/20">
+                <h2 className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">Operation Log</h2>
+              </div>
+              <div className="divide-y divide-border/50">
+                {project.jobs.map((job: any) => (
+                  <div key={job.id} className="px-6 py-4 text-sm bg-background/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-mono text-xs text-foreground uppercase tracking-wider">{job.type}</span>
+                      <span className={cn("text-[10px] font-mono font-bold uppercase", getStatusColor(job.state))}>
+                        {getStatusLabel(job.state)}
+                      </span>
+                    </div>
+                    {job.message && <p className="text-xs text-muted-foreground">{job.message}</p>}
+                    {job.error && <p className="text-xs text-destructive mt-1 bg-destructive/10 p-2 rounded">{job.error}</p>}
+                    {job.progress != null && isJobRunning(job.state) && (
+                      <div className="mt-3 h-1 bg-muted rounded-full overflow-hidden">
+                        <motion.div 
+                          className="h-full bg-primary"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${job.progress}%` }}
+                          transition={{ ease: "linear", duration: 0.5 }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Warnings */}
+          {project.warnings?.length > 0 && (
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-6 border-amber-500/20 bg-amber-500/5">
+              <h2 className="text-xs font-mono text-amber-500/80 uppercase tracking-widest font-semibold mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> Parser Warnings
+              </h2>
+              <div className="space-y-2">
+                {project.warnings.slice(0, 5).map((w: string, i: number) => (
+                  <p key={i} className="text-[11px] text-amber-500/70 font-mono leading-relaxed">
+                    {w}
+                  </p>
+                ))}
+                {project.warnings.length > 5 && (
+                  <p className="text-[10px] text-amber-500/50 uppercase font-bold mt-2">
+                    +{project.warnings.length - 5} additional warnings hidden
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function StatBox({ label, value, valueClass = "text-foreground", icon }: any) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
+        {icon}
+        <span className="text-[10px] font-mono uppercase tracking-widest">{label}</span>
+      </div>
+      <p className={cn("text-2xl font-display font-bold", valueClass)}>{value}</p>
     </div>
   );
 }
@@ -206,40 +192,34 @@ export default function ProjectDetail() {
 function TrackRow({ track }: { track: any }) {
   const roleColor = getRoleColor(track.inferredRole);
   return (
-    <div className="px-4 py-2.5 flex items-center gap-4 text-sm hover:bg-muted/20">
+    <div className="px-6 py-4 flex items-center gap-4 text-sm hover:bg-muted/30 transition-colors group">
       <div
-        className="w-2 h-2 rounded-full shrink-0"
-        style={{ backgroundColor: roleColor }}
+        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-lg"
+        style={{ backgroundColor: roleColor, boxShadow: `0 0 10px ${roleColor}80` }}
       />
-      <span className="text-foreground w-40 truncate">{track.name}</span>
-      <span className="text-muted-foreground text-xs w-24 shrink-0">
-        {track.inferredRole} <span className="opacity-50">({Math.round(track.inferredConfidence * 100)}%)</span>
-      </span>
-      <span className="text-muted-foreground text-xs font-mono">{track.type}</span>
-      <div className="flex gap-3 ml-auto text-xs text-muted-foreground font-mono">
-        <span>{track.clipCount} clips</span>
-        <span>{track.deviceCount} fx</span>
-        {track.muted && <span className="text-yellow-500">MUTED</span>}
+      <span className="text-foreground font-medium w-48 truncate group-hover:text-primary transition-colors">{track.name}</span>
+      <div className="w-32 shrink-0">
+        <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded bg-muted text-muted-foreground">
+          {track.inferredRole}
+        </span>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, valueClass = "text-foreground" }: { label: string; value: string; valueClass?: string }) {
-  return (
-    <div className="bg-card border border-card-border rounded-lg p-3">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={`text-sm font-medium font-mono ${valueClass}`}>{value}</p>
+      <span className="text-muted-foreground text-[11px] font-mono w-16 uppercase">{track.type}</span>
+      <div className="flex gap-4 ml-auto text-[11px] text-muted-foreground font-mono">
+        <span className="bg-background/50 px-2 py-1 rounded border border-border/50">{track.clipCount} clips</span>
+        <span className="bg-background/50 px-2 py-1 rounded border border-border/50">{track.deviceCount} fx</span>
+      </div>
     </div>
   );
 }
 
 function PageSkeleton() {
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-4">
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="h-16 bg-card border border-card-border rounded-lg animate-pulse" />
-      ))}
+    <div className="p-8 max-w-6xl mx-auto space-y-6 w-full">
+      <div className="h-48 glass-panel rounded-3xl animate-pulse" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 h-96 glass-panel rounded-2xl animate-pulse" />
+        <div className="h-96 glass-panel rounded-2xl animate-pulse" />
+      </div>
     </div>
   );
 }

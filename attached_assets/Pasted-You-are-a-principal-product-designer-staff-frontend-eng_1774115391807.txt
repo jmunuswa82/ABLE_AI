@@ -1,0 +1,507 @@
+You are a principal product designer, staff frontend engineer, motion designer, and design-systems architect.
+
+Your job is to transform the existing Ableton AI Track Completion Studio UI into a world-class futuristic SaaS product with a premium, intelligent, cinematic interface.
+
+Do not produce a generic dashboard.
+Do not produce a plain CRUD UI.
+Do not produce a flat Bootstrap-looking app.
+Do not keep the current basic card-and-sidebar look.
+
+You must redesign the product so it feels like a next-generation creative intelligence platform:
+- futuristic
+- elegant
+- dark
+- immersive
+- high-information-density
+- motion-rich
+- visually striking
+- professional
+- premium
+- highly interactive
+- trustworthy
+- not childish
+- not gimmicky
+- not overloaded
+- not messy
+
+The visual quality bar should feel closer to:
+- Google Stitch-level design intelligence
+- high-end creative tooling
+- advanced AI studio software
+- premium motion product sites
+- elite music production platforms
+- cutting-edge interface systems
+
+==================================================
+PRODUCT CONTEXT
+==================================================
+
+This product is:
+Ableton AI Track Completion Studio
+
+It helps users:
+- upload Ableton .als projects
+- inspect project structure
+- view timeline / arrangement
+- analyze tracks, clips, sections, automation, sidechain, and completion opportunities
+- review AI-generated completion plans
+- inspect diffs
+- export artifacts / patched ALS candidates
+
+The current UI is functional but visually basic.
+You must redesign the experience to look and feel like a category-defining creative AI platform.
+
+==================================================
+PRIMARY GOAL
+==================================================
+
+Create a futuristic UI/UX flow with stunning graphical elements, rich visual hierarchy, polished motion, premium color system, and expert-level layout design.
+
+You must improve:
+- information architecture
+- page hierarchy
+- visual identity
+- component styling
+- motion system
+- layout quality
+- navigation behavior
+- data visualization quality
+- timeline presentation
+- onboarding flow
+- empty/loading/success/error states
+- microinteractions
+- responsiveness
+
+==================================================
+DESIGN DIRECTION
+==================================================
+
+Use a design language that combines:
+
+1. CINEMATIC DARK INTERFACE
+- deep graphite / obsidian backgrounds
+- layered surfaces
+- soft glow accents
+- subtle glass / translucent panels where appropriate
+- luminous borders only where meaningful
+- elegant depth, not noisy neon chaos
+
+2. FUTURISTIC AI STUDIO ENERGY
+- precision grid layouts
+- intelligent data cards
+- advanced panels
+- dynamic overlays
+- waveform / automation / timeline inspired motion
+- subtle ambient light behavior
+- premium state changes
+
+3. MODERN CREATIVE TOOL AESTHETIC
+- feels like a pro music or motion design environment
+- modular panels
+- collapsible inspectors
+- professional typography rhythm
+- strong visual balance between control and creativity
+
+4. POLISHED MOTION LANGUAGE
+- purposeful motion, not random animation
+- transitions should communicate hierarchy and focus
+- subtle spring interactions
+- layered fade / blur / slide transitions
+- smooth hover elevation
+- animated selection states
+- timeline and graph animations that feel engineered
+
+==================================================
+MANDATORY VISUAL SYSTEM
+==================================================
+
+Create a complete visual system with:
+
+1. COLOR SYSTEM
+Build a premium tokenized color palette.
+
+Base tones:
+- obsidian black
+- graphite
+- deep slate
+- midnight indigo
+
+Primary accents:
+- electric violet
+- spectral blue
+- cyber magenta
+- controlled teal
+- optional acid lime used very sparingly for success or emphasis only
+
+State colors:
+- success
+- warning
+- danger
+- info
+- muted
+- active
+- selected
+- disabled
+
+Rules:
+- avoid oversaturation everywhere
+- glow should be restrained and luxurious
+- maintain accessibility and contrast
+- important AI states should feel luminous
+- sections of the UI should use differentiated tonal zones
+
+2. TYPOGRAPHY SYSTEM
+Use a professional, modern font stack.
+Typography must feel premium and technical.
+
+Define:
+- display style
+- page title style
+- section title style
+- panel title style
+- metric style
+- label style
+- compact meta style
+- code/data style
+
+Typography must:
+- create strong hierarchy
+- be highly readable in dark mode
+- support dense data surfaces
+- not look default or plain
+
+3. SPACING + LAYOUT SYSTEM
+Create a disciplined spatial system:
+- consistent panel spacing
+- large hero spacing where needed
+- tighter density in data surfaces
+- strong alignment
+- responsive grid logic
+- dashboard sections should breathe without wasting space
+
+4. DEPTH + SURFACES
+Define multiple surface levels:
+- page background
+- sidebar background
+- primary panel
+- secondary panel
+- floating overlay
+- modal layer
+- interactive control layer
+
+Each layer should have:
+- distinct tonal separation
+- clean borders
+- subtle shadows / glows
+- refined translucency where appropriate
+
+==================================================
+REQUIRED PRODUCT FLOW REDESIGN
+==================================================
+
+Redesign the complete UX flow for these views:
+
+1. LANDING / APP ENTRY
+Create a premium product shell.
+The first screen should immediately communicate:
+- advanced AI music intelligence
+- serious professional tooling
+- visually stunning environment
+
+Include:
+- strong visual intro panel or hero
+- project actions
+- recent projects
+- system status
+- quick-start entry points
+
+2. DASHBOARD
+Redesign dashboard into a premium command center.
+
+Must include:
+- elegant project overview
+- visual project cards
+- AI status indicators
+- upload / create actions
+- recent activity
+- job/progress visualization
+- stronger hierarchy than the current plain list/card layout
+
+3. PROJECT DETAIL
+Redesign into a high-end project intelligence hub.
+
+Must include:
+- project summary hero strip
+- readiness / completion score
+- style tags
+- warnings
+- track overview
+- arrangement summary
+- insight cards
+- detected opportunities
+- quick navigation into timeline / plan / export
+
+4. TIMELINE VIEW
+This is critical.
+It must feel like an advanced hybrid of:
+- professional DAW visualization
+- AI insight canvas
+- futuristic analysis cockpit
+
+Must improve:
+- ruler styling
+- track lane styling
+- clip rendering
+- section overlays
+- inspector panel
+- lane selection states
+- zoom controls
+- mode switching
+- automation / diff / sidechain visualization
+
+It must feel:
+- premium
+- spatially clear
+- precise
+- dramatic
+- interactive
+- data-rich
+
+5. COMPLETION PLAN VIEW
+Transform into a strategic AI action board.
+
+Must include:
+- sophisticated action cards
+- confidence visualization
+- impact indicators
+- exact location markers
+- track/section targeting
+- filter chips
+- grouped actions
+- rich interactive details
+- “locate in timeline” visual affordance
+
+6. EXPORT VIEW
+Must feel premium and trustworthy.
+
+Should include:
+- artifact cards
+- validation status
+- export trust labels
+- warnings
+- detailed export summary
+- strong call-to-action hierarchy
+- confidence / compatibility communication
+
+==================================================
+GRAPHICAL ELEMENTS TO ADD
+==================================================
+
+Add visually impressive but purposeful graphical elements such as:
+
+- animated grid backgrounds
+- faint particle fields or flowing ambient light
+- AI pulse lines
+- luminous section dividers
+- dynamic gradient mesh accents
+- spectral glows behind hero regions
+- waveform-inspired separators
+- animated status halos
+- graph-based indicators
+- futuristic meters
+- track activity bars
+- elegant confidence rings
+- timeline overlays
+- ambient panel edge lighting
+- scanner-like hover passes
+- subtle moving noise / texture overlays
+- glass and blur layers used carefully
+
+These must feel premium and restrained.
+Do not make it look like a gaming HUD parody.
+
+==================================================
+MOTION SYSTEM
+==================================================
+
+Implement a complete motion language.
+
+Use Framer Motion and create:
+- page transitions
+- panel reveal animations
+- staggered card entrances
+- hover responses
+- active state transitions
+- animated tabs
+- animated filters
+- expanding inspector motion
+- animated progress bars
+- subtle glowing focus shifts
+- timeline animation for mode changes
+- refined modal transitions
+
+Motion rules:
+- smooth, deliberate, intelligent
+- no cheap bounce spam
+- no random infinite distractions
+- animation must support usability
+- reduced-motion safe behavior must exist
+
+==================================================
+COMPONENTS TO REDESIGN
+==================================================
+
+Redesign all core components:
+- sidebar
+- top navigation
+- command bar
+- tabs
+- cards
+- buttons
+- dropdowns
+- inputs
+- search
+- upload area
+- filters
+- timeline controls
+- inspector panels
+- status badges
+- progress indicators
+- charts
+- empty states
+- error panels
+- toasts
+- modals
+- drawers
+- accordions
+- tooltips
+
+Each component must:
+- fit the same premium system
+- have polished states
+- support keyboard focus
+- look custom, not generic library-default
+
+==================================================
+ADVANCED UX REQUIREMENTS
+==================================================
+
+Implement expert UX quality:
+
+- clear hierarchy at every level
+- powerful but intuitive navigation
+- progressive disclosure for dense technical data
+- fast scanning of important status
+- minimal cognitive overload
+- richer context on hover/focus
+- meaningful empty states
+- rich loading skeletons
+- premium success states
+- structured error states
+- strong discoverability of core actions
+
+Add:
+- command palette or quick action launcher
+- smart filter behavior
+- pin/favorite actions where useful
+- guided hover hints for complex panels
+- contextual right-side inspector
+- powerful multi-panel layout logic
+- responsive panel collapse behavior
+
+==================================================
+TECHNICAL IMPLEMENTATION EXPECTATIONS
+==================================================
+
+Use the existing app and upgrade it into a polished system.
+
+Preferred stack:
+- React
+- TypeScript
+- Tailwind
+- Framer Motion
+- shadcn/ui only as a base, but heavily customized
+- lucide-react icons
+- CSS variables / design tokens
+- reusable theme system
+
+Implement:
+- design tokens
+- theme primitives
+- reusable layout primitives
+- animation utilities
+- data-dense panel patterns
+- shared visual language across all views
+
+Do not just drop in a new color.
+Do not only tweak spacing.
+Do not only add gradients.
+Do a true design-system-level upgrade.
+
+==================================================
+RESPONSIVENESS
+==================================================
+
+Desktop-first, but responsive.
+
+Support:
+- large desktop
+- laptop
+- tablet landscape
+- smaller widths with adaptive panel collapse
+
+The mobile behavior does not need to mimic desktop exactly, but must remain elegant and usable.
+
+==================================================
+ACCESSIBILITY + PERFORMANCE
+==================================================
+
+Maintain:
+- contrast
+- keyboard usability
+- focus visibility
+- semantic structure
+- reduced-motion fallback
+- efficient animations
+- no unnecessary repaint-heavy effects everywhere
+
+Use graphical richness intelligently so the app still performs well.
+
+==================================================
+DELIVERABLES
+==================================================
+
+You must not stop at concept notes.
+
+You must implement:
+
+1. A full premium redesign of the app shell
+2. A new visual design system
+3. A futuristic color + typography + spacing token system
+4. Motion-rich interactions
+5. Upgraded dashboard
+6. Upgraded detail page
+7. Upgraded timeline experience
+8. Upgraded completion plan view
+9. Upgraded export flow
+10. Beautiful loading/empty/error states
+11. Reusable advanced components
+12. Cohesive expert-level styling across the app
+
+==================================================
+QUALITY BAR
+==================================================
+
+The final result should feel like:
+- a venture-backed AI music product
+- a futuristic professional creative platform
+- a next-generation DAW-adjacent intelligence tool
+- visually superior to typical admin dashboards
+- expert-designed rather than developer-styled
+
+Do not give a mock-only answer.
+Do not stop at wireframes.
+Do not generate just one page.
+Implement the redesigned UI directly across the real product.
+
+Start now and upgrade the full interface into a premium futuristic design system with stunning motion and advanced graphical UI quality.

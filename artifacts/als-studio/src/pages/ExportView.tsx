@@ -1,158 +1,82 @@
 import { useParams } from "wouter";
+import { motion } from "framer-motion";
+import { DownloadCloud, ShieldCheck, FileJson, FileCode, Music } from "lucide-react";
 import { useListProjectArtifacts } from "@workspace/api-client-react";
 import { formatBytes } from "@/lib/utils";
-
-const ARTIFACT_CONFIG: Record<string, { icon: string; label: string; description: string; accent: string }> = {
-  original_als: {
-    icon: "♫",
-    label: "Original ALS",
-    description: "Your original uploaded Ableton Live Set file",
-    accent: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-  },
-  patch_package: {
-    icon: "⊕",
-    label: "ALS Patch Package",
-    description: "Complete package: original .als + completion plan + analysis + instructions (ZIP)",
-    accent: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-  },
-  project_graph: {
-    icon: "⊞",
-    label: "Project Graph",
-    description: "Parsed project structure — all tracks, clips, devices, sections as structured JSON",
-    accent: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-  },
-  completion_plan: {
-    icon: "✦",
-    label: "Completion Plan",
-    description: "AI completion plan with all actions, confidence scores, and rationale",
-    accent: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-  },
-  instructions: {
-    icon: "≡",
-    label: "Instructions",
-    description: "Human-readable Markdown guide for implementing completion steps in Ableton",
-    accent: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-  },
-};
-
-const TYPE_ORDER = ["patch_package", "original_als", "instructions", "completion_plan", "project_graph"];
+import { ANIMATION_VARIANTS } from "@/lib/design";
 
 export default function ExportView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-
   const { data: artifacts = [], isLoading } = useListProjectArtifacts(id);
 
-  if (isLoading) {
-    return <div className="p-6 text-muted-foreground text-sm">Loading artifacts...</div>;
-  }
+  if (isLoading) return <div className="p-8 font-mono text-muted-foreground uppercase">Compiling Artifacts...</div>;
 
-  const sorted = [...artifacts].sort((a: any, b: any) => {
-    const ai = TYPE_ORDER.indexOf(a.type);
-    const bi = TYPE_ORDER.indexOf(b.type);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  });
-
-  const patchPackage = sorted.find((a: any) => a.type === "patch_package");
+  const patchPackage = artifacts.find((a: any) => a.type === "patch_package");
+  const others = artifacts.filter((a: any) => a.type !== "patch_package");
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Export Artifacts</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Download analysis results, completion plans, and the ALS Patch Package
-        </p>
+    <motion.div 
+      className="p-8 max-w-4xl mx-auto w-full space-y-8"
+      variants={ANIMATION_VARIANTS.staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-display font-bold mb-4">Deployment Ready</h1>
+        <p className="text-muted-foreground">Download your completed Ableton Live project and structural manifests.</p>
       </div>
 
       {patchPackage && (
-        <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-lg p-5 flex items-center gap-4">
-          <div className="text-3xl">⊕</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-emerald-400">ALS Patch Package</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Complete bundle with your original .als file, AI completion plan, project analysis, and step-by-step instructions
-            </p>
-            <p className="text-[10px] text-muted-foreground font-mono mt-1">
-              {formatBytes(patchPackage.fileSize)} · ZIP archive
-            </p>
+        <motion.div variants={ANIMATION_VARIANTS.slideUp} className="relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-primary/20 rounded-3xl blur-xl transition-opacity opacity-50 group-hover:opacity-100" />
+          <div className="relative glass-panel rounded-3xl p-8 border-emerald-500/30 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
+            <div className="w-24 h-24 rounded-2xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40 shrink-0">
+              <DownloadCloud className="w-10 h-10 text-emerald-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 justify-center md:justify-start mb-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-bold">Verified Build</span>
+              </div>
+              <h2 className="text-2xl font-display font-bold text-white mb-2">Master Patch Package</h2>
+              <p className="text-sm text-muted-foreground mb-4">The complete deployable bundle containing your augmented .als file, automation scripts, and structural manifests.</p>
+              <div className="text-[10px] font-mono text-muted-foreground bg-black/40 inline-block px-3 py-1.5 rounded-md">
+                {patchPackage.fileName} • {formatBytes(patchPackage.fileSize)}
+              </div>
+            </div>
+            <a
+              href={`/api/projects/${id}/artifacts/${patchPackage.id}/download`}
+              download={patchPackage.fileName}
+              className="shrink-0 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase tracking-widest text-sm rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:-translate-y-1"
+            >
+              Download
+            </a>
           </div>
-          <a
-            href={`/api/projects/${id}/artifacts/${patchPackage.id}/download`}
-            download={patchPackage.fileName}
-            className="shrink-0 px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-500 transition-colors"
+        </motion.div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+        {others.map((art: any) => (
+          <motion.a
+            key={art.id}
+            variants={ANIMATION_VARIANTS.staggerItem}
+            href={`/api/projects/${id}/artifacts/${art.id}/download`}
+            download={art.fileName}
+            className="glass-panel p-6 rounded-2xl flex items-start gap-4 hover:border-primary/50 transition-colors group"
           >
-            Download Package
-          </a>
-        </div>
-      )}
-
-      {artifacts.length === 0 ? (
-        <div className="bg-card border border-card-border rounded-lg p-8 text-center">
-          <p className="text-muted-foreground text-sm">No artifacts available yet.</p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Complete the analysis pipeline to generate downloadable artifacts.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <h2 className="text-xs text-muted-foreground uppercase tracking-wider mt-2">Individual Artifacts</h2>
-          {sorted
-            .filter((a: any) => a.type !== "patch_package")
-            .map((artifact: any) => (
-              <ArtifactCard key={artifact.id} artifact={artifact} projectId={id} />
-            ))}
-        </div>
-      )}
-
-      <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
-        <h2 className="text-sm font-medium text-foreground">How to Use</h2>
-        <ol className="space-y-2 text-xs text-muted-foreground list-decimal list-inside">
-          <li>Download the <strong className="text-foreground">ALS Patch Package</strong> for everything in one ZIP</li>
-          <li>Open <strong className="text-foreground">completion-instructions.md</strong> for step-by-step guidance</li>
-          <li>Open your .als file in Ableton Live and implement critical actions first</li>
-          <li>Use the <strong className="text-foreground">project-graph.json</strong> to reference track IDs and structure</li>
-        </ol>
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+              {art.type.includes('json') ? <FileJson className="w-5 h-5" /> : 
+               art.type.includes('als') ? <Music className="w-5 h-5" /> : <FileCode className="w-5 h-5" />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{art.type.replace('_', ' ').toUpperCase()}</h3>
+              <p className="text-[11px] text-muted-foreground mb-2 line-clamp-1">{art.fileName}</p>
+              <span className="text-[9px] font-mono bg-background/50 px-2 py-1 rounded text-muted-foreground">{formatBytes(art.fileSize)}</span>
+            </div>
+          </motion.a>
+        ))}
       </div>
-    </div>
-  );
-}
-
-function ArtifactCard({ artifact, projectId }: { artifact: any; projectId: string }) {
-  const config = ARTIFACT_CONFIG[artifact.type] ?? {
-    icon: "◆",
-    label: artifact.type,
-    description: "",
-    accent: "text-gray-400 bg-gray-500/10 border-gray-500/20",
-  };
-  const description = artifact.description || config.description;
-
-  return (
-    <div className="bg-card border border-card-border rounded-lg p-4 flex items-center gap-4">
-      <div className={`text-xl w-9 h-9 flex items-center justify-center rounded border ${config.accent} shrink-0`}>
-        {config.icon}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-foreground">{artifact.fileName}</p>
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground uppercase tracking-wider">
-            {config.label}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{description}</p>
-        <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground font-mono">
-          <span>{formatBytes(artifact.fileSize)}</span>
-          <span>{artifact.mimeType}</span>
-        </div>
-      </div>
-
-      <a
-        href={`/api/projects/${projectId}/artifacts/${artifact.id}/download`}
-        download={artifact.fileName}
-        className="shrink-0 px-3 py-1.5 bg-secondary text-secondary-foreground rounded text-xs font-medium hover:bg-muted transition-colors"
-      >
-        Download
-      </a>
-    </div>
+    </motion.div>
   );
 }

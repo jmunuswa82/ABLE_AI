@@ -1,16 +1,16 @@
 packages:
-  "framer-motion": "Smooth UI transitions and timeline animations"
-  "zustand": "Global state management for selected tracks and timeline view"
-  "date-fns": "Formatting timestamps for jobs and projects"
-  "clsx": "Utility for conditionally joining classNames"
-  "tailwind-merge": "Utility to merge tailwind classes"
-  "@radix-ui/react-slot": "Primitive component for UI building"
+  "framer-motion": "For premium cinematic animations and layout transitions"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge tailwind classes without style conflicts"
+  "lucide-react": "Beautiful consistent icons for the UI"
+  "date-fns": "For elegant date formatting"
 
 images:
   - path: "artifacts/als-studio/public/images/daw-bg.png"
-    description: "Dark, abstract, technical background resembling a high-end Digital Audio Workstation interface, subtle grid lines, very deep blue and gray tones, slightly out of focus"
+    description: "Abstract futuristic dark mesh background, deep graphite and obsidian, subtle electric violet light leaks, cinematic premium DAW aesthetic"
     aspect_ratio: "16:9"
 
 notes:
-  - Using generated API hooks from @workspace/api-client-react
-  - Base path is handled via wouter Router base prop
+  - "Complete premium cinematic redesign with framer-motion"
+  - "Dark mode forced, utilizing obsidian blacks and electric violet accents"
+  - "Using provided @workspace/api-client-react hooks"
