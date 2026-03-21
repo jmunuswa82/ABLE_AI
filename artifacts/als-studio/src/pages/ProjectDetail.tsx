@@ -77,7 +77,12 @@ export default function ProjectDetail() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground text-xs mb-1">Arrangement</p>
-              <p className="font-mono text-foreground">{formatBars(graph.arrangementLength ?? 0)}</p>
+              <p className="font-mono text-foreground">{(() => {
+                const allT = [...(graph.tracks ?? []), ...(graph.returnTracks ?? [])];
+                const maxEnd = allT.reduce((mx: number, t: any) =>
+                  (t.clips ?? []).reduce((m: number, c: any) => Math.max(m, c.end ?? 0), mx), 0);
+                return formatBars(Math.max(graph.arrangementLength ?? 0, maxEnd));
+              })()}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs mb-1">Time Sig</p>

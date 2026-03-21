@@ -109,7 +109,8 @@ React + Vite frontend. Dark DAW-inspired UI with violet/purple accent.
 - Components: Layout.tsx (sidebar nav with project sub-nav)
 - Hooks: use-polling.ts (polls project status every 2s when jobs are running)
 - Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId)
-- Utils: lib/utils.ts (cn, formatScore, formatBars, getStatusColor, getRoleColor, formatBytes)
+- Utils: lib/utils.ts (cn, formatScore, formatBars, beatsToBar, getStatusColor, getRoleColor, getTrackColor, formatBytes)
+- **Time units**: All internal data is in **beats** (quarter notes). 4 beats = 1 bar in 4/4 time. The frontend converts beats→bars for display (ruler labels, tooltips, headers). `beatsToBar(n)` = `n/4`. `formatBars(beats)` shows bar count.
 - Styling: Dark DAW theme in index.css, always dark-mode, violet primary accent (--primary: 262 52% 58%)
 - Routing: wouter with BASE_URL base
 - API client: @workspace/api-client-react (generated React Query hooks)

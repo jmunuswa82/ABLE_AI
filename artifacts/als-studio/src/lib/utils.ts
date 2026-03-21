@@ -14,8 +14,12 @@ export function formatBytes(bytes: number, decimals = 2) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-export function formatBars(bars: number): string {
-  return `${Math.round(bars)} bars`;
+export function beatsToBar(beats: number): number {
+  return beats / 4;
+}
+
+export function formatBars(beats: number): string {
+  return `${Math.round(beatsToBar(beats))} bars`;
 }
 
 export function formatScore(score: number | null | undefined): string {
@@ -52,11 +56,27 @@ export function isJobRunning(state: string): boolean {
 
 export function getRoleColor(role: string): string {
   const roleColors: Record<string, string> = {
-    kick: "#e05252", snare: "#e07a52", hihat: "#c4a84f", ride: "#c4c44f",
-    clap: "#e08c52", percussion: "#d4804f", bass: "#4f8cd4", rumble: "#4f68d4",
-    synth_stab: "#8c52d4", lead: "#a852d4", drone: "#5284d4", texture: "#527cd4",
-    fx: "#52d4c4", vocal: "#d452a8", return_fx: "#528cd4", transition: "#d4c452",
-    utility: "#888888", unknown: "#555555",
+    kick: "#FF3636", snare: "#FF6236", hihat: "#FFA336", ride: "#FFCC36",
+    clap: "#FF5E36", percussion: "#FF8836", bass: "#5B8CFF", rumble: "#3660FF",
+    synth_stab: "#D45BFF", lead: "#C840FF", drone: "#845BFF", texture: "#6E5BFF",
+    fx: "#36D4C4", vocal: "#FF36B4", return_fx: "#36A0FF", transition: "#FFD836",
+    pad: "#D45BFF", acid: "#C8FF36", atmo: "#C880FF",
+    utility: "#888888", unknown: "#666666",
   };
-  return roleColors[role] ?? "#666666";
+  return roleColors[role] ?? "#888888";
+}
+
+export function getTrackColor(colorIndex: number | null | undefined): string {
+  const abletonPalette = [
+    "#FF3636", "#FF6636", "#FF9936", "#FFCC36", "#FFFF36", "#CCFF36",
+    "#99FF36", "#36FF36", "#36FF99", "#36FFCC", "#36FFFF", "#36CCFF",
+    "#3699FF", "#3636FF", "#9936FF", "#CC36FF", "#FF36FF", "#FF36CC",
+    "#FF3699", "#D45B5B", "#D48C5B", "#D4B85B", "#D4D45B", "#B8D45B",
+    "#8CD45B", "#5BD45B", "#5BD48C", "#5BD4B8", "#5BD4D4", "#5BB8D4",
+    "#5B8CD4", "#5B5BD4", "#8C5BD4", "#B85BD4", "#D45BD4", "#D45BB8",
+  ];
+  if (colorIndex == null || colorIndex < 0 || colorIndex >= abletonPalette.length) {
+    return "#888888";
+  }
+  return abletonPalette[colorIndex];
 }

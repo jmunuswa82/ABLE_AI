@@ -115,8 +115,15 @@ class ALSParser:
             val = el.get(attr)
             if val is not None:
                 return float(val)
+            child = el.find(attr)
+            if child is not None:
+                child_val = child.get("Value")
+                if child_val is not None:
+                    return float(child_val)
+                if child.text and child.text.strip():
+                    return float(child.text.strip())
         except (ValueError, TypeError):
-            self.warnings.append(f"Could not parse float attribute '{attr}' on <{el.tag}>")
+            pass
         return default
 
     def _safe_int(self, el, attr: str, default: int = 0) -> int:
@@ -124,8 +131,15 @@ class ALSParser:
             val = el.get(attr)
             if val is not None:
                 return int(val)
+            child = el.find(attr)
+            if child is not None:
+                child_val = child.get("Value")
+                if child_val is not None:
+                    return int(child_val)
+                if child.text and child.text.strip():
+                    return int(child.text.strip())
         except (ValueError, TypeError):
-            self.warnings.append(f"Could not parse int attribute '{attr}' on <{el.tag}>")
+            pass
         return default
 
     def _safe_bool(self, el, attr: str, default: bool = False) -> bool:
@@ -276,10 +290,8 @@ class ALSParser:
         return 4, 4
 
     def _extract_arrangement_length(self, liveset: etree._Element) -> float:
-        # Try to get from locators or last clip position
         last_end = 0.0
 
-        # From all tracks, find the last clip end
         for track_el in liveset.iter("MidiTrack", "AudioTrack", "GroupTrack"):
             for clip_el in track_el.iter("AudioClip", "MidiClip"):
                 end_time = self._safe_float(clip_el, "CurrentEnd", 0.0)
@@ -289,13 +301,12 @@ class ALSParser:
         if last_end > 0:
             return last_end
 
-        # Fallback: check LoopEnd on master
         for el in liveset.iter("LoopEnd"):
             val = self._safe_float(el, "Value", 0.0)
             if val > 0:
                 return val
 
-        return 128.0  # default 128 bars
+        return 128.0
 
     def _extract_locators(self, liveset: etree._Element) -> List[Dict[str, Any]]:
         locators = []
@@ -338,23 +349,33 @@ class ALSParser:
         armed = False
         color = None
 
-        muted_el = track_el.find(".//TrackDelay/IsSendActive") or track_el.find(".//Mute")
+        muted_el = track_el.find(".//TrackDelay/IsSendActive")
+        if muted_el is None:
+            muted_el = track_el.find(".//Mute")
         if muted_el is not None:
             muted = self._safe_bool(muted_el, "Value", False)
 
-        solo_el = track_el.find(".//Solo") or track_el.find("Solo")
+        solo_el = track_el.find(".//Solo")
+        if solo_el is None:
+            solo_el = track_el.find("Solo")
         if solo_el is not None:
             solo = self._safe_bool(solo_el, "Value", False)
 
-        freeze_el = track_el.find("Freeze") or track_el.find(".//Freeze")
+        freeze_el = track_el.find("Freeze")
+        if freeze_el is None:
+            freeze_el = track_el.find(".//Freeze")
         if freeze_el is not None:
             frozen = self._safe_bool(freeze_el, "Value", False)
 
-        arm_el = track_el.find("Armed") or track_el.find(".//Armed")
+        arm_el = track_el.find("Armed")
+        if arm_el is None:
+            arm_el = track_el.find(".//Armed")
         if arm_el is not None:
             armed = self._safe_bool(arm_el, "Value", False)
 
-        color_el = track_el.find("ColorIndex") or track_el.find(".//ColorIndex")
+        color_el = track_el.find("ColorIndex")
+        if color_el is None:
+            color_el = track_el.find(".//ColorIndex")
         if color_el is not None:
             color = self._safe_int(color_el, "Value", 0)
 
@@ -371,7 +392,9 @@ class ALSParser:
         )
 
         # Group parenting
-        group_id_el = track_el.find("TrackGroupId") or track_el.find(".//TrackGroupId")
+        group_id_el = track_el.find("TrackGroupId")
+        if group_id_el is None:
+            group_id_el = track_el.find(".//TrackGroupId")
         if group_id_el is not None:
             gid = self._safe_int(group_id_el, "Value", -1)
             if gid >= 0:
@@ -399,7 +422,8 @@ class ALSParser:
         if device_chain is None:
             return devices
 
-        device_chain_el = device_chain.find("DeviceChain") or device_chain
+        inner_chain = device_chain.find("DeviceChain")
+        device_chain_el = inner_chain if inner_chain is not None else device_chain
 
         for el in device_chain_el:
             tag = el.tag
@@ -439,7 +463,9 @@ class ALSParser:
         for name_tag in ("PluginDesc", "VstPluginInfo", "AuPluginInfo", "Vst3PluginInfo"):
             desc_el = el.find(f".//{name_tag}")
             if desc_el is not None:
-                name_el = desc_el.find(".//Name") or desc_el.find(".//FileName")
+                name_el = desc_el.find(".//Name")
+                if name_el is None:
+                    name_el = desc_el.find(".//FileName")
                 if name_el is not None:
                     plugin_name = name_el.get("Value") or name_el.get("Name")
                     break
@@ -506,7 +532,9 @@ class ALSParser:
         clip_slot_list = track_el.find(".//ClipSlotList")
         if clip_slot_list is not None:
             for slot_el in clip_slot_list:
-                clip_el = slot_el.find(".//AudioClip") or slot_el.find(".//MidiClip")
+                clip_el = slot_el.find(".//AudioClip")
+                if clip_el is None:
+                    clip_el = slot_el.find(".//MidiClip")
                 if clip_el is not None:
                     clip = self._parse_clip_element(clip_el, track_id, clip_counter)
                     if clip:
