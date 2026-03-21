@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Ableton AI Track Completion Studio"
+version = "1.0.0"
+id = "artifacts/als-studio"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21231
+
+[services.development]
+run = "pnpm --filter @workspace/als-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/als-studio", "run", "build" ]
+publicDir = "artifacts/als-studio/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21231"
+BASE_PATH = "/"

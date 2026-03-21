@@ -1,0 +1,282 @@
+/**
+ * Job runner that calls the Python pipeline service via child_process.
+ * In-process for dev mode, architected to support queue backends later.
+ */
+
+import { spawn } from "child_process";
+import path from "path";
+import fs from "fs/promises";
+import { randomUUID } from "crypto";
+import { db, jobsTable, projectsTable, parseResultsTable, completionPlansTable, artifactFilesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { logger } from "./logger";
+
+const ARTIFACT_DIR = path.resolve(process.cwd(), "../../storage/artifacts");
+const SERVICES_DIR = path.resolve(process.cwd(), "../../services");
+const PYTHON_RUNNER = path.join(SERVICES_DIR, "run_pipeline.py");
+
+async function updateJob(
+  jobId: string,
+  state: string,
+  progress?: number,
+  message?: string,
+  error?: string
+) {
+  await db.update(jobsTable).set({
+    state,
+    progress: progress ?? null,
+    message: message ?? null,
+    error: error ?? null,
+    completedAt: ["completed", "failed", "exported", "partial_success"].includes(state)
+      ? new Date()
+      : null,
+  }).where(eq(jobsTable.id, jobId));
+}
+
+async function updateProjectStatus(projectId: string, status: string, extra?: {
+  completionScore?: number;
+  styleTags?: string[];
+  warnings?: string[];
+}) {
+  await db.update(projectsTable).set({
+    status,
+    ...(extra?.completionScore !== undefined ? { completionScore: extra.completionScore } : {}),
+    ...(extra?.styleTags !== undefined ? { styleTags: extra.styleTags } : {}),
+    ...(extra?.warnings !== undefined ? { warnings: extra.warnings } : {}),
+  }).where(eq(projectsTable.id, projectId));
+}
+
+export async function runPipelineJob(
+  projectId: string,
+  jobId: string,
+  filePath: string,
+  originalFileName: string,
+): Promise<void> {
+  logger.info({ projectId, jobId }, "Starting pipeline job");
+
+  try {
+    await updateJob(jobId, "parsing", 0, "Parsing ALS file...");
+    await updateProjectStatus(projectId, "parsing");
+
+    // Run Python pipeline
+    const result = await runPython({
+      project_id: projectId,
+      job_id: jobId,
+      file_path: filePath,
+      source_file: originalFileName,
+    });
+
+    if (!result.success) {
+      await updateJob(jobId, "failed", undefined, undefined, result.error || "Pipeline failed");
+      await updateProjectStatus(projectId, "failed");
+      return;
+    }
+
+    const { project_graph, completion_plan, warnings } = result;
+
+    // Save parse result
+    const parseId = randomUUID();
+    await db.insert(parseResultsTable).values({
+      id: parseId,
+      projectId,
+      jobId,
+      projectGraph: project_graph,
+      parseQuality: project_graph?.parseQuality ?? 0,
+      warnings: warnings ?? [],
+    });
+
+    await updateJob(jobId, "analyzed", 70, "Analysis complete, saving plan...");
+
+    // Save completion plan
+    const planId = randomUUID();
+    await db.insert(completionPlansTable).values({
+      id: planId,
+      projectId,
+      jobId,
+      planData: completion_plan,
+      confidence: completion_plan?.confidence ?? 0,
+      completionScore: completion_plan?.completionScore ?? 0,
+      styleTags: completion_plan?.styleTags ?? [],
+    });
+
+    // Save export artifacts
+    const artifactsDir = path.join(ARTIFACT_DIR, projectId);
+    await fs.mkdir(artifactsDir, { recursive: true });
+
+    // Write project graph JSON
+    const graphPath = path.join(artifactsDir, "project-graph.json");
+    await fs.writeFile(graphPath, JSON.stringify(project_graph, null, 2));
+
+    const graphArtifactId = randomUUID();
+    await db.insert(artifactFilesTable).values({
+      id: graphArtifactId,
+      projectId,
+      jobId,
+      type: "project_graph",
+      fileName: "project-graph.json",
+      filePath: graphPath,
+      fileSize: (await fs.stat(graphPath)).size,
+      mimeType: "application/json",
+      description: "Parsed project structure and track analysis",
+    });
+
+    // Write completion plan JSON
+    const planPath = path.join(artifactsDir, "completion-plan.json");
+    await fs.writeFile(planPath, JSON.stringify(completion_plan, null, 2));
+
+    const planArtifactId = randomUUID();
+    await db.insert(artifactFilesTable).values({
+      id: planArtifactId,
+      projectId,
+      jobId,
+      type: "completion_plan",
+      fileName: "completion-plan.json",
+      filePath: planPath,
+      fileSize: (await fs.stat(planPath)).size,
+      mimeType: "application/json",
+      description: "AI completion plan with ranked actions",
+    });
+
+    // Write human-readable completion instructions
+    const instructionsContent = buildInstructions(completion_plan, project_graph, originalFileName);
+    const instrPath = path.join(artifactsDir, "completion-instructions.md");
+    await fs.writeFile(instrPath, instructionsContent);
+
+    const instrArtifactId = randomUUID();
+    await db.insert(artifactFilesTable).values({
+      id: instrArtifactId,
+      projectId,
+      jobId,
+      type: "instructions",
+      fileName: "completion-instructions.md",
+      filePath: instrPath,
+      fileSize: (await fs.stat(instrPath)).size,
+      mimeType: "text/markdown",
+      description: "Human-readable completion instructions",
+    });
+
+    // Update project
+    await updateProjectStatus(projectId, "exported", {
+      completionScore: completion_plan?.completionScore,
+      styleTags: completion_plan?.styleTags ?? [],
+      warnings: warnings?.slice(0, 20) ?? [],
+    });
+
+    await updateJob(jobId, "exported", 100, "Complete — all artifacts ready");
+    logger.info({ projectId, jobId }, "Pipeline job complete");
+
+  } catch (err: any) {
+    logger.error({ err, projectId, jobId }, "Pipeline job error");
+    await updateJob(jobId, "failed", undefined, undefined, err?.message ?? "Unknown error");
+    await updateProjectStatus(projectId, "failed");
+  }
+}
+
+function runPython(payload: Record<string, any>): Promise<any> {
+  return new Promise((resolve) => {
+    const python = spawn("python3", [PYTHON_RUNNER, JSON.stringify(payload)], {
+      cwd: SERVICES_DIR,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    python.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    python.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    python.on("close", (code) => {
+      if (code !== 0) {
+        logger.error({ code, stderr }, "Python pipeline exited with error");
+        resolve({ success: false, error: stderr || `Python exited with code ${code}` });
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (e) {
+        logger.error({ stdout, stderr }, "Failed to parse Python output");
+        resolve({ success: false, error: `Failed to parse pipeline output: ${stdout.slice(0, 200)}` });
+      }
+    });
+
+    python.on("error", (err) => {
+      logger.error({ err }, "Failed to spawn Python process");
+      resolve({ success: false, error: `Failed to start Python: ${err.message}` });
+    });
+  });
+}
+
+function buildInstructions(plan: any, graph: any, fileName: string): string {
+  const lines: string[] = [
+    `# Completion Instructions for: ${fileName}`,
+    ``,
+    `Generated by Ableton AI Track Completion Studio`,
+    ``,
+    `## Project Summary`,
+    ``,
+    `- **Tempo**: ${graph?.tempo ?? "Unknown"} BPM`,
+    `- **Time Signature**: ${graph?.timeSignatureNumerator ?? 4}/${graph?.timeSignatureDenominator ?? 4}`,
+    `- **Arrangement Length**: ${graph?.arrangementLength ?? 0} bars`,
+    `- **Style**: ${(plan?.styleTags ?? []).join(", ") || "techno"}`,
+    `- **Completion Score**: ${Math.round((plan?.completionScore ?? 0) * 100)}%`,
+    ``,
+    `## Analysis Summary`,
+    ``,
+    plan?.summary ?? "",
+    ``,
+    `## Completion Actions`,
+    ``,
+  ];
+
+  const actions = plan?.actions ?? [];
+  const byCategory: Record<string, any[]> = {};
+  for (const action of actions) {
+    if (!byCategory[action.category]) byCategory[action.category] = [];
+    byCategory[action.category].push(action);
+  }
+
+  for (const [cat, catActions] of Object.entries(byCategory)) {
+    lines.push(`### ${cat.charAt(0).toUpperCase() + cat.slice(1)}`);
+    lines.push(``);
+    for (const action of catActions) {
+      lines.push(`#### ${action.title} (${action.priority} priority, confidence: ${Math.round(action.confidence * 100)}%)`);
+      lines.push(``);
+      lines.push(action.description);
+      lines.push(``);
+      if (action.affectedBars) lines.push(`**Bars affected**: ${action.affectedBars}`);
+      if (action.affectedTracks?.length) lines.push(`**Tracks**: ${action.affectedTracks.join(", ")}`);
+      lines.push(`**Expected impact**: ${action.expectedImpact}`);
+      lines.push(`**Rationale**: ${action.rationale}`);
+      lines.push(``);
+    }
+  }
+
+  if (plan?.weaknesses?.length) {
+    lines.push(`## Detected Weaknesses`);
+    lines.push(``);
+    for (const w of plan.weaknesses) {
+      lines.push(`- ${w}`);
+    }
+    lines.push(``);
+  }
+
+  if (plan?.warnings?.length) {
+    lines.push(`## Parser Warnings`);
+    lines.push(``);
+    for (const w of plan.warnings.slice(0, 10)) {
+      lines.push(`- ${w}`);
+    }
+    lines.push(``);
+  }
+
+  lines.push(`---`);
+  lines.push(`*Generated at ${new Date().toISOString()} by Ableton AI Track Completion Studio*`);
+
+  return lines.join("\n");
+}

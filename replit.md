@@ -91,6 +91,33 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/als-studio` (`@workspace/als-studio`)
+
+React + Vite frontend. Dark DAW-inspired UI with violet/purple accent. All pages built.
+
+- Pages: Dashboard, ProjectDetail, TimelineView, CompletionPlanView, ExportView
+- Components: Layout.tsx (sidebar nav with project sub-nav)
+- Hooks: use-polling.ts (polls project status every 2s when jobs are running)
+- Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId)
+- Utils: lib/utils.ts (cn, formatScore, formatBars, getStatusColor, getRoleColor, etc.)
+- Styling: Dark DAW theme in index.css, always dark-mode, violet primary accent
+- Routing: wouter with BASE_URL base
+- API client: @workspace/api-client-react (generated React Query hooks)
+
+### `services/als_parser` (Python)
+
+Python analysis pipeline for ALS files.
+
+- `parser.py` — gzip decompress + lxml XML parse of .als files
+- `role_inference.py` — infer track role (kick, bass, lead, etc.)
+- `style_inference.py` — infer musical genre/style tags
+- `section_inference.py` — detect arrangement sections (Intro, Build, Peak, etc.)
+- `weakness_detection.py` — detect production weaknesses
+- `completion_engine.py` — generate ranked completion actions
+- `pipeline.py` — orchestrate full pipeline
+- `run_pipeline.py` — CLI entry point (Node.js spawns as child_process)
+- Storage: /storage/uploads (ALS files), /storage/artifacts (JSON outputs)
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

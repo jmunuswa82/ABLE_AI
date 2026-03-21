@@ -1,22 +1,31 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Ableton AI Track Completion Studio API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: projects
+    description: Project management
+  - name: upload
+    description: File upload operations
+  - name: jobs
+    description: Job status
+  - name: artifacts
+    description: Export artifacts
+  - name: analysis
+    description: Analysis and completion data
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,309 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectInput"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{id}/upload:
+    post:
+      operationId: uploadAlsFile
+      tags: [upload]
+      summary: Upload an .als file to a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload accepted, parse job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /projects/{id}/parse:
+    post:
+      operationId: triggerParse
+      tags: [projects]
+      summary: Trigger parse of uploaded ALS file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Parse triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+
+  /projects/{id}/analyze:
+    post:
+      operationId: triggerAnalysis
+      tags: [projects]
+      summary: Trigger analysis of parsed project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+
+  /projects/{id}/generate:
+    post:
+      operationId: triggerGeneration
+      tags: [projects]
+      summary: Trigger completion plan generation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Generation triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+
+  /projects/{id}/export:
+    post:
+      operationId: triggerExport
+      tags: [projects]
+      summary: Trigger export artifact compilation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+
+  /projects/{id}/project-graph:
+    get:
+      operationId: getProjectGraph
+      tags: [analysis]
+      summary: Get parsed project graph
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project graph
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectGraph"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /projects/{id}/completion-plan:
+    get:
+      operationId: getCompletionPlan
+      tags: [analysis]
+      summary: Get AI completion plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Completion plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionPlan"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /projects/{id}/artifacts:
+    get:
+      operationId: listProjectArtifacts
+      tags: [artifacts]
+      summary: List export artifacts for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of artifacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArtifactFile"
+
+  /projects/{id}/artifacts/{artifactId}/download:
+    get:
+      operationId: downloadArtifact
+      tags: [artifacts]
+      summary: Download an artifact file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /jobs/{jobId}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job status
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +346,402 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: ["string", "null"]
+      required:
+        - error
+
+    CreateProjectInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+      required:
+        - name
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+        completionScore:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        originalFileName:
+          type: ["string", "null"]
+        styleTags:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - updatedAt
+        - styleTags
+
+    ProjectDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+        completionScore:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        originalFileName:
+          type: ["string", "null"]
+        styleTags:
+          type: array
+          items:
+            type: string
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobStatus"
+        warnings:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - updatedAt
+        - styleTags
+        - jobs
+        - warnings
+
+    UploadResponse:
+      type: object
+      properties:
+        projectId:
+          type: string
+        jobId:
+          type: string
+        fileName:
+          type: string
+        status:
+          type: string
+      required:
+        - projectId
+        - jobId
+        - fileName
+        - status
+
+    JobStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        type:
+          type: string
+        state:
+          type: string
+        progress:
+          type: ["number", "null"]
+        message:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - projectId
+        - type
+        - state
+        - createdAt
+        - updatedAt
+
+    TrackNode:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        parentGroupId:
+          type: ["string", "null"]
+        orderIndex:
+          type: integer
+        muted:
+          type: boolean
+        solo:
+          type: boolean
+        frozen:
+          type: boolean
+        armed:
+          type: boolean
+        color:
+          type: ["integer", "null"]
+        inferredRole:
+          type: string
+        inferredConfidence:
+          type: number
+        clipCount:
+          type: integer
+        deviceCount:
+          type: integer
+        automationPoints:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - name
+        - type
+        - orderIndex
+        - muted
+        - solo
+        - frozen
+        - armed
+        - inferredRole
+        - inferredConfidence
+        - clipCount
+        - deviceCount
+        - automationPoints
+        - warnings
+
+    ArrangementSection:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        startBar:
+          type: number
+        endBar:
+          type: number
+        energyScore:
+          type: number
+        densityScore:
+          type: number
+        dominantRoles:
+          type: array
+          items:
+            type: string
+        missingElements:
+          type: array
+          items:
+            type: string
+        transitionQuality:
+          type: number
+      required:
+        - id
+        - label
+        - startBar
+        - endBar
+        - energyScore
+        - densityScore
+        - dominantRoles
+        - missingElements
+        - transitionQuality
+
+    ProjectGraph:
+      type: object
+      properties:
+        projectId:
+          type: string
+        tempo:
+          type: number
+        timeSignatureNumerator:
+          type: integer
+        timeSignatureDenominator:
+          type: integer
+        arrangementLength:
+          type: number
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackNode"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArrangementSection"
+        parseQuality:
+          type: number
+        warnings:
+          type: array
+          items:
+            type: string
+        styleTags:
+          type: array
+          items:
+            type: string
+        totalClips:
+          type: integer
+        totalDevices:
+          type: integer
+        returnTrackCount:
+          type: integer
+        masterTrackPresent:
+          type: boolean
+      required:
+        - projectId
+        - tempo
+        - timeSignatureNumerator
+        - timeSignatureDenominator
+        - arrangementLength
+        - tracks
+        - sections
+        - parseQuality
+        - warnings
+        - styleTags
+        - totalClips
+        - totalDevices
+        - returnTrackCount
+        - masterTrackPresent
+
+    CompletionAction:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        affectedTracks:
+          type: array
+          items:
+            type: string
+        affectedBars:
+          type: ["string", "null"]
+        confidence:
+          type: number
+        expectedImpact:
+          type: string
+        rationale:
+          type: string
+        priority:
+          type: string
+      required:
+        - id
+        - category
+        - title
+        - description
+        - affectedTracks
+        - confidence
+        - expectedImpact
+        - rationale
+        - priority
+
+    CompletionPlan:
+      type: object
+      properties:
+        projectId:
+          type: string
+        summary:
+          type: string
+        confidence:
+          type: number
+        styleTags:
+          type: array
+          items:
+            type: string
+        completionScore:
+          type: number
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletionAction"
+        weaknesses:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        rationale:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+      required:
+        - projectId
+        - summary
+        - confidence
+        - styleTags
+        - completionScore
+        - actions
+        - weaknesses
+        - warnings
+        - rationale
+        - generatedAt
+
+    ArtifactFile:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        type:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        mimeType:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: ["string", "null"]
+      required:
+        - id
+        - projectId
+        - type
+        - fileName
+        - fileSize
+        - mimeType
+        - createdAt

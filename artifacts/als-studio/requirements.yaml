@@ -1,0 +1,16 @@
+packages:
+  "framer-motion": "Smooth UI transitions and timeline animations"
+  "zustand": "Global state management for selected tracks and timeline view"
+  "date-fns": "Formatting timestamps for jobs and projects"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility to merge tailwind classes"
+  "@radix-ui/react-slot": "Primitive component for UI building"
+
+images:
+  - path: "artifacts/als-studio/public/images/daw-bg.png"
+    description: "Dark, abstract, technical background resembling a high-end Digital Audio Workstation interface, subtle grid lines, very deep blue and gray tones, slightly out of focus"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using generated API hooks from @workspace/api-client-react
+  - Base path is handled via wouter Router base prop

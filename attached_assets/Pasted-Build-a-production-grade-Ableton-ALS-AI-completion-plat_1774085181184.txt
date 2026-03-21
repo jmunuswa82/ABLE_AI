@@ -1,0 +1,696 @@
+Build a production-grade Ableton ALS AI completion platform
+You are Replit Agent acting as a principal software architect, senior full-stack engineer, senior Python systems engineer, AI application engineer, QA architect, DevOps engineer, product engineer, and technical writer.
+You are not allowed to behave like a tutorial assistant, boilerplate generator, mock-only builder, or shallow prototype assistant.
+You must build a serious, production-grade, runnable application that works in Replit and can also run locally outside Replit with clear setup steps.
+Your output must be implementation-driven, not consulting-driven.
+PRODUCT TO BUILD
+Build a full-stack product named:
+Ableton AI Track Completion Studio
+The product allows a user to upload an unfinished Ableton Live .als project, deeply analyze it, infer its musical intent and arrangement state, generate advanced completion logic, create a structured completion plan, produce updated project artifacts, and export a result designed to be opened in Ableton Live 10/11/12 for refinement.
+This is not a toy analyzer.
+This is a serious AI-assisted techno production copilot and ALS-aware project completion system.
+CORE OUTCOME
+The user uploads an .als file that may contain any custom track names, device chains, clips, returns, groups, automation, frozen tracks, empty tracks, and partially finished arrangement sections.
+The system must:
+Safely ingest and parse the .als file
+Extract and model project structure using a canonical internal data model
+Detect tracks, sections, clips, devices, automation, grouping, returns, master behavior, and arrangement progression
+Infer roles and project style dynamically without relying on predefined template names
+Detect missing energy, unfinished sections, repetitive regions, weak transitions, static automation, thin layers, weak ending, poor breakdown logic, and missing arrangement evolution
+Generate a real completion plan
+Produce practical AI + rule-based suggestions
+Generate real project mutations where safe
+Render the project in an Ableton-inspired timeline UI
+Provide downloadable artifacts
+Run in Replit and locally
+Include strong tests, docs, and operational structure
+NON-NEGOTIABLE BEHAVIOR RULES
+You must:
+write real code
+implement real backend and frontend
+implement real parser logic
+implement real job flow
+implement real data persistence
+implement real testing
+implement real docs
+keep the system runnable
+keep the system structured for future cloud deployment
+make the app usable from end to end
+You must not:
+stop at scaffold
+leave major critical paths as TODO
+output pseudo-code for core systems
+reduce hard parts into hand-wavy commentary
+assume fixed track names
+build only a pretty frontend
+build only a parser without product integration
+fake “AI” using only static text templates
+silently skip export or round-trip safety concerns
+REQUIRED IMPLEMENTATION STYLE FOR REPLIT
+Because this is for Replit, you must optimize implementation for the Replit environment while keeping local-run compatibility.
+Replit-specific expectations
+create a project that boots cleanly inside Replit
+provide a single clear entry workflow for starting the product
+include all required scripts
+avoid unnecessary infra complexity that breaks Replit
+use environment variables cleanly
+make storage work in Replit filesystem for dev
+design so the same project can run locally using Docker Compose or direct commands
+if background workers are needed, make them runnable in-process for dev mode and separately for advanced mode
+make sure the app remains debuggable in Replit
+include a .replit or equivalent startup guidance if appropriate
+structure code so Replit Agent can actually finish most of it
+TARGET TECH STACK
+Use this stack unless a very strong engineering reason requires a change.
+Frontend
+React 18
+TypeScript
+Vite
+Tailwind CSS
+Zustand
+TanStack Query
+modular components
+canvas or SVG-based timeline engine
+clean SaaS-style dark UI
+desktop-first, responsive enough for inspection on smaller screens
+API Backend
+Node.js
+TypeScript
+Fastify preferred
+Zod for validation
+Prisma ORM
+SQLite for Replit/dev default
+schema designed so PostgreSQL migration is easy later
+Parser / AI / Analysis Engine
+Python 3.11+
+lxml
+gzip
+structured ALS parser
+deterministic music rules
+analysis modules
+generation modules
+mutation compiler/export baseline
+Monorepo / Workspace
+pnpm workspace preferred
+or a simple mono-structure if Replit constraints make workspace tooling unstable
+must still keep strong separation of concerns
+Testing
+Vitest for TS code
+Pytest for Python code
+integration tests for end-to-end flow
+parser fixture tests mandatory
+APP ARCHITECTURE TO IMPLEMENT
+Implement a hybrid, production-grade app with these layers:
+Frontend Web App
+Backend API
+ALS Parser / Compiler Service
+AI Completion / Music Reasoning Engine
+Job Orchestration Layer
+Persistence Layer
+Artifact Storage Layer
+Testing + QA + Observability Layer
+REQUIRED DIRECTORY STRUCTURE
+Implement a structure close to this and fill it with real code:
+ableton-ai-track-completion/
+├── apps/
+│   ├── web/
+│   ├── api/
+│   ├── parser_service/
+│   └── ai_service/
+├── packages/
+│   ├── shared-types/
+│   ├── shared-schemas/
+│   ├── timeline-engine/
+│   └── music-rules/
+├── prisma/
+│   └── schema.prisma
+├── storage/
+│   ├── uploads/
+│   ├── artifacts/
+│   └── temp/
+├── tests/
+│   ├── fixtures/
+│   ├── integration/
+│   └── e2e/
+├── docs/
+├── scripts/
+├── .env.example
+├── README.md
+├── docker-compose.yml
+├── package.json
+└── pnpm-workspace.yaml
+If Replit works better with a flatter structure, keep logical separation and still implement all layers.
+CORE DOMAIN MODEL
+You must design and use a strong internal canonical model.
+Implement data structures like:
+ProjectGraph
+projectId
+sourceFile
+tempo
+timeSignature
+arrangementLength
+locators
+tracks
+returnTracks
+masterTrack
+sections
+warnings
+preservationRefs
+analysisSummary
+TrackNode
+id
+name
+type
+parentGroupId
+orderIndex
+muted
+solo
+frozen
+armed
+color
+routing
+devices
+clips
+automationLanes
+inferredRole
+inferredConfidence
+analysis
+ClipNode
+id
+trackId
+clipType
+start
+end
+loop
+sourceRef
+midiNotes
+envelopes
+warpInfo
+gainInfo
+contentSummary
+DeviceNode
+id
+deviceClass
+pluginName
+parameters
+enabled
+inferredPurpose
+AutomationLane
+targetPath
+parameterName
+points
+density
+shapeSummary
+confidence
+ArrangementSection
+id
+label
+startBar
+endBar
+energyScore
+densityScore
+dominantRoles
+missingElements
+transitionQuality
+CompletionPlan
+summary
+confidence
+styleTags
+roleFindings
+structureActions
+trackActions
+automationActions
+clipGenerationActions
+arrangementActions
+warnings
+rationale
+Use this model consistently across parser, analysis, UI, and export.
+REQUIRED FRONTEND FEATURES
+Build a real app, not just a single demo page.
+Required pages
+1. Dashboard
+upload .als project
+recent projects
+parse/analyze/generate/export status
+job health view
+artifact availability
+2. Project Detail
+project metadata
+parse warnings
+style inference output
+detected track list
+section map
+completion score / readiness score
+detailed suggestion panel
+3. Timeline / Arrangement View
+Ableton-inspired layout
+vertical track lanes
+clip blocks
+time ruler
+zoom and pan
+section overlays
+automation lane toggle
+weak area highlights
+incomplete region highlights
+track selection and inspector
+4. Track Inspector
+track role inference
+devices
+clip stats
+automation profile
+suggested improvements
+5. Completion Plan View
+structure changes
+drum / percussion enhancements
+bass continuity improvements
+automation upgrades
+transition suggestions
+ending/outro completion
+confidence and reasoning
+6. Export View
+generated artifacts
+compiler warnings
+status
+download buttons
+limitations summary
+7. Dev / Diagnostics View
+parser warnings
+job logs
+raw analysis summaries
+debug JSON viewer in dev mode only
+REQUIRED BACKEND FEATURES
+Implement a real API.
+API modules
+health
+config/env validation
+project CRUD
+upload handling
+parser trigger
+analysis trigger
+generation trigger
+export trigger
+job status
+artifact listing
+diagnostics in dev mode
+Required DB entities
+users
+projects
+projectFiles
+parseRuns
+analysisRuns
+completionRuns
+exportRuns
+jobs
+artifacts
+auditLogs
+Use SQLite by default for Replit/local simplicity, but design Prisma schema to support PostgreSQL later.
+JOB ORCHESTRATION REQUIREMENTS
+Implement a workflow like this:
+upload file
+create project record
+queue parse job
+parse ALS into canonical ProjectGraph
+persist parse result
+queue analysis job
+run music analysis and inference
+persist analysis result
+queue completion job
+generate CompletionPlan
+generate project mutations or generated content where safe
+persist completion artifacts
+queue export job
+compile export artifact
+expose artifact to UI
+Allowed implementation tradeoff for Replit
+Use a clean in-process job runner for development if true distributed workers are overkill for Replit.
+But architect it so real queue backends can be added later.
+Job states must include:
+uploaded
+queued
+parsing
+parsed
+analyzing
+analyzed
+generating
+generated
+exporting
+exported
+failed
+partial_success
+ALS PARSER REQUIREMENTS
+This is the critical backbone.
+Implement a robust Ableton .als parser with the following rules:
+Parser behavior
+.als is gzipped XML
+safely decompress
+reject dangerous payload sizes
+parse with recovery
+support unknown nodes gracefully
+do not crash on partial incompatibility
+preserve raw XML fragments where possible
+use version adapters if needed
+extract as much structure as feasible for Live 10/11/12
+Extract where possible
+tempo
+time signature
+locators
+track hierarchy
+group tracks
+audio tracks
+MIDI tracks
+return tracks
+master track
+devices
+automation lanes
+clip ranges
+MIDI notes if accessible
+sends / returns
+muted / solo / frozen states
+arrangement extents
+Parser output
+canonical ProjectGraph
+warnings array
+raw preservation references
+parse quality score
+Critical parser rule
+Unknown nodes must not destroy the entire parse.
+Degrade gracefully and emit precise warnings.
+EXPORT / COMPILER REQUIREMENTS
+You must implement a serious baseline exporter/compiler.
+Goal
+The output should preserve the original project as much as possible while layering in generated mutations and producing artifacts that support future Ableton-side refinement.
+Export rules
+never destructively overwrite unrelated content without intention
+preserve unknown XML regions where possible
+preserve ordering where possible
+validate output
+emit warnings instead of hiding failures
+if full mutation into exact production-safe ALS is limited by version ambiguity, still implement:
+updated project graph artifacts
+structured patch plan
+compile-ready XML mutation pipeline baseline
+export package with detailed instructions and machine-readable edits
+Do not skip export just because it is hard.
+ADVANCED AI + MUSIC LOGIC REQUIREMENTS
+This app must use AI where it is actually useful, and deterministic logic where reliability matters.
+Implement hybrid intelligence:
+1. Style inference
+Infer weighted style tags from:
+BPM
+rhythmic spacing
+note density
+repetition structure
+automation density
+device types
+naming hints
+section energy behavior
+Possible tags:
+hypnotic techno
+hard techno
+industrial techno
+raw techno
+dark warehouse techno
+minimal techno
+atmospheric techno
+driving groove techno
+2. Role inference
+Infer purpose of each track:
+kick
+rumble
+bass
+hat
+ride
+percussion
+synth stab
+lead
+FX
+drone
+texture
+return FX
+utility
+transition layer
+Do not rely only on track names.
+3. Section inference
+Detect likely:
+intro
+groove establishment
+build
+peak
+breakdown
+recovery
+second peak
+outro
+Even if no locator names exist.
+4. Weakness detection
+Detect:
+repetitive loops with no evolution
+no transition tension
+weak drop return
+flat hats/percussion
+weak low-end continuity
+static automation
+underdeveloped breakdown
+abrupt or unfinished ending
+weak section contrast
+underused returns and FX
+5. Completion planning
+Generate a practical plan such as:
+extend arrangement
+add supporting percussion
+introduce automation variation
+add transition lift
+build controlled energy ramps
+strengthen breakdown texture
+create more coherent outro
+reinforce post-break impact
+add section differentiation
+6. MIDI / symbolic generation
+Implement baseline generation for:
+percussive hits
+hats variations
+rhythmic stabs
+tension pulses
+industrial accents
+transition placeholders
+bass complements
+This does not need to be magical. It needs to be coherent, structured, and useful.
+7. Automation generation
+Generate automation plans for:
+filter cutoff
+resonance
+send amounts
+utility gain
+delay/reverb throws
+texture intensity
+tension sweeps
+energy control between sections
+8. Confidence scoring
+Every suggestion must include:
+confidence
+rationale
+affected bars
+affected tracks
+expected impact
+ADVANCED AI USAGE RULES
+Use “AI logic” where it matters, not everywhere blindly.
+Required advanced intelligence layers
+parser confidence scoring
+role inference scoring
+style inference scoring
+section segmentation scoring
+completion opportunity ranking
+warning prioritization
+suggestion explanation
+export risk classification
+If no external AI API is configured
+Implement a strong local heuristic + symbolic generation system that still works end to end.
+If external AI API support is added
+Abstract it cleanly behind provider interfaces and keep the app functional without it.
+Do not make the whole app useless when no paid AI API key exists.
+SAAS-STYLE PRODUCT REQUIREMENTS
+Even if single-user in dev mode, the structure must feel product-grade.
+Implement:
+session/user abstraction
+project ownership model
+audit logging
+artifact history
+traceable job history
+error visibility
+admin/dev diagnostics
+scalable storage abstraction
+STORAGE REQUIREMENTS
+Implement a clean storage layer:
+local filesystem storage for dev/Replit
+uploaded ALS files
+parse outputs
+analysis JSON
+completion plan JSON
+export artifacts
+logs or diagnostics snapshots where useful
+Design adapter interfaces so object storage can be added later.
+SECURITY AND HARDENING REQUIREMENTS
+Implement serious basics:
+upload type validation
+size limit checks
+gzip bomb protection
+XML parser hardening
+safe temp files
+filename sanitization
+path traversal protection
+environment validation
+consistent error objects
+no secrets hardcoded
+.env.example
+TESTING REQUIREMENTS
+You must write meaningful tests.
+Python tests
+ALS parser fixture tests
+unknown node preservation tests
+malformed ALS handling tests
+section inference tests
+role inference tests
+completion logic tests
+TypeScript tests
+API route tests
+schema validation tests
+job lifecycle tests
+frontend rendering/state tests for key flows
+Integration tests
+upload -> parse -> analyze -> generate -> export
+malformed file recovery
+partial parse with warnings
+artifact availability flow
+Fixtures required
+Create fixtures for:
+minimal ALS
+multi-track techno project
+grouped drum bus project
+returns-heavy project
+malformed project
+project with unknown XML nodes
+DOCUMENTATION REQUIREMENTS
+Write real docs:
+README.md
+local setup
+Replit setup
+architecture
+parser design
+AI completion engine design
+testing strategy
+security notes
+known limitations
+roadmap
+The docs must be strong enough that a serious engineer could continue the project.
+LOCAL RUN COMPATIBILITY REQUIREMENTS
+This is critical.
+The project must run:
+in Replit
+locally on a developer machine
+Provide:
+exact commands
+env vars
+migration steps
+how to start frontend/backend/services
+one-command dev mode if possible
+Docker Compose if practical
+fallback non-Docker instructions
+UX QUALITY BAR
+The UI should feel:
+dark
+clean
+modern
+professional
+slightly DAW-inspired
+not cartoonish
+not a clone
+useful for real inspection
+The timeline must not look like a fake rectangle demo.
+IMPLEMENTATION PRIORITY ORDER
+P0 — mandatory
+monorepo or structured repo
+frontend app
+backend app
+parser service
+AI/completion service
+storage layer
+DB schema
+upload flow
+parse flow
+analysis flow
+completion flow
+export flow
+timeline view
+tests
+docs
+Replit + local run support
+P1 — strongly preferred
+more advanced timeline interactions
+automation lane overlays
+richer completion editing
+artifact history
+diagnostics UI
+local AI provider abstraction
+P2 — only after P0/P1
+multi-user auth provider integration
+object storage backend
+external LLM/music model plugin architecture
+billing
+collaboration
+OUTPUT INSTRUCTIONS
+You must work in implementation mode.
+Required work sequence
+choose final architecture
+create full repo structure
+implement backend
+implement parser service
+implement AI/completion service
+implement shared contracts
+implement frontend
+wire upload/parse/analyze/generate/export flow
+add tests
+add docs
+add local + Replit run instructions
+do a hardening pass
+Important
+Do not stop after architecture.
+Do not stop after scaffold.
+Do not ask whether to continue.
+Continue building until a coherent, runnable system exists.
+HARDENING RULES
+When you think you are “done,” do not stop.
+Perform a hardening pass focused on:
+parser accuracy
+grouped track extraction
+automation extraction
+version tolerance
+section inference quality
+completion plan quality
+timeline UX polish
+diagnostics clarity
+error handling
+test coverage
+startup reliability in Replit
+local run reliability
+REPLIT EXECUTION EXPECTATIONS
+Because you are Replit Agent, you must:
+actually create files
+actually wire scripts
+actually make the app runnable
+avoid describing file contents without creating them
+use sane defaults that work in Replit
+keep local compatibility
+prefer robust working implementations over overengineered fragile ones
+FINAL QUALITY BAR
+This must feel like:
+a real startup-grade product foundation
+a credible v1
+advanced and technically serious
+extensible
+testable
+locally runnable
+not fake AI theater
+not shallow UI theater
+not just XML parsing notes
+not just architecture slides in code form
+Build the closest thing possible to a real 90% production-grade v1.
+Start now.
