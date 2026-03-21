@@ -1,0 +1,51 @@
+Set it up like this:
+API Server workflow
+Keep API server on its own internal port, for example 3001
+Command should explicitly bind to 0.0.0.0:3001
+If this workflow is only a backend, do not let it own the default preview port
+Artifact / frontend workflow
+Restore the artifact workflow to the actual frontend dev command
+Make the frontend bind to the preview port you want, ideally 8080 if that is the one meant to drive the main web preview
+Bind to 0.0.0.0, not localhost, unless you explicitly expose localhost ports in config. Replit does not automatically expose localhost-opened ports unless configured to do so.
+The clean layout
+Use one visible app port and one backend port:
+Frontend / artifact preview: 8080
+API server: 3001
+That avoids the race completely. Replit supports additional exposed ports, and the Preview pane can be switched to the right one if needed.
+What to check in Replit
+Open Networking / Ports
+Confirm your frontend process is really listening on 8080
+Confirm your API process is really listening on 3001
+In Preview, click the domain and select the correct exposed port
+If your frontend is running on localhost, either:
+change it to 0.0.0.0, or
+enable localhost exposure for that port in config/settings.
+The exact failure pattern you described
+DIDNT_OPEN_A_PORT fits this pattern exactly:
+workflow starts
+command runs
+process either binds the wrong port, binds localhost only, or exits before opening the expected port
+preview never sees the port open. Replit explicitly notes that when config says one port but the program listens on another, it appears as if no traffic is getting through.
+Practical config target
+Your desired end state should be:
+artifact workflow → standalone frontend preview on 8080
+API Server workflow → backend only on 3001
+preview pane pointed to the frontend port, not the API port
+Example intent:
+# frontend preview owner
+[[ports]]
+internalPort = 8080
+externalPort = 80
+
+# backend api
+[[ports]]
+internalPort = 3001
+externalPort = 3001
+And your commands should behave like:
+# frontend
+HOST=0.0.0.0 PORT=8080 <frontend-dev-command>
+
+# api
+HOST=0.0.0.0 PORT=3001 <api-dev-command>
+One more thing
+Replit has had occasional preview incidents and timeouts in the past, including preview-pane loading issues and app-preview errors, so if your ports are correct and it is still blank, open the preview in a new tab and check Replit Status before burning hours on a fake bug hunt

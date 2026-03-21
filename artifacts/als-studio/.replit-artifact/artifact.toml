@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/" ]
-localPort = 21231
+localPort = 8080
 
 [services.development]
 run = "pnpm --filter @workspace/als-studio run dev"
@@ -27,5 +27,5 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "21231"
+PORT = "8080"
 BASE_PATH = "/"

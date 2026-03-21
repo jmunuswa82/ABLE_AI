@@ -39,8 +39,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8080
+args = "echo 'API managed by artifact workflow (port 3001)' && sleep infinity"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -51,8 +50,8 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=21231 BASE_PATH=/ pnpm --filter @workspace/als-studio run dev"
-waitForPort = 21231
+args = "PORT=9000 BASE_PATH=/ pnpm --filter @workspace/als-studio run dev"
+waitForPort = 9000
 
 [agent]
 stack = "PNPM_WORKSPACE"
