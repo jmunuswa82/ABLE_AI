@@ -26,6 +26,7 @@ from .models import (
     AutomationLane, AutomationPoint, MidiNote, ArrangementSection,
     SidechainLink,
 )
+from .role_inference import apply_role_inference as _infer_roles
 
 logger = logging.getLogger(__name__)
 
@@ -287,6 +288,12 @@ class ALSParser:
         master_el = liveset.find("MasterTrack")
         if master_el is not None:
             graph.master_track = self._extract_track(master_el, "master", 0)
+
+        # Infer roles before sidechain detection so kick_tracks/bass_tracks are available
+        try:
+            _infer_roles(list(graph.all_tracks))
+        except Exception as e:
+            self.warnings.append(f"Role inference warning: {e}")
 
         graph.sidechain_links = self._detect_sidechain_links(graph)
         graph.warnings = self.warnings

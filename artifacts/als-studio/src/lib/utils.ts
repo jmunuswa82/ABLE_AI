@@ -22,6 +22,75 @@ export function formatBars(beats: number): string {
   return `${Math.round(beatsToBar(beats))} bars`;
 }
 
+/**
+ * Canonical beat → pixel conversion.
+ * All timeline geometry must go through this function.
+ * @param beat - position in beats (quarter notes)
+ * @param pixelsPerBar - zoom level in px/bar (1 bar = 4 beats)
+ * @returns pixel offset from timeline origin
+ */
+export function beatsToPixel(beat: number, pixelsPerBar: number): number {
+  return (beat / 4) * pixelsPerBar;
+}
+
+/**
+ * Pixel → beat conversion (inverse of beatsToPixel).
+ */
+export function pixelToBeats(px: number, pixelsPerBar: number): number {
+  return (px / pixelsPerBar) * 4;
+}
+
+/**
+ * Snap a beat value to the nearest bar boundary (multiple of 4 beats).
+ */
+export function snapToBar(beat: number): number {
+  return Math.round(beat / 4) * 4;
+}
+
+/**
+ * Return the bar number (1-indexed) for a given beat position.
+ */
+export function beatToBarNumber(beat: number): number {
+  return Math.floor(beat / 4) + 1;
+}
+
+/**
+ * Format a beat range as a bar label, e.g. "Bars 5–12".
+ */
+export function formatBarRange(startBeat: number, endBeat: number): string {
+  const s = beatToBarNumber(startBeat);
+  const e = beatToBarNumber(endBeat);
+  if (s === e) return `Bar ${s}`;
+  return `Bars ${s}–${e}`;
+}
+
+/**
+ * Compute a set of bar ruler tick marks for the given beat range and pixel width.
+ * Returns every Nth bar so labels don't crowd.
+ */
+export function computeBarTicks(
+  startBeat: number,
+  endBeat: number,
+  pixelsPerBar: number,
+  minLabelSpacingPx = 48,
+): Array<{ beat: number; bar: number; px: number; label: boolean }> {
+  const totalBars = Math.ceil((endBeat - startBeat) / 4);
+  // How often to show a label (every 1, 2, 4, 8, 16 bars)
+  const step = [1, 2, 4, 8, 16].find(n => n * pixelsPerBar >= minLabelSpacingPx) ?? 16;
+
+  const ticks = [];
+  for (let bar = 0; bar <= totalBars; bar++) {
+    const beat = startBeat + bar * 4;
+    ticks.push({
+      beat,
+      bar: beatToBarNumber(beat),
+      px: beatsToPixel(beat - startBeat, pixelsPerBar),
+      label: bar % step === 0,
+    });
+  }
+  return ticks;
+}
+
 export function formatScore(score: number | null | undefined): string {
   if (score == null) return "—";
   return `${Math.round(score * 100)}%`;
