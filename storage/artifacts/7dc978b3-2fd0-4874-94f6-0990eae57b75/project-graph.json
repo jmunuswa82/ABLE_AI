@@ -1,0 +1,35 @@
+{
+  "projectId": "7dc978b3-2fd0-4874-94f6-0990eae57b75",
+  "tempo": 120,
+  "timeSignatureNumerator": 4,
+  "timeSignatureDenominator": 4,
+  "arrangementLength": 0,
+  "tracks": [],
+  "returnTracks": [],
+  "masterTrackPresent": false,
+  "sections": [
+    {
+      "id": "7b481553-5074-4c97-8abd-dd09372292ff",
+      "label": "Intro",
+      "startBar": 0,
+      "endBar": 128,
+      "energyScore": 0,
+      "densityScore": 0,
+      "dominantRoles": [],
+      "missingElements": [],
+      "transitionQuality": 0.5
+    }
+  ],
+  "parseQuality": 0,
+  "warnings": [
+    "Parse failed: Failed to decompress .als file: Compressed file ended before the end-of-stream marker was reached"
+  ],
+  "styleTags": [
+    "minimal techno",
+    "atmospheric techno"
+  ],
+  "totalClips": 0,
+  "totalDevices": 0,
+  "returnTrackCount": 0,
+  "locators": []
+}

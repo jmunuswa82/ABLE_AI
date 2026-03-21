@@ -43,11 +43,9 @@ export default function Dashboard() {
     });
 
     if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
       await uploadFile.mutateAsync({
         id: project.id,
-        data: formData as any,
+        data: { file },
       });
     }
 

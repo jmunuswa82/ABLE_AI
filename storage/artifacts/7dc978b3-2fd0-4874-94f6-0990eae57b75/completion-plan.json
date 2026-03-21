@@ -1,0 +1,153 @@
+{
+  "projectId": "7dc978b3-2fd0-4874-94f6-0990eae57b75",
+  "summary": "Analyzed a minimal techno, atmospheric techno project with 0 tracks, 0 clips, at 120 BPM. Found 5 potential improvements. Generated 9 completion actions (1 critical, 4 high priority).",
+  "confidence": 0.6,
+  "completionScore": 0.57,
+  "styleTags": [
+    "minimal techno",
+    "atmospheric techno"
+  ],
+  "actions": [
+    {
+      "id": "a2f7dad2-06c8-4fb6-8e63-2ba283fcda77",
+      "category": "drums",
+      "title": "Add or Identify Kick Track",
+      "description": "No kick drum track was confidently detected. Add a kick MIDI/audio track with a 4-on-the-floor pattern. Consider layering a sub punch (50-80Hz) with a click transient.",
+      "affectedTracks": [
+        "New kick track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.88,
+      "expectedImpact": "critical",
+      "rationale": "A kick is the rhythmic foundation of all techno music.",
+      "priority": "critical"
+    },
+    {
+      "id": "b0bcca24-316e-4572-a984-f63aeab98d2c",
+      "category": "structure",
+      "title": "Add Outro / Exit Section",
+      "description": "No outro section detected. Add an 8-16 bar outro that gradually strips back elements, leaving only kick and a fading element to allow DJ mixing out.",
+      "affectedTracks": [
+        "All tracks"
+      ],
+      "affectedBars": "Bar 115 to 128",
+      "confidence": 0.85,
+      "expectedImpact": "high",
+      "rationale": "Tracks without outros are difficult to mix out gracefully in a live DJ context.",
+      "priority": "high"
+    },
+    {
+      "id": "0d6c1669-c026-4220-b592-054357a83676",
+      "category": "structure",
+      "title": "Add Breakdown Section",
+      "description": "Insert a 16-32 bar breakdown that removes the kick and bass, keeping only atmospheric elements. This creates contrast and anticipation before the drop.",
+      "affectedTracks": [
+        "Kick",
+        "Bass",
+        "Texture/Drone tracks"
+      ],
+      "affectedBars": "Midpoint of arrangement",
+      "confidence": 0.75,
+      "expectedImpact": "high",
+      "rationale": "Breakdowns are essential for energy management in a DJ set context.",
+      "priority": "high"
+    },
+    {
+      "id": "16ebe2a3-0b75-4bbf-ae6b-0f7a281e348c",
+      "category": "bass",
+      "title": "Add Bass / Sub Element",
+      "description": "No bass track detected. Add a sub bass (30-80Hz) that locks to the kick pattern or runs a continuous groove. Consider a single-note bass with filter automation for movement.",
+      "affectedTracks": [
+        "New bass track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.9,
+      "expectedImpact": "high",
+      "rationale": "Sub bass provides low-end weight and energy on large sound systems.",
+      "priority": "high"
+    },
+    {
+      "id": "2aab9b4b-010a-4746-ab23-92180460a8ea",
+      "category": "ending",
+      "title": "Build Outro Strip-Back Sequence",
+      "description": "Create a 16-bar outro where elements drop out gradually: first remove leads and synths (bar 1-4), then percussion (bar 5-8), leaving kick+bass to bar 12, then only kick to bar 16. Fade kick with volume automation.",
+      "affectedTracks": [
+        "All tracks"
+      ],
+      "affectedBars": "Last 16 bars",
+      "confidence": 0.88,
+      "expectedImpact": "high",
+      "rationale": "A proper outro is essential for live DJ mixing — allows smooth transition to the next track.",
+      "priority": "high"
+    },
+    {
+      "id": "63bcfb17-6efc-4df2-bd7a-51eaa08dc90c",
+      "category": "drums",
+      "title": "Add Hi-Hat Layer",
+      "description": "No hi-hat track detected. Add a closed hi-hat on 8th or 16th notes and layer with an open hat on off-beats. Consider a ride for the groove section.",
+      "affectedTracks": [
+        "New hi-hat track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Hi-hats provide rhythmic density and forward momentum.",
+      "priority": "medium"
+    },
+    {
+      "id": "f1580d9e-7868-48e8-ac32-d0784b638dd6",
+      "category": "drums",
+      "title": "Strengthen Percussion Layer",
+      "description": "Add 1-2 additional percussion tracks (shakers, congas, industrial percussion, or noise bursts) to create rhythmic complexity. Layer at 1/16th or 1/32nd note offsets from the main groove.",
+      "affectedTracks": [
+        "New percussion tracks"
+      ],
+      "affectedBars": null,
+      "confidence": 0.72,
+      "expectedImpact": "medium",
+      "rationale": "Techno benefits from layered percussion for hypnotic groove depth.",
+      "priority": "medium"
+    },
+    {
+      "id": "673e5252-f495-4e0d-a481-c8b6312d9243",
+      "category": "automation",
+      "title": "Add Resonance Automation",
+      "description": "Automate filter resonance on basslines or synth tracks through peak sections. A rising resonance (Q) from 0.5 to 2.0 creates tension and urgency.",
+      "affectedTracks": [
+        "Bass tracks",
+        "Lead synth tracks"
+      ],
+      "affectedBars": null,
+      "confidence": 0.72,
+      "expectedImpact": "medium",
+      "rationale": "Resonance automation adds harmonic tension absent from purely gain-based dynamics.",
+      "priority": "low"
+    },
+    {
+      "id": "0403d853-b87a-4352-bc50-a21ba526bf45",
+      "category": "texture",
+      "title": "Add Atmospheric Drone/Texture",
+      "description": "Add a long, sustained drone or textural layer that runs through breakdown and intro sections. A slowly evolving pad or resampled noise with high reverb works well for dark techno atmospheres.",
+      "affectedTracks": [
+        "New texture/drone track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.73,
+      "expectedImpact": "medium",
+      "rationale": "Textural layers provide depth and atmosphere, especially in breakdowns.",
+      "priority": "low"
+    }
+  ],
+  "weaknesses": [
+    "No kick drum track detected — low-end foundation absent or unnamed",
+    "No bass/sub track detected — low-end continuity may be weak",
+    "No outro section detected — arrangement may end abruptly at bar 0",
+    "Last 8 bars appear to have no active tracks — ending may be missing or unfinished",
+    "No return tracks detected — reverb and delay sends may be absent"
+  ],
+  "warnings": [
+    "Parse failed: Failed to decompress .als file: Compressed file ended before the end-of-stream marker was reached"
+  ],
+  "rationale": "This minimal techno project has been analyzed using rule-based music analysis. Completion suggestions are based on: arrangement structure analysis, role inference (track type detection without relying on names), section energy/density profiling, automation density analysis, and genre-specific production conventions for minimal techno. All suggestions include confidence scores based on parse quality (0%) and detection certainty.",
+  "generatedAt": "2026-03-21T09:54:04.910374+00:00"
+}
