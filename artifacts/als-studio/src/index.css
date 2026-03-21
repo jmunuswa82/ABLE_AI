@@ -1,48 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
-@import "tw-animate-css";
-@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --color-border: var(--amber-border);
+  --color-input: var(--bg-elevated);
+  --color-ring: var(--amber);
 
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-card-border: var(--card-border);
+  --color-card: var(--bg-card);
+  --color-card-foreground: var(--text-primary);
+  --color-card-border: var(--amber-border);
 
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover-border: var(--popover-border);
+  --color-popover: var(--bg-panel);
+  --color-popover-foreground: var(--text-primary);
+  --color-popover-border: var(--amber-border);
 
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--amber);
+  --color-primary-foreground: #271900;
   
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--amber-light);
+  --color-secondary-foreground: #271900;
 
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--text-muted);
+  --color-muted-foreground: var(--text-secondary);
 
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--amber);
+  --color-accent-foreground: #271900;
 
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
 
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar: var(--bg-card);
+  --color-sidebar-foreground: var(--text-muted);
+  --color-sidebar-border: var(--amber-border);
+  --color-sidebar-accent: var(--bg-panel);
 
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-display: 'Outfit', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Manrope', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-label: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Liberation Mono', 'Courier New', monospace;
 
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
@@ -52,74 +51,47 @@
 }
 
 :root {
-  /* Futuristic Premium Dark Theme */
-  --background: #0a0b0d; /* Obsidian */
-  --foreground: #e2e4e9;
+  --bg-base: #121318;
+  --bg-panel: #1a1b20;
+  --bg-card: #0d0e13;
+  --bg-elevated: #1e1f25;
+  --bg-overlay: #292a2f;
   
-  --card: #111318; /* Deep Graphite */
-  --card-foreground: #e2e4e9;
-  --card-border: rgba(255, 255, 255, 0.06);
-  
-  --popover: #111318;
-  --popover-foreground: #e2e4e9;
-  --popover-border: rgba(255, 255, 255, 0.08);
-  
-  --primary: #8b5cf6; /* Electric Violet */
-  --primary-foreground: #ffffff;
-  
-  --secondary: #3b82f6; /* Spectral Blue */
-  --secondary-foreground: #ffffff;
-  
-  --muted: #1c2130;
-  --muted-foreground: #8b92a5;
-  
-  --accent: #d946ef; /* Cyber Magenta */
-  --accent-foreground: #ffffff;
-  
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.04);
-  --ring: #8b5cf6;
-  
-  --sidebar: #070809;
-  --sidebar-foreground: #a1a7b8;
-  --sidebar-border: rgba(255, 255, 255, 0.04);
-  --sidebar-accent: rgba(255, 255, 255, 0.03);
-  
-  /* Special Tokens */
-  --glow-violet: rgba(139, 92, 246, 0.15);
-  --glow-blue: rgba(59, 130, 246, 0.15);
-  --surface-glass: rgba(255, 255, 255, 0.02);
-  --border-glow: rgba(139, 92, 246, 0.3);
-}
+  --amber: #ffb703;
+  --amber-light: #ffdba0;
+  --amber-glow: rgba(255, 183, 3, 0.15);
+  --amber-border: rgba(81, 69, 50, 0.1);
+  --amber-border-strong: rgba(81, 69, 50, 0.3);
+  --amber-muted: rgba(255, 183, 3, 0.6);
 
-.dark {
-  color-scheme: dark;
+  --text-primary: #e3e2e9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-footer: #475569;
+  --text-mono-amber: #ffdba0;
+  --text-code: #cbd5e1;
+
+  --success: #22c55e;
+  --warning: #ffb703;
+  --danger: #ef4444;
+  --pending: #94a3b8;
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  
   html {
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--bg-base);
+    color: var(--text-primary);
     @apply antialiased selection:bg-primary/30 selection:text-white;
   }
 
   body {
     @apply font-sans;
-    background: radial-gradient(circle at 50% -20%, var(--glow-violet), transparent 60%),
-                var(--background);
-    background-attachment: fixed;
+    background-color: var(--bg-base);
     min-height: 100vh;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-bold tracking-tight;
+    @apply font-display font-bold tracking-tight text-[var(--text-primary)];
   }
 
   ::-webkit-scrollbar {
@@ -132,42 +104,55 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 183, 3, 0.2);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 183, 3, 0.4);
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--card-border)] shadow-2xl;
+    @apply bg-[var(--bg-panel)] border border-[var(--amber-border)] rounded-lg;
   }
   
+  .glass-card {
+    @apply bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg;
+  }
+
   .glow-border-hover {
-    @apply transition-colors duration-300 hover:border-[var(--border-glow)];
+    @apply transition-all duration-300 hover:border-primary hover:shadow-[0_0_15px_rgba(255,183,3,0.15)];
   }
 
   .text-glow {
-    text-shadow: 0 0 20px var(--glow-violet);
+    text-shadow: 0 0 15px var(--amber-glow);
   }
 
-  /* DAW-specific utilities */
   .clip-block {
-    @apply rounded-[3px] border border-white/10 text-xs font-mono overflow-hidden select-none cursor-pointer;
+    @apply rounded-[3px] border border-white/10 text-[10px] font-mono overflow-hidden select-none cursor-pointer;
     box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
   }
 
   .clip-block-selected {
     @apply ring-2 ring-primary border-transparent;
-    box-shadow: 0 0 15px var(--glow-violet), inset 0 1px 1px rgba(255,255,255,0.2);
+    box-shadow: 0 0 15px var(--amber-glow), inset 0 1px 1px rgba(255,255,255,0.2);
   }
 
   .bg-grid-pattern {
-    background-image: linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(to right, rgba(255,183,3,0.02) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255,183,3,0.02) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+  
+  .btn-primary {
+    background: linear-gradient(135deg, var(--amber-light) 0%, var(--amber) 100%);
+    color: #271900;
+    @apply font-display font-bold uppercase tracking-wide hover:shadow-[0_0_20px_rgba(255,183,3,0.3)] hover:scale-[1.01] transition-all;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent border border-primary text-primary hover:bg-primary/10 transition-all font-display font-bold uppercase tracking-wide;
   }
 }

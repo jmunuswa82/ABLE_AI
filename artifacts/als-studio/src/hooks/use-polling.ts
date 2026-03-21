@@ -1,15 +1,23 @@
 import { useGetProject } from "@workspace/api-client-react";
 
-export function useProjectPolling(id: string) {
-  const { data: projectDetail, isLoading } = useGetProject(id, {
+export function useProjectPolling(id: string | null) {
+  const query = useGetProject(id ?? "", {
     query: {
+      enabled: !!id,
       refetchInterval: (query) => {
-        const p = query.state.data;
-        const isRunning = p && ["parsing", "queued", "analyzing", "generating", "exporting"].includes(p.status);
-        return isRunning ? 3000 : false;
-      },
-    },
+        const state = query.state.data?.status;
+        if (["parsing", "analyzing", "generating", "exporting", "queued"].includes(state ?? "")) {
+          return 2000;
+        }
+        return false;
+      }
+    }
   });
 
-  return { projectDetail, isLoading };
+  return {
+    projectDetail: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error
+  };
 }

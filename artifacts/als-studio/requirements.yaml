@@ -1,16 +1,14 @@
 packages:
-  "framer-motion": "For premium cinematic animations and layout transitions"
-  "clsx": "Utility for constructing className strings conditionally"
-  "tailwind-merge": "Utility to merge tailwind classes without style conflicts"
-  "lucide-react": "Beautiful consistent icons for the UI"
-  "date-fns": "For elegant date formatting"
+  "framer-motion": "Animations for layout and interactions"
+  "clsx": "Class name merging"
+  "tailwind-merge": "Class name merging"
+  "lucide-react": "Icons"
+  "@tanstack/react-query": "Data fetching"
+  "wouter": "Routing"
 
-images:
-  - path: "artifacts/als-studio/public/images/daw-bg.png"
-    description: "Abstract futuristic dark mesh background, deep graphite and obsidian, subtle electric violet light leaks, cinematic premium DAW aesthetic"
-    aspect_ratio: "16:9"
+images: []
 
 notes:
-  - "Complete premium cinematic redesign with framer-motion"
-  - "Dark mode forced, utilizing obsidian blacks and electric violet accents"
-  - "Using provided @workspace/api-client-react hooks"
+  - "Figma design implementation with Space Grotesk, Manrope, Inter fonts"
+  - "Amber/Golden accent theme #ffb703"
+  - "Footer status bar across all pages"

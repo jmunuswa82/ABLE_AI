@@ -20,7 +20,7 @@ export default function ProjectDetail() {
 
   if (!project) {
     return (
-      <div className="p-8 text-center text-muted-foreground h-full flex items-center justify-center">
+      <div className="p-8 text-center text-[var(--text-muted)] h-full flex items-center justify-center">
         <div className="glass-panel p-8 rounded-2xl">Project anomaly: Not found in databanks.</div>
       </div>
     );
@@ -32,27 +32,28 @@ export default function ProjectDetail() {
 
   return (
     <motion.div 
-      className="p-8 max-w-6xl mx-auto space-y-8 w-full"
+      className="p-8 max-w-6xl mx-auto space-y-8 w-full mb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
     >
       {/* Hero Header */}
-      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-3xl p-8 relative overflow-hidden">
+      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div>
+            <div className="text-[10px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] mb-2">Structural Overview</div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-display font-bold text-foreground">{project.name}</h1>
-              <div className={cn("px-2.5 py-1 rounded-full border text-[10px] font-mono uppercase tracking-widest font-semibold flex items-center gap-2 bg-background/50 backdrop-blur", statusColor.replace('text-', 'border-').replace('400', '500/30'), statusColor)}>
+              <h1 className="text-[32px] font-display font-bold text-white tracking-[-1px]">{project.name}</h1>
+              <div className={cn("px-2.5 py-1 rounded bg-[var(--bg-elevated)] border text-[9px] font-label uppercase tracking-widest font-semibold flex items-center gap-2", statusColor.replace('text-', 'border-').replace('400', '500/30'), statusColor)}>
                 {running && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
                 {getStatusLabel(project.status)}
               </div>
             </div>
             {project.originalFileName && (
-              <p className="text-sm font-mono text-muted-foreground flex items-center gap-2">
-                <Layers className="w-4 h-4" /> {project.originalFileName}
+              <p className="text-[11px] font-mono text-[var(--text-muted)] flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5" /> {project.originalFileName}
               </p>
             )}
           </div>
@@ -61,26 +62,26 @@ export default function ProjectDetail() {
             <div className="flex gap-3">
               <button
                 onClick={() => navigate(`/projects/${id}/timeline`)}
-                className="px-5 py-2.5 bg-card border border-primary/20 text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary hover:border-primary transition-all shadow-lg flex items-center gap-2"
+                className="btn-ghost px-6 py-3 rounded-md flex items-center gap-2"
               >
-                <Waves className="w-4 h-4" /> Timeline
+                <Waves className="w-4 h-4" /> Arrangement Matrix
               </button>
               <button
                 onClick={() => navigate(`/projects/${id}/plan`)}
-                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center gap-2"
+                className="btn-primary px-6 py-3 rounded-md flex items-center gap-2"
               >
-                Completion Plan <ArrowRight className="w-4 h-4" />
+                Neural Strategy <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           )}
         </div>
 
         {/* Stats Strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-border/50">
-          <StatBox label="Completion Score" value={formatScore(project.completionScore)} valueClass={project.completionScore > 0.7 ? "text-emerald-400" : "text-primary"} />
-          <StatBox label="Tempo" value={graph ? `${graph.tempo} BPM` : "—"} icon={<Activity className="w-3 h-3 text-muted-foreground" />} />
-          <StatBox label="Arrangement" value={graph ? formatBars(Math.max(graph.arrangementLength ?? 0, 0)) : "—"} icon={<Clock className="w-3 h-3 text-muted-foreground" />} />
-          <StatBox label="Tracks" value={graph ? String(graph.tracks?.length ?? 0) : "—"} icon={<Layers className="w-3 h-3 text-muted-foreground" />} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-[var(--amber-border)]">
+          <StatBox label="Target Index" value={formatScore(project.completionScore)} valueClass={project.completionScore > 0.7 ? "text-emerald-400" : "text-primary"} />
+          <StatBox label="Tempo Sync" value={graph ? `${graph.tempo} BPM` : "—"} icon={<Activity className="w-3 h-3 text-[var(--text-muted)]" />} />
+          <StatBox label="Structure Array" value={graph ? formatBars(Math.max(graph.arrangementLength ?? 0, 0)) : "—"} icon={<Clock className="w-3 h-3 text-[var(--text-muted)]" />} />
+          <StatBox label="Track Vectors" value={graph ? String(graph.tracks?.length ?? 0) : "—"} icon={<Layers className="w-3 h-3 text-[var(--text-muted)]" />} />
         </div>
       </motion.div>
 
@@ -89,12 +90,12 @@ export default function ProjectDetail() {
           {/* Tracks List */}
           {graph?.tracks && graph.tracks.length > 0 && (
             <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-border/50 bg-muted/20">
-                <h2 className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">
-                  Track Analysis ({graph.tracks.length})
+              <div className="px-6 py-4 border-b border-[var(--amber-border)] bg-[var(--bg-card)]">
+                <h2 className="text-[10px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] font-semibold">
+                  Track Topology ({graph.tracks.length})
                 </h2>
               </div>
-              <div className="divide-y divide-border/50">
+              <div className="divide-y divide-[var(--amber-border)]">
                 {graph.tracks.map((track: any) => (
                   <TrackRow key={track.id} track={track} />
                 ))}
@@ -107,10 +108,10 @@ export default function ProjectDetail() {
           {/* Style Tags */}
           {project.styleTags?.length > 0 && (
             <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-6">
-              <h2 className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold mb-4">Detected Style</h2>
+              <h2 className="text-[10px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] font-semibold mb-4">Aesthetic Model</h2>
               <div className="flex flex-wrap gap-2">
                 {project.styleTags.map((tag: string) => (
-                  <span key={tag} className="px-3 py-1.5 bg-primary/10 text-primary-foreground border border-primary/20 rounded-lg text-xs font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]">
+                  <span key={tag} className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded text-[10px] font-mono shadow-[0_0_10px_rgba(255,183,3,0.1)]">
                     {tag}
                   </span>
                 ))}
@@ -121,24 +122,24 @@ export default function ProjectDetail() {
           {/* Job History */}
           {project.jobs?.length > 0 && (
             <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-border/50 bg-muted/20">
-                <h2 className="text-xs font-mono text-muted-foreground uppercase tracking-widest font-semibold">Operation Log</h2>
+              <div className="px-6 py-4 border-b border-[var(--amber-border)] bg-[var(--bg-card)]">
+                <h2 className="text-[10px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] font-semibold">Operation Log</h2>
               </div>
-              <div className="divide-y divide-border/50">
+              <div className="divide-y divide-[var(--amber-border)]">
                 {project.jobs.map((job: any) => (
-                  <div key={job.id} className="px-6 py-4 text-sm bg-background/30">
+                  <div key={job.id} className="px-6 py-4 text-sm bg-[var(--bg-panel)]">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-xs text-foreground uppercase tracking-wider">{job.type}</span>
-                      <span className={cn("text-[10px] font-mono font-bold uppercase", getStatusColor(job.state))}>
+                      <span className="font-mono text-[11px] text-white uppercase tracking-wider">{job.type}</span>
+                      <span className={cn("text-[9px] font-label font-bold uppercase", getStatusColor(job.state))}>
                         {getStatusLabel(job.state)}
                       </span>
                     </div>
-                    {job.message && <p className="text-xs text-muted-foreground">{job.message}</p>}
-                    {job.error && <p className="text-xs text-destructive mt-1 bg-destructive/10 p-2 rounded">{job.error}</p>}
+                    {job.message && <p className="text-[12px] font-sans text-[var(--text-secondary)]">{job.message}</p>}
+                    {job.error && <p className="text-[11px] text-red-400 mt-2 bg-red-400/10 p-2 rounded border border-red-400/20">{job.error}</p>}
                     {job.progress != null && isJobRunning(job.state) && (
-                      <div className="mt-3 h-1 bg-muted rounded-full overflow-hidden">
+                      <div className="mt-3 h-1 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                         <motion.div 
-                          className="h-full bg-primary"
+                          className="h-full bg-primary shadow-[0_0_8px_var(--amber)]"
                           initial={{ width: 0 }}
                           animate={{ width: `${job.progress}%` }}
                           transition={{ ease: "linear", duration: 0.5 }}
@@ -153,18 +154,18 @@ export default function ProjectDetail() {
 
           {/* Warnings */}
           {project.warnings?.length > 0 && (
-            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-6 border-amber-500/20 bg-amber-500/5">
-              <h2 className="text-xs font-mono text-amber-500/80 uppercase tracking-widest font-semibold mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" /> Parser Warnings
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-6 border-red-500/20 bg-red-500/5">
+              <h2 className="text-[10px] font-label text-red-400/80 uppercase tracking-[1.8px] font-semibold mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5" /> Integrity Warnings
               </h2>
               <div className="space-y-2">
                 {project.warnings.slice(0, 5).map((w: string, i: number) => (
-                  <p key={i} className="text-[11px] text-amber-500/70 font-mono leading-relaxed">
+                  <p key={i} className="text-[11px] text-red-400/70 font-mono leading-relaxed">
                     {w}
                   </p>
                 ))}
                 {project.warnings.length > 5 && (
-                  <p className="text-[10px] text-amber-500/50 uppercase font-bold mt-2">
+                  <p className="text-[9px] font-label text-red-400/50 uppercase font-bold mt-3">
                     +{project.warnings.length - 5} additional warnings hidden
                   </p>
                 )}
@@ -177,14 +178,14 @@ export default function ProjectDetail() {
   );
 }
 
-function StatBox({ label, value, valueClass = "text-foreground", icon }: any) {
+function StatBox({ label, value, valueClass = "text-white", icon }: any) {
   return (
     <div>
-      <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
+      <div className="flex items-center gap-1.5 mb-1.5 text-[var(--text-muted)]">
         {icon}
-        <span className="text-[10px] font-mono uppercase tracking-widest">{label}</span>
+        <span className="text-[9px] font-label uppercase tracking-[1.8px]">{label}</span>
       </div>
-      <p className={cn("text-2xl font-display font-bold", valueClass)}>{value}</p>
+      <p className={cn("text-[28px] font-display font-bold", valueClass)}>{value}</p>
     </div>
   );
 }
@@ -192,21 +193,21 @@ function StatBox({ label, value, valueClass = "text-foreground", icon }: any) {
 function TrackRow({ track }: { track: any }) {
   const roleColor = getRoleColor(track.inferredRole);
   return (
-    <div className="px-6 py-4 flex items-center gap-4 text-sm hover:bg-muted/30 transition-colors group">
+    <div className="px-6 py-4 flex items-center gap-4 text-sm hover:bg-[var(--bg-elevated)] transition-colors group">
       <div
-        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-lg"
+        className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-lg"
         style={{ backgroundColor: roleColor, boxShadow: `0 0 10px ${roleColor}80` }}
       />
-      <span className="text-foreground font-medium w-48 truncate group-hover:text-primary transition-colors">{track.name}</span>
+      <span className="text-white font-display font-medium w-48 truncate group-hover:text-primary transition-colors">{track.name}</span>
       <div className="w-32 shrink-0">
-        <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded bg-muted text-muted-foreground">
+        <span className="text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded bg-[var(--bg-card)] border border-[var(--amber-border)] text-[var(--text-secondary)]">
           {track.inferredRole}
         </span>
       </div>
-      <span className="text-muted-foreground text-[11px] font-mono w-16 uppercase">{track.type}</span>
-      <div className="flex gap-4 ml-auto text-[11px] text-muted-foreground font-mono">
-        <span className="bg-background/50 px-2 py-1 rounded border border-border/50">{track.clipCount} clips</span>
-        <span className="bg-background/50 px-2 py-1 rounded border border-border/50">{track.deviceCount} fx</span>
+      <span className="text-[var(--text-code)] text-[11px] font-mono w-16 uppercase">{track.type}</span>
+      <div className="flex gap-4 ml-auto text-[11px] text-[var(--amber-light)] font-mono">
+        <span className="bg-[var(--bg-overlay)] px-2 py-1 rounded border border-[var(--amber-border)]">{track.clipCount} clips</span>
+        <span className="bg-[var(--bg-overlay)] px-2 py-1 rounded border border-[var(--amber-border)]">{track.deviceCount} fx</span>
       </div>
     </div>
   );
@@ -215,10 +216,10 @@ function TrackRow({ track }: { track: any }) {
 function PageSkeleton() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 w-full">
-      <div className="h-48 glass-panel rounded-3xl animate-pulse" />
+      <div className="h-48 glass-panel animate-pulse" />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 h-96 glass-panel rounded-2xl animate-pulse" />
-        <div className="h-96 glass-panel rounded-2xl animate-pulse" />
+        <div className="lg:col-span-2 h-96 glass-panel animate-pulse" />
+        <div className="h-96 glass-panel animate-pulse" />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, UploadCloud, FileAudio, ChevronRight, Activity } from "lucide-react";
+import { UploadCloud, FileAudio, Activity, ChevronRight, Lock, Database, Code2 } from "lucide-react";
 import {
   useListProjects,
   useCreateProject,
@@ -16,7 +16,6 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
-  const [showUpload, setShowUpload] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -53,7 +52,6 @@ export default function Dashboard() {
     }
 
     await queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
-    setShowUpload(false);
     setProjectName("");
     setFile(null);
     navigate(`/projects/${project.id}`);
@@ -69,186 +67,228 @@ export default function Dashboard() {
     }
   };
 
+  const activeProjectCount = projects.filter((p: any) => !["failed", "exported"].includes(p.status)).length;
+  const stageUploadActive = true;
+  const stageParsingActive = activeProjectCount > 0;
+
   return (
     <motion.div 
-      className="p-8 max-w-6xl mx-auto w-full"
+      className="p-8 max-w-7xl mx-auto w-full mb-12"
       variants={ANIMATION_VARIANTS.fadeIn}
       initial="initial"
       animate="animate"
     >
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 relative z-10">
-        <div>
+        <div className="max-w-xl">
           <motion.h1 
-            className="text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60 mb-2"
+            className="text-[36px] font-display font-bold text-[var(--text-primary)] mb-4 tracking-[-1.8px]"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            Studio Dashboard
+            Neural <span className="text-primary">Ingestion</span> Hub
           </motion.h1>
           <motion.p 
-            className="text-muted-foreground text-sm max-w-xl"
+            className="text-[var(--text-secondary)] text-[16px] leading-[26px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            Upload an Ableton .als file to unleash AI-driven analysis, intelligent track completion, and cinematic workflow enhancements.
+            Deploy your Ableton Live Sets into our intelligence engine. We decompose your session into multidimensional data points for advanced structural modeling and sidechain optimization.
           </motion.p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowUpload(!showUpload)}
-          className={cn(
-            "px-6 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-lg",
-            showUpload 
-              ? "bg-muted text-foreground hover:bg-muted/80"
-              : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/25 hover:shadow-primary/40"
-          )}
-        >
-          {showUpload ? "Cancel Upload" : <><Plus className="w-4 h-4" /> New Project</>}
-        </motion.button>
       </div>
 
-      <AnimatePresence mode="wait">
-        {/* Upload form */}
-        {showUpload && (
-          <motion.div 
-            variants={ANIMATION_VARIANTS.slideUp}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="mb-12 glass-panel rounded-2xl p-8 relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            
-            <h2 className="text-xl font-display font-semibold mb-6 flex items-center gap-2">
-              <UploadCloud className="w-5 h-5 text-primary" /> Initialize Project
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-              <div>
-                <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider block mb-2">
-                  Project Designation
-                </label>
-                <input
-                  type="text"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="e.g. Cyberpunk Bassline v2"
-                  className="w-full bg-input/50 backdrop-blur-sm border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  required
-                />
+      {/* Main Upload Bento Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+        
+        {/* Central Drop Zone */}
+        <div className="lg:col-span-8 bg-[var(--bg-panel)] border-2 border-dashed border-[var(--amber-border)] rounded-xl relative flex flex-col h-[500px]">
+          {/* Abstract Waveform Background */}
+          <div className="absolute inset-0 flex items-end justify-center gap-1 opacity-[0.15] pointer-events-none pb-[96px] overflow-hidden">
+            {Array.from({ length: 42 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="w-1 bg-[var(--amber-light)] rounded-t-[2px]"
+                animate={{ height: `${20 + Math.random() * 60}%` }}
+                transition={{ duration: 2 + Math.random() * 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+              />
+            ))}
+            <div className="absolute top-1/2 left-0 right-0 h-px bg-[var(--amber-light)] opacity-50" />
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col items-center justify-center p-8 relative z-10 h-full">
+            <div
+              onClick={() => fileRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              className={cn(
+                "w-full max-w-sm flex flex-col items-center text-center cursor-pointer transition-all duration-300 p-8 rounded-2xl",
+                dragOver ? "scale-105" : ""
+              )}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".als"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setFile(f);
+                    if (!projectName) setProjectName(f.name.replace(".als", ""));
+                  }
+                }}
+              />
+
+              <div className="bg-[var(--bg-overlay)] p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] mb-8 transition-transform hover:scale-110">
+                {file ? <FileAudio className="w-8 h-8 text-[var(--amber-light)]" /> : <UploadCloud className="w-8 h-8 text-[var(--amber-light)]" />}
               </div>
 
-              <div>
-                <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider block mb-2">
-                  Ableton Live Set (.als)
-                </label>
-                <div
-                  onClick={() => fileRef.current?.click()}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  className={cn(
-                    "border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-300 relative overflow-hidden group",
-                    dragOver
-                      ? "border-primary bg-primary/10 shadow-[0_0_30px_rgba(139,92,246,0.15)]"
-                      : "border-border hover:border-primary/50 bg-background/50"
-                  )}
-                >
+              {file ? (
+                <>
+                  <h3 className="text-2xl font-display font-bold text-white mb-2">{file.name}</h3>
+                  <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
+                    READY FOR INGESTION • {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-2xl font-display font-bold text-white mb-2">Drop Ableton Live Set</h3>
+                  <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
+                    MAXIMUM FILE SIZE: 500MB (.ALS ONLY)
+                  </p>
+                </>
+              )}
+
+              {file && (
+                <div className="w-full mb-6">
                   <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".als"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) {
-                        setFile(f);
-                        if (!projectName) setProjectName(f.name.replace(".als", ""));
-                      }
-                    }}
+                    type="text"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="Project Designation"
+                    className="w-full bg-[var(--bg-elevated)] border border-[var(--amber-border)] rounded-md px-4 py-3 text-sm text-center text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-mono"
+                    required
+                    onClick={(e) => e.stopPropagation()}
                   />
-                  
-                  <div className="relative z-10 flex flex-col items-center">
-                    <div className={cn("p-4 rounded-full mb-4 transition-colors", file ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary")}>
-                      {file ? <FileAudio className="w-8 h-8" /> : <UploadCloud className="w-8 h-8" />}
-                    </div>
-                    
-                    {file ? (
-                      <div>
-                        <p className="text-sm font-medium text-foreground mb-1">{file.name}</p>
-                        <p className="text-xs font-mono text-muted-foreground">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB · Click to reselect
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-sm font-medium text-foreground mb-1">
-                          Drag & drop your .als file here
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          or click to browse local files (Live 10, 11, 12 supported)
-                        </p>
-                      </div>
-                    )}
-                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowUpload(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createProject.isPending || uploadFile.isPending}
-                  className="px-8 py-2.5 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {createProject.isPending || uploadFile.isPending ? (
-                    <><Activity className="w-4 h-4 animate-spin" /> Initializing...</>
-                  ) : file ? (
-                    "Upload & Analyze"
-                  ) : (
-                    "Create Empty Project"
-                  )}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <button
+                type={file ? "submit" : "button"}
+                disabled={createProject.isPending || uploadFile.isPending}
+                className="btn-primary w-full max-w-[260px] py-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+              >
+                {createProject.isPending || uploadFile.isPending ? (
+                  <><Activity className="w-4 h-4 animate-spin" /> Ingesting...</>
+                ) : file ? (
+                  "Initiate Pipeline"
+                ) : (
+                  "Select From Browser"
+                )}
+              </button>
+            </div>
+          </form>
 
-      {/* Projects grid */}
-      <div className="relative z-10">
+          {/* Flow Line Simulation */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#33343a]">
+            <motion.div 
+              className="absolute top-0 bottom-0 left-0 bg-primary shadow-[0_0_10px_0_var(--amber)]" 
+              initial={{ width: "25%" }}
+              animate={{ width: dragOver || file ? "100%" : "25%" }}
+              transition={{ duration: 0.8 }}
+            />
+          </div>
+        </div>
+
+        {/* Analysis Pipeline Stages */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          <StageCard 
+            step="01" 
+            name="Upload" 
+            desc="Bit-perfect data ingestion with integrity verification for .als binary headers." 
+            active={stageUploadActive} 
+          />
+          <StageCard 
+            step="02" 
+            name="Parsing" 
+            desc="Decompressing XML project structure and mapping track routing topology." 
+            active={stageParsingActive} 
+          />
+          <StageCard 
+            step="03" 
+            name="Structure" 
+            desc="Identifying intro, verse, chorus, and bridge markers via waveform neural patterns." 
+            active={false} 
+          />
+          <StageCard 
+            step="04" 
+            name="Automation" 
+            desc="Extracting filter envelopes, gain riding, and VST parameter curves." 
+            active={false} 
+          />
+        </div>
+
+        {/* Bottom Info Cards */}
+        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+          <InfoCard 
+            icon={<Lock className="w-6 h-6 text-primary" />}
+            title="Secure Vault"
+            subtitle="End-to-end Encrypted"
+            metaLeft="Security Protocol"
+            valLeft="AES-256-GCM"
+            metaRight="Cloud Sync"
+            valRight="AWS STUDIO CLOUD"
+          />
+          <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-6 flex flex-col justify-between">
+            <div className="flex gap-4 items-center mb-6">
+               <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20">
+                 <Database className="w-5 h-5 text-primary" />
+               </div>
+               <div>
+                 <h4 className="font-display font-bold text-base text-white">Neural Engine</h4>
+                 <span className="font-label text-[10px] text-[var(--text-muted)] uppercase">V4.2 Core Intelligence</span>
+               </div>
+            </div>
+            <div className="mb-4">
+               <div className="flex items-center gap-2 mb-2">
+                 <div className="flex-1 h-1.5 bg-[#1e1f25] rounded-full overflow-hidden">
+                   <div className="h-full bg-primary w-[88%] shadow-[0_0_8px_var(--amber)]" />
+                 </div>
+                 <span className="font-mono text-[10px] text-[var(--amber-light)]">88% CAP</span>
+               </div>
+               <p className="font-label text-[10px] text-[var(--text-muted)] leading-relaxed">
+                 Allocating 128-thread processing for structure detection.
+               </p>
+            </div>
+          </div>
+          <InfoCard 
+            icon={<Code2 className="w-6 h-6 text-primary" />}
+            title="Version Support"
+            subtitle="Compatibility Layer"
+            tags={["ABLETON 10.x", "ABLETON 11.x"]}
+            activeTag="ABLETON 12.x Beta"
+          />
+        </div>
+
+      </div>
+
+      {/* Existing Projects Grid */}
+      <div className="mt-12 relative z-10">
+        <h2 className="font-display font-bold text-2xl text-white mb-6">Active Databanks</h2>
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="flex flex-col items-center justify-center h-48 gap-4 glass-panel">
             <Activity className="w-8 h-8 text-primary animate-pulse" />
-            <div className="text-muted-foreground font-mono text-xs uppercase tracking-widest">Scanning local databanks...</div>
+            <div className="text-[var(--text-muted)] font-label text-xs uppercase tracking-widest">Scanning local databanks...</div>
           </div>
         ) : projects.length === 0 ? (
-          <motion.div 
-            variants={ANIMATION_VARIANTS.slideUp}
-            className="flex flex-col items-center justify-center h-80 text-center glass-panel rounded-3xl"
-          >
-            <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mb-6 shadow-inner">
-              <FileAudio className="w-8 h-8 text-muted-foreground opacity-50" />
-            </div>
-            <h3 className="text-xl font-display font-semibold text-foreground mb-2">No Projects Detected</h3>
-            <p className="text-muted-foreground text-sm max-w-md mx-auto mb-8">
-              Initialize a new project by uploading your Ableton Live Set to begin AI completion analysis.
+          <div className="flex flex-col items-center justify-center h-48 text-center glass-panel">
+            <p className="text-[var(--text-secondary)] text-sm max-w-md mx-auto mb-4 font-sans">
+              No structural analyses found. Upload an Ableton Live Set above.
             </p>
-            <button
-              onClick={() => setShowUpload(true)}
-              className="px-6 py-3 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-semibold hover:bg-primary/20 transition-colors"
-            >
-              Start First Project
-            </button>
-          </motion.div>
+          </div>
         ) : (
           <motion.div 
             variants={ANIMATION_VARIANTS.staggerContainer}
@@ -270,12 +310,75 @@ export default function Dashboard() {
   );
 }
 
+function StageCard({ step, name, desc, active }: any) {
+  return (
+    <div className={cn(
+      "bg-[var(--bg-panel)] rounded-lg p-5 flex flex-col gap-3 transition-all relative overflow-hidden",
+      active ? "border-l-[3px] border-primary opacity-100" : "border-l-[3px] border-[var(--amber-border-strong)] opacity-60"
+    )}>
+      <div className="flex items-start justify-between">
+        <div className="flex gap-3 items-center">
+          <div className="font-display font-bold text-sm tracking-[1.4px] uppercase text-[var(--text-primary)]">
+            <span className="text-[var(--text-muted)]">Stage {step}:</span><br/>{name}
+          </div>
+        </div>
+        {active ? (
+          <span className="bg-primary/10 text-primary font-sans text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-bold">Active</span>
+        ) : (
+          <span className="bg-[#1e293b] text-[#94a3b8] font-sans text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-bold">Pending</span>
+        )}
+      </div>
+      <p className="text-[12px] font-sans text-[var(--text-muted)] leading-[19.5px] max-w-[200px]">
+        {desc}
+      </p>
+    </div>
+  );
+}
+
+function InfoCard({ icon, title, subtitle, metaLeft, valLeft, metaRight, valRight, tags, activeTag }: any) {
+  return (
+    <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-6 flex flex-col justify-between gap-6">
+      <div className="flex gap-4 items-center">
+        <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20">
+          {icon}
+        </div>
+        <div>
+          <h4 className="font-display font-bold text-base text-white">{title}</h4>
+          <span className="font-label text-[10px] text-[var(--text-muted)] uppercase">{subtitle}</span>
+        </div>
+      </div>
+      
+      {tags ? (
+        <div className="flex flex-col gap-2">
+          {tags.map((t: string) => (
+            <div key={t} className="bg-[#1e1f25] px-2 py-1 rounded-sm w-fit text-[10px] font-mono text-[var(--text-code)]">{t}</div>
+          ))}
+          {activeTag && (
+            <div className="bg-primary/20 px-2 py-1 rounded-sm w-fit text-[10px] font-mono text-primary font-bold">{activeTag}</div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-end">
+            <span className="font-sans text-[11px] text-[var(--text-secondary)]">{metaLeft}</span>
+            <span className="font-mono text-[11px] text-[var(--amber-light)]">{valLeft}</span>
+          </div>
+          <div className="flex justify-between items-end">
+            <span className="font-sans text-[11px] text-[var(--text-secondary)]">{metaRight}</span>
+            <span className="font-mono text-[11px] text-[var(--amber-light)]">{valRight}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProjectCard({ project, onClick }: { project: any; onClick: () => void }) {
   const statusColor = getStatusColor(project.status);
   const statusLabel = getStatusLabel(project.status);
   const running = isJobRunning(project.status);
+  const isActive = project.status === 'exported' || running;
 
-  // SVG Circular Progress logic
   const score = project.completionScore != null ? project.completionScore : 0;
   const radius = 18;
   const circumference = 2 * Math.PI * radius;
@@ -285,42 +388,34 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
     <motion.div
       variants={ANIMATION_VARIANTS.staggerItem}
       onClick={onClick}
-      className="glass-panel rounded-2xl p-6 cursor-pointer glow-border-hover group relative overflow-hidden flex flex-col h-full"
+      className={cn(
+        "bg-[var(--bg-panel)] rounded-lg p-6 cursor-pointer group relative overflow-hidden flex flex-col h-full border-y border-r transition-all",
+        isActive ? "border-l-[3px] border-l-primary border-y-[var(--amber-border)] border-r-[var(--amber-border)] hover:border-r-primary/50 hover:border-y-primary/50" : "border-l-[3px] border-[var(--amber-border)] hover:border-[var(--amber-border-strong)]"
+      )}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none transition-opacity group-hover:bg-primary/10" />
       
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div className="flex-1 min-w-0 pr-4">
-          <h3 className="text-lg font-display font-bold text-foreground group-hover:text-primary transition-colors truncate">
+          <h3 className="text-lg font-display font-bold text-white group-hover:text-primary transition-colors truncate">
             {project.name}
           </h3>
           {project.originalFileName && (
-            <p className="text-[11px] text-muted-foreground mt-1 truncate font-mono bg-muted/50 inline-block px-2 py-0.5 rounded">
+            <p className="text-[11px] text-[var(--text-muted)] mt-1 truncate font-mono bg-[var(--bg-card)] inline-block px-2 py-0.5 rounded border border-[var(--amber-border)]">
               {project.originalFileName}
             </p>
           )}
         </div>
         
-        {/* Score Ring */}
         <div className="shrink-0 relative flex items-center justify-center w-12 h-12">
           <svg className="w-12 h-12 transform -rotate-90">
-            <circle
-              cx="24" cy="24" r={radius}
-              stroke="currentColor" strokeWidth="3" fill="transparent"
-              className="text-border"
-            />
-            <circle
-              cx="24" cy="24" r={radius}
-              stroke="currentColor" strokeWidth="3" fill="transparent"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className={cn(
-                "transition-all duration-1000 ease-out",
-                score > 0.7 ? "text-emerald-400" : score > 0.4 ? "text-amber-400" : "text-primary"
-              )}
+            <circle cx="24" cy="24" r={radius} stroke="currentColor" strokeWidth="2" fill="transparent" className="text-[var(--bg-elevated)]" />
+            <circle cx="24" cy="24" r={radius} stroke="currentColor" strokeWidth="2.5" fill="transparent"
+              strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+              className={cn("transition-all duration-1000 ease-out", score > 0.7 ? "text-emerald-500" : "text-primary")}
             />
           </svg>
-          <span className="absolute text-[10px] font-mono font-bold text-foreground">
+          <span className="absolute text-[10px] font-mono font-bold text-white">
             {project.completionScore != null ? Math.round(score * 100) : "--"}
           </span>
         </div>
@@ -330,35 +425,30 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
         {project.styleTags?.length > 0 && (
           <div className="flex gap-1.5 flex-wrap">
             {project.styleTags.slice(0, 3).map((tag: string) => (
-              <span
-                key={tag}
-                className="px-2 py-1 bg-accent/10 text-accent-foreground border border-accent/20 rounded-md text-[10px] uppercase tracking-wider font-semibold"
-              >
+              <span key={tag} className="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-[9px] uppercase tracking-wider font-label font-semibold">
                 {tag}
               </span>
             ))}
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-border/50">
+        <div className="flex items-center justify-between pt-4 border-t border-[var(--amber-border)]">
           <div className="flex items-center gap-2">
             {running && (
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
               </span>
             )}
-            <span className={cn("text-[11px] font-mono uppercase tracking-wider font-semibold", statusColor)}>
+            <span className={cn("text-[9px] font-label uppercase tracking-widest font-semibold", statusColor)}>
               {statusLabel}
             </span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-mono">
+          <span className="text-[10px] text-[var(--text-code)] font-mono">
             {new Date(project.createdAt).toLocaleDateString()}
           </span>
         </div>
       </div>
-      
-      <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/50 transition-all duration-500" />
     </motion.div>
   );
 }

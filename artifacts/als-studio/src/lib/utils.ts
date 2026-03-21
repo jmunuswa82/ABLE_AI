@@ -38,35 +38,6 @@ export function beatToBarNumber(beat: number): number {
   return Math.floor(beat / 4) + 1;
 }
 
-export function formatBarRange(startBeat: number, endBeat: number): string {
-  const s = beatToBarNumber(startBeat);
-  const e = beatToBarNumber(endBeat);
-  if (s === e) return `Bar ${s}`;
-  return `Bars ${s}–${e}`;
-}
-
-export function computeBarTicks(
-  startBeat: number,
-  endBeat: number,
-  pixelsPerBar: number,
-  minLabelSpacingPx = 48,
-): Array<{ beat: number; bar: number; px: number; label: boolean }> {
-  const totalBars = Math.ceil((endBeat - startBeat) / 4);
-  const step = [1, 2, 4, 8, 16].find(n => n * pixelsPerBar >= minLabelSpacingPx) ?? 16;
-
-  const ticks = [];
-  for (let bar = 0; bar <= totalBars; bar++) {
-    const beat = startBeat + bar * 4;
-    ticks.push({
-      beat,
-      bar: beatToBarNumber(beat),
-      px: beatsToPixel(beat - startBeat, pixelsPerBar),
-      label: bar % step === 0,
-    });
-  }
-  return ticks;
-}
-
 export function formatScore(score: number | null | undefined): string {
   if (score == null) return "—";
   return `${Math.round(score * 100)}%`;
@@ -74,13 +45,13 @@ export function formatScore(score: number | null | undefined): string {
 
 export function getStatusColor(status: string): string {
   switch (status) {
-    case "parsing": case "queued": return "text-blue-400";
-    case "parsed": case "analyzed": case "generated": return "text-primary";
-    case "exporting": case "generating": return "text-amber-400";
-    case "exported": return "text-emerald-400";
-    case "failed": return "text-red-400";
-    case "uploaded": return "text-sky-400";
-    default: return "text-muted-foreground";
+    case "parsing": case "queued": return "text-[#94a3b8]";
+    case "parsed": case "analyzed": case "generated": return "text-[#ffb703]";
+    case "exporting": case "generating": return "text-[#ffdba0]";
+    case "exported": return "text-[#22c55e]";
+    case "failed": return "text-[#ef4444]";
+    case "uploaded": return "text-[#ffb703]";
+    default: return "text-[#64748b]";
   }
 }
 
@@ -101,7 +72,7 @@ export function isJobRunning(state: string): boolean {
 
 export function getRoleColor(role: string): string {
   const roleColors: Record<string, string> = {
-    kick: "#FF3636", snare: "#FF6236", hihat: "#FFA336", ride: "#FFCC36",
+    kick: "#FF3636", snare: "#FF6236", hihat: "#ffb703", ride: "#ffdba0",
     clap: "#FF5E36", percussion: "#FF8836", bass: "#3b82f6", rumble: "#3660FF",
     synth_stab: "#8b5cf6", lead: "#C840FF", drone: "#845BFF", texture: "#6E5BFF",
     fx: "#36D4C4", vocal: "#FF36B4", return_fx: "#36A0FF", transition: "#FFD836",
@@ -112,7 +83,7 @@ export function getRoleColor(role: string): string {
 }
 
 const ABLETON_PALETTE_70: string[] = [
-  "#FF3636", "#FF7600", "#FFAA00", "#FFE100", "#D4FF00", "#73FF00",
+  "#FF3636", "#FF7600", "#ffb703", "#FFE100", "#D4FF00", "#73FF00",
   "#00FF6B", "#00FFCC", "#00EEFF", "#00AAFF", "#0055FF", "#6B00FF",
   "#CC00FF", "#FF00CC", "#FF0077", "#FF0000",
   "#C82800", "#C85E00", "#C88C00", "#C8B400", "#A0C800", "#5AC800",
