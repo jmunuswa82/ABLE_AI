@@ -21,7 +21,8 @@ from lxml import etree
 
 from .models import (
     ProjectGraph, TrackNode, ClipNode, DeviceNode,
-    AutomationLane, AutomationPoint, MidiNote, ArrangementSection
+    AutomationLane, AutomationPoint, MidiNote, ArrangementSection,
+    SidechainLink,
 )
 
 logger = logging.getLogger(__name__)
@@ -199,6 +200,9 @@ class ALSParser:
         master_el = liveset.find("MasterTrack")
         if master_el is not None:
             graph.master_track = self._extract_track(master_el, "master", 0)
+
+        # Sidechain detection (after all tracks are parsed)
+        graph.sidechain_links = self._detect_sidechain_links(graph)
 
         graph.warnings = self.warnings
         return graph
@@ -381,6 +385,9 @@ class ALSParser:
 
         # Automation lanes
         track.automation_lanes = self._extract_automation_lanes(track_el)
+
+        # Routing info
+        track.routing = self._extract_routing(track_el)
 
         return track
 
@@ -627,6 +634,103 @@ class ALSParser:
             lane_counter += 1
 
         return lanes
+
+
+    def _extract_routing(self, track_el: etree._Element) -> Dict[str, Any]:
+        routing: Dict[str, Any] = {}
+
+        device_chain = track_el.find("DeviceChain")
+        if device_chain is None:
+            return routing
+
+        # Audio input routing
+        audio_in = device_chain.find("AudioInputRouting")
+        if audio_in is not None:
+            target = audio_in.find("Target")
+            upper = audio_in.find("UpperDisplayString")
+            lower = audio_in.find("LowerDisplayString")
+            routing["audioInput"] = {
+                "target": target.get("Value", "") if target is not None else "",
+                "upper": upper.get("Value", "") if upper is not None else "",
+                "lower": lower.get("Value", "") if lower is not None else "",
+            }
+
+        # Audio output routing
+        audio_out = device_chain.find("AudioOutputRouting")
+        if audio_out is not None:
+            target = audio_out.find("Target")
+            upper = audio_out.find("UpperDisplayString")
+            lower = audio_out.find("LowerDisplayString")
+            routing["audioOutput"] = {
+                "target": target.get("Value", "") if target is not None else "",
+                "upper": upper.get("Value", "") if upper is not None else "",
+                "lower": lower.get("Value", "") if lower is not None else "",
+            }
+
+        # Sends
+        sends = device_chain.find(".//Sends")
+        if sends is not None:
+            send_list = []
+            for send_el in sends:
+                send_active = send_el.find("Active")
+                send_amount = send_el.find("Amount")
+                if send_amount is not None:
+                    manual = send_amount.find("Manual")
+                    active = send_active.get("Value", "true") if send_active is not None else "true"
+                    val = self._safe_float(manual, "Value", 0.0) if manual is not None else 0.0
+                    send_list.append({
+                        "active": active.lower() == "true",
+                        "amount": val,
+                    })
+            if send_list:
+                routing["sends"] = send_list
+
+        return routing
+
+    def _detect_sidechain_links(self, graph: ProjectGraph) -> List[SidechainLink]:
+        links: List[SidechainLink] = []
+
+        all_tracks = list(graph.tracks) + list(graph.return_tracks)
+        if graph.master_track:
+            all_tracks.append(graph.master_track)
+
+        track_map: Dict[str, TrackNode] = {t.id: t for t in all_tracks}
+
+        for track in all_tracks:
+            for device in track.devices:
+                if device.device_class not in ("Compressor2", "GlueCompressor", "MultibandDynamics", "Gate"):
+                    continue
+
+                # Heuristic sidechain detection:
+                # 1. Compressor on non-kick track that has a kick track in the project = likely sidechain
+                # 2. Check routing for sidechain indicators
+                if track.inferred_role == "kick":
+                    continue
+
+                kick_tracks = [t for t in graph.tracks if t.inferred_role == "kick"]
+                if not kick_tracks:
+                    continue
+
+                # A compressor on a bass/pad/synth track likely has sidechain from kick
+                if track.inferred_role in ("bass", "rumble", "lead", "synth_stab", "drone", "texture", "vocal"):
+                    source = kick_tracks[0]
+                    confidence = 0.6
+                    if device.device_class == "Compressor2":
+                        confidence = 0.75
+                    if track.inferred_role in ("bass", "rumble"):
+                        confidence = 0.85
+
+                    links.append(SidechainLink(
+                        source_track_id=source.id,
+                        target_track_id=track.id,
+                        source_track_name=source.name,
+                        target_track_name=track.name,
+                        device_class=device.device_class,
+                        device_id=device.id,
+                        confidence=confidence,
+                    ))
+
+        return links
 
 
 def parse_als_file(path_or_bytes, project_id: str, source_file: str = "") -> Tuple[ProjectGraph, List[str]]:

@@ -21,18 +21,22 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   ├── als-studio/         # React + Vite frontend (DAW UI)
+│   └── mockup-sandbox/     # Component preview server
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
+├── services/               # Python analysis pipeline
+│   └── als_parser/         # ALS file parser + analysis engine
 ├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│   └── src/                # Individual .ts scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
 ## TypeScript & Composite Projects
@@ -56,11 +60,12 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health`
+- Job Runner: `src/lib/job-runner.ts` — orchestrates Python pipeline, creates artifacts + ALS Patch Package ZIP
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `archiver`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- `pnpm --filter @workspace/api-server run build` — production esbuild bundle
+- Build bundles an allowlist of deps and externalizes the rest
 
 ### `lib/db` (`@workspace/db`)
 
@@ -68,8 +73,8 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
+- Tables: projects, jobs, parse_results (JSONB project_graph), completion_plans (JSONB plan_data), artifact_files
+- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
 Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
@@ -85,7 +90,7 @@ Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
 ### `lib/api-zod` (`@workspace/api-zod`)
 
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+Generated Zod schemas from the OpenAPI spec. Used by `api-server` for response validation.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
@@ -93,14 +98,19 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 ### `artifacts/als-studio` (`@workspace/als-studio`)
 
-React + Vite frontend. Dark DAW-inspired UI with violet/purple accent. All pages built.
+React + Vite frontend. Dark DAW-inspired UI with violet/purple accent.
 
-- Pages: Dashboard, ProjectDetail, TimelineView, CompletionPlanView, ExportView
+- Pages:
+  - **Dashboard**: Upload form, project grid, live polling for job status
+  - **ProjectDetail**: Stat cards, track list, job history, quick-nav buttons
+  - **TimelineView**: DAW-style clip timeline with multi-view modes (Arrange, Automation, Sidechain), zoom controls, automation lane visualization (SVG), sidechain relationship map, track inspector panel
+  - **CompletionPlanView**: Action cards by priority/category with filter tabs
+  - **ExportView**: Artifact download cards with type-specific icons/colors, ALS Patch Package hero section
 - Components: Layout.tsx (sidebar nav with project sub-nav)
 - Hooks: use-polling.ts (polls project status every 2s when jobs are running)
 - Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId)
-- Utils: lib/utils.ts (cn, formatScore, formatBars, getStatusColor, getRoleColor, etc.)
-- Styling: Dark DAW theme in index.css, always dark-mode, violet primary accent
+- Utils: lib/utils.ts (cn, formatScore, formatBars, getStatusColor, getRoleColor, formatBytes)
+- Styling: Dark DAW theme in index.css, always dark-mode, violet primary accent (--primary: 262 52% 58%)
 - Routing: wouter with BASE_URL base
 - API client: @workspace/api-client-react (generated React Query hooks)
 
@@ -108,15 +118,33 @@ React + Vite frontend. Dark DAW-inspired UI with violet/purple accent. All pages
 
 Python analysis pipeline for ALS files.
 
-- `parser.py` — gzip decompress + lxml XML parse of .als files
-- `role_inference.py` — infer track role (kick, bass, lead, etc.)
+- `parser.py` — gzip decompress + lxml XML parse of .als files. Extracts:
+  - Track structure (audio/midi/group/return/master)
+  - Clips with position, type, content summary
+  - Devices with plugin info and inferred purpose
+  - Automation envelopes with parameter names, density, shape classification
+  - Track routing (audio input/output, sends)
+  - Sidechain detection (heuristic: compressor on bass/lead near kick)
+  - Locator markers
+- `role_inference.py` — infer track role (kick, bass, lead, pad, fx, etc.)
 - `style_inference.py` — infer musical genre/style tags
 - `section_inference.py` — detect arrangement sections (Intro, Build, Peak, etc.)
 - `weakness_detection.py` — detect production weaknesses
 - `completion_engine.py` — generate ranked completion actions
 - `pipeline.py` — orchestrate full pipeline
 - `run_pipeline.py` — CLI entry point (Node.js spawns as child_process)
-- Storage: /storage/uploads (ALS files), /storage/artifacts (JSON outputs)
+- `models.py` — data models (ProjectGraph, TrackNode, ClipNode, DeviceNode, AutomationLane, SidechainLink, etc.)
+
+### Export System
+
+The job runner produces these artifact types:
+- `original_als` — Original uploaded .als file
+- `project_graph` — JSON: parsed project structure
+- `completion_plan` — JSON: AI completion plan with ranked actions
+- `instructions` — Markdown: human-readable completion guide
+- `patch_package` — ZIP: complete bundle with original .als + all analysis artifacts + manifest + README
+
+Storage: `/storage/uploads` (ALS files), `/storage/artifacts/{projectId}/` (JSON outputs, ZIP)
 
 ### `scripts` (`@workspace/scripts`)
 

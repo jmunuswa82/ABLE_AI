@@ -6,7 +6,9 @@
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs/promises";
+import { createWriteStream } from "fs";
 import { randomUUID } from "crypto";
+import archiver from "archiver";
 import { db, jobsTable, projectsTable, parseResultsTable, completionPlansTable, artifactFilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
@@ -14,6 +16,10 @@ import { logger } from "./logger";
 const ARTIFACT_DIR = path.resolve(process.cwd(), "../../storage/artifacts");
 const SERVICES_DIR = path.resolve(process.cwd(), "../../services");
 const PYTHON_RUNNER = path.join(SERVICES_DIR, "run_pipeline.py");
+
+function sanitizeFileName(name: string): string {
+  return path.basename(name).replace(/[^\w.\-() ]/g, "_").substring(0, 200);
+}
 
 async function updateJob(
   jobId: string,
@@ -103,7 +109,26 @@ export async function runPipelineJob(
     const artifactsDir = path.join(ARTIFACT_DIR, projectId);
     await fs.mkdir(artifactsDir, { recursive: true });
 
-    // Write project graph JSON
+    // 1. Register original ALS as artifact
+    const originalAlsArtifactId = randomUUID();
+    try {
+      const alsStats = await fs.stat(filePath);
+      await db.insert(artifactFilesTable).values({
+        id: originalAlsArtifactId,
+        projectId,
+        jobId,
+        type: "original_als",
+        fileName: originalFileName,
+        filePath: filePath,
+        fileSize: alsStats.size,
+        mimeType: "application/x-ableton-live-set",
+        description: "Original uploaded Ableton Live Set",
+      });
+    } catch (e) {
+      logger.warn({ err: e }, "Could not register original ALS artifact");
+    }
+
+    // 2. Write project graph JSON
     const graphPath = path.join(artifactsDir, "project-graph.json");
     await fs.writeFile(graphPath, JSON.stringify(project_graph, null, 2));
 
@@ -120,7 +145,7 @@ export async function runPipelineJob(
       description: "Parsed project structure and track analysis",
     });
 
-    // Write completion plan JSON
+    // 3. Write completion plan JSON
     const planPath = path.join(artifactsDir, "completion-plan.json");
     await fs.writeFile(planPath, JSON.stringify(completion_plan, null, 2));
 
@@ -137,7 +162,7 @@ export async function runPipelineJob(
       description: "AI completion plan with ranked actions",
     });
 
-    // Write human-readable completion instructions
+    // 4. Write human-readable completion instructions
     const instructionsContent = buildInstructions(completion_plan, project_graph, originalFileName);
     const instrPath = path.join(artifactsDir, "completion-instructions.md");
     await fs.writeFile(instrPath, instructionsContent);
@@ -155,6 +180,46 @@ export async function runPipelineJob(
       description: "Human-readable completion instructions",
     });
 
+    // 5. Build ALS Patch Package (zip containing original + all analysis artifacts)
+    let patchPackageBuilt = false;
+    try {
+      const safeName = sanitizeFileName(originalFileName);
+      const baseName = safeName.replace(/\.als$/i, "");
+      const zipFileName = `${baseName}-patch-package.zip`;
+      const zipPath = path.join(artifactsDir, zipFileName);
+
+      await buildPatchPackageZip(zipPath, {
+        originalAlsPath: filePath,
+        originalFileName: safeName,
+        graphPath,
+        planPath,
+        instrPath,
+        projectGraph: project_graph,
+        completionPlan: completion_plan,
+      });
+
+      const zipStats = await fs.stat(zipPath);
+      if (zipStats.size < 100) {
+        throw new Error("Patch package zip is suspiciously small");
+      }
+
+      const zipArtifactId = randomUUID();
+      await db.insert(artifactFilesTable).values({
+        id: zipArtifactId,
+        projectId,
+        jobId,
+        type: "patch_package",
+        fileName: zipFileName,
+        filePath: zipPath,
+        fileSize: zipStats.size,
+        mimeType: "application/zip",
+        description: "ALS Patch Package — original .als + completion plan + analysis + instructions",
+      });
+      patchPackageBuilt = true;
+    } catch (e) {
+      logger.error({ err: e }, "Failed to build patch package zip");
+    }
+
     // Update project
     await updateProjectStatus(projectId, "exported", {
       completionScore: completion_plan?.completionScore,
@@ -162,8 +227,11 @@ export async function runPipelineJob(
       warnings: warnings?.slice(0, 20) ?? [],
     });
 
-    await updateJob(jobId, "exported", 100, "Complete — all artifacts ready");
-    logger.info({ projectId, jobId }, "Pipeline job complete");
+    const exportMessage = patchPackageBuilt
+      ? "Complete — all artifacts ready"
+      : "Complete — analysis artifacts ready (patch package failed)";
+    await updateJob(jobId, "exported", 100, exportMessage);
+    logger.info({ projectId, jobId, patchPackageBuilt }, "Pipeline job complete");
 
   } catch (err: any) {
     logger.error({ err, projectId, jobId }, "Pipeline job error");
@@ -279,4 +347,82 @@ function buildInstructions(plan: any, graph: any, fileName: string): string {
   lines.push(`*Generated at ${new Date().toISOString()} by Ableton AI Track Completion Studio*`);
 
   return lines.join("\n");
+}
+
+async function buildPatchPackageZip(
+  zipPath: string,
+  opts: {
+    originalAlsPath: string;
+    originalFileName: string;
+    graphPath: string;
+    planPath: string;
+    instrPath: string;
+    projectGraph: any;
+    completionPlan: any;
+  }
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const output = createWriteStream(zipPath);
+    const archive = archiver("zip", { zlib: { level: 6 } });
+
+    let settled = false;
+    const fail = (err: Error) => {
+      if (!settled) { settled = true; reject(err); }
+    };
+
+    output.on("close", () => { if (!settled) { settled = true; resolve(); } });
+    output.on("error", (err: Error) => fail(err));
+    archive.on("error", (err: Error) => fail(err));
+    archive.on("warning", (err: Error) => {
+      logger.warn({ err }, "Archiver warning during zip creation");
+    });
+
+    archive.pipe(output);
+
+    const safeEntryName = sanitizeFileName(opts.originalFileName);
+    archive.file(opts.originalAlsPath, { name: `original/${safeEntryName}` });
+    archive.file(opts.graphPath, { name: "analysis/project-graph.json" });
+    archive.file(opts.planPath, { name: "analysis/completion-plan.json" });
+    archive.file(opts.instrPath, { name: "analysis/completion-instructions.md" });
+
+    const manifest = {
+      version: "1.0.0",
+      generatedAt: new Date().toISOString(),
+      generator: "Ableton AI Track Completion Studio",
+      originalFile: opts.originalFileName,
+      tempo: opts.projectGraph?.tempo,
+      completionScore: opts.completionPlan?.completionScore,
+      styleTags: opts.completionPlan?.styleTags,
+      actionCount: opts.completionPlan?.actions?.length ?? 0,
+    };
+
+    archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
+
+    const readme = [
+      "# ALS Patch Package",
+      "",
+      `Original file: ${opts.originalFileName}`,
+      `Generated: ${new Date().toISOString()}`,
+      "",
+      "## Contents",
+      "",
+      "- `original/` — Your original .als file",
+      "- `analysis/project-graph.json` — Full parsed project structure",
+      "- `analysis/completion-plan.json` — AI completion plan with ranked actions",
+      "- `analysis/completion-instructions.md` — Human-readable completion guide",
+      "- `manifest.json` — Package metadata",
+      "",
+      "## How to Use",
+      "",
+      "1. Open `analysis/completion-instructions.md` for step-by-step guidance",
+      "2. Open `original/" + opts.originalFileName + "` in Ableton Live",
+      "3. Follow the completion plan actions in priority order",
+      "4. Reference `analysis/project-graph.json` for detailed track/clip data",
+      "",
+    ].join("\n");
+
+    archive.append(readme, { name: "README.md" });
+
+    archive.finalize();
+  });
 }

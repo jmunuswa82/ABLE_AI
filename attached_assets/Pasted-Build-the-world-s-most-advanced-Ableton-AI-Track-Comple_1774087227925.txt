@@ -1,0 +1,372 @@
+Build the world’s most advanced Ableton AI Track Completion Studio
+You are now operating as a principal staff-level engineering team consisting of:
+Principal Software Architect
+Senior Full-Stack Engineer
+Senior Python Systems Engineer
+AI Systems Engineer
+DAW Architecture Specialist
+Audio Software Engineer
+QA Architect
+DevOps Engineer
+Product Designer
+Technical Writer
+Your task is to build and repair a serious production-grade application called:
+Ableton AI Track Completion Studio
+This is not a demo.
+This is a decade-level product for techno and electronic music producers who struggle to finish tracks.
+The system must behave like a hybrid between:
+Ableton Live arrangement view
+an AI arrangement assistant
+a music structure analysis engine
+a track completion system
+The application must run inside Replit AND locally.
+FIRST: FIX THE CURRENT APPLICATION
+The current implementation has critical failures that must be fixed before adding new features.
+1. Broken .als export
+Currently the app downloads .json instead of .als.
+Fix the entire export pipeline.
+Required corrections:
+• artifact type system must distinguish:
+parse artifacts
+analysis artifacts
+completion artifacts
+export artifacts
+• .als download endpoint must return a real ALS artifact or a properly labeled export package
+• correct MIME type
+• correct file extension
+• correct download routing
+• correct storage metadata
+• correct UI button wiring
+If a full .als compiler cannot produce a 100% final file yet, the system must produce:
+ALS Patch Package
+Containing:
+original ALS
+mutation plan
+automation patch
+generated clip data
+reconstruction metadata
+But never download JSON disguised as ALS.
+2. Remove all mock timeline data
+Currently the UI shows fake tracks such as:
+AI Kick
+AI Hats
+AI Bass
+This is unacceptable.
+The timeline must be driven entirely from parsed ALS data.
+Steps:
+Parse uploaded .als
+Build canonical ProjectGraph
+Render tracks from parsed structure
+Render clip placements
+Render real track ordering
+Render group hierarchy
+Render return tracks
+Render master track
+If parsing fails partially, show warnings — never fallback to fake tracks.
+3. Timeline must represent real project structure
+The arrangement UI must render:
+• actual track names
+• clip start/end times
+• clip types (audio / MIDI)
+• arrangement length
+• BPM
+• time signature
+• locator markers
+4. Add automation visualization
+Automation lanes must be represented.
+Examples:
+filter cutoff automation
+send automation
+utility gain automation
+device parameter envelopes
+transitions
+build ramps
+Automation lanes must:
+• appear beneath tracks
+• be expandable
+• show envelope points
+5. Add sidechain detection logic
+The analysis engine must detect sidechain behavior:
+Examples:
+compressor sidechain routing
+kick-driven pumping
+return bus ducking
+Visualization must show a Sidechain Map showing relationships between tracks.
+PRODUCT VISION
+This product should feel like:
+“Ableton Live + AI track completion engine”
+The user uploads an unfinished project and the system:
+understands the arrangement
+detects weak areas
+generates multiple completion suggestions
+visualizes proposed changes
+lets the user approve or modify them
+exports the final result
+CORE SYSTEM ARCHITECTURE
+The system must contain:
+1. Frontend Web App
+React + TypeScript + Vite
+Responsibilities:
+• arrangement timeline
+• project dashboard
+• analysis UI
+• completion UI
+• export UI
+• diagnostics UI
+2. API Service
+Node.js + Fastify
+Responsibilities:
+• project management
+• job orchestration
+• artifact storage
+• export routing
+3. ALS Parser Service
+Python
+Responsibilities:
+• decompress .als
+• parse XML
+• build canonical project graph
+• detect devices
+• detect clips
+• detect automation
+4. AI Completion Engine
+Python
+Responsibilities:
+• style inference
+• role inference
+• section segmentation
+• weakness detection
+• completion plan generation
+5. Job Runner
+Responsible for:
+upload
+parse
+analyze
+generate
+export
+CANONICAL DATA MODEL
+You must build a canonical internal model.
+ProjectGraph
+Contains:
+tempo
+timeSignature
+tracks
+returnTracks
+masterTrack
+sections
+analysisSummary
+warnings
+TrackNode
+Contains:
+trackName
+trackType
+devices
+clips
+automationLanes
+routing
+roleInference
+ClipNode
+Contains:
+clipType
+start
+end
+loop
+midiNotes
+envelopes
+AutomationLane
+Contains:
+parameter
+points
+density
+ArrangementSection
+Contains:
+startBar
+endBar
+energyScore
+dominantRoles
+AI COMPLETION ENGINE
+This must use hybrid intelligence.
+Style inference
+Infer style using:
+BPM
+rhythmic density
+device chains
+arrangement structure
+Possible tags:
+Hypnotic Techno
+Industrial Techno
+Hard Techno
+Dark Techno
+Minimal Techno
+Atmospheric Techno
+Role inference
+Tracks must be classified:
+Kick
+Rumble
+Bass
+Percussion
+Hi-Hats
+Ride
+Synth
+Stab
+FX
+Drone
+Texture
+Return FX
+Section detection
+Detect:
+Intro
+Groove
+Build
+Peak
+Breakdown
+Return
+Outro
+Weakness detection
+Find problems:
+flat automation
+weak transitions
+static percussion
+weak breakdown
+unfinished ending
+missing energy ramps
+AI COMPLETION PLAN
+Generate multiple suggestions.
+Examples:
+Add tension riser automation
+Introduce secondary percussion layer
+Add offbeat synth stab pattern
+Strengthen drop impact
+Create filtered breakdown
+Extend outro
+Each suggestion must include:
+confidence
+affected tracks
+affected bars
+reasoning
+DAW-STYLE TIMELINE UI
+The timeline must resemble Ableton track mode.
+Layout:
+Top time ruler
+Track headers
+Arrangement lanes
+Clip blocks
+Automation lanes
+Section overlays
+Interaction
+Must support:
+zoom in/out
+horizontal pan
+vertical scroll
+track collapse
+clip selection
+automation lane toggle
+MULTI VIEW MODES
+The UI must support:
+Current Project
+Shows uploaded arrangement.
+AI Proposed Arrangement
+Shows AI-generated improvements.
+Diff Mode
+Shows:
+new clips
+automation changes
+new layers
+section edits
+Automation Mode
+Shows envelope lanes.
+Sidechain Mode
+Shows pumping relationships.
+ALS PARSER REQUIREMENTS
+The .als parser must:
+decompress gzip
+parse XML safely
+support Live 10/11/12
+preserve unknown nodes
+Extract:
+tracks
+groups
+returns
+devices
+clips
+automation
+routing
+Never crash on unknown nodes.
+TESTING
+Must include:
+Parser tests:
+minimal ALS
+multi-track techno project
+grouped drum bus
+returns heavy project
+malformed ALS
+Integration tests:
+upload
+parse
+analyze
+generate
+export
+STORAGE
+Artifacts must include:
+uploaded ALS
+parse output
+analysis result
+completion plan
+export package
+SECURITY
+Implement:
+file type validation
+gzip bomb protection
+XML safety
+path traversal protection
+REPLIT REQUIREMENTS
+The system must run:
+in Replit
+and
+locally
+Provide:
+run commands
+env variables
+setup instructions
+UX QUALITY
+The app must feel:
+dark
+professional
+DAW inspired
+fast
+serious
+Not a basic dashboard.
+FINAL QUALITY BAR
+This must feel like:
+a real startup-grade music production platform
+It must not feel like a demo.
+IMPLEMENTATION ORDER
+fix broken export system
+remove mock timeline data
+wire parser → timeline
+add automation lanes
+add sidechain detection
+build AI completion engine
+add AI proposed arrangement view
+add diff visualization
+build ALS export pipeline
+expand testing
+FINAL INSTRUCTION
+You must now:
+implement the codebase
+fix the broken systems
+upgrade the UI
+connect real parser data
+implement AI completion engine
+deliver a runnable system
+Do not output only explanations.
+Create the actual files and implement the system.
+AFTER BUILD — HARDENING PASS
+When the system is working, perform a hardening pass focusing on:
+parser accuracy
+timeline performance
+AI reasoning quality
+export stability
+test coverage
+END GOAL
+Build the most advanced AI-assisted Ableton project completion system ever created, designed for techno producers who struggle to finish tracks.

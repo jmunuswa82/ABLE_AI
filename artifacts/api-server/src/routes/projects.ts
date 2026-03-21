@@ -324,6 +324,9 @@ router.get("/projects/:id/artifacts/:artifactId/download", async (req: Request, 
       return;
     }
 
+    if (artifact.mimeType) {
+      res.setHeader("Content-Type", artifact.mimeType);
+    }
     res.download(artifact.filePath, artifact.fileName);
   } catch (err) {
     req.log.error({ err }, "Failed to download artifact");

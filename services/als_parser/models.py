@@ -141,6 +141,7 @@ class TrackNode:
             "devices": [d.to_dict() for d in self.devices],
             "clips": [c.to_dict() for c in self.clips],
             "automationLanes": [a.to_dict() for a in self.automation_lanes],
+            "routing": self.routing,
             "warnings": self.warnings,
         }
 
@@ -172,6 +173,28 @@ class ArrangementSection:
 
 
 @dataclass
+class SidechainLink:
+    source_track_id: str
+    target_track_id: str
+    source_track_name: str
+    target_track_name: str
+    device_class: str
+    device_id: str
+    confidence: float = 0.7
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "sourceTrackId": self.source_track_id,
+            "targetTrackId": self.target_track_id,
+            "sourceTrackName": self.source_track_name,
+            "targetTrackName": self.target_track_name,
+            "deviceClass": self.device_class,
+            "deviceId": self.device_id,
+            "confidence": self.confidence,
+        }
+
+
+@dataclass
 class ProjectGraph:
     project_id: str
     source_file: str
@@ -184,6 +207,7 @@ class ProjectGraph:
     return_tracks: List[TrackNode] = field(default_factory=list)
     master_track: Optional[TrackNode] = None
     sections: List[ArrangementSection] = field(default_factory=list)
+    sidechain_links: List[SidechainLink] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     parse_quality: float = 1.0
     style_tags: List[str] = field(default_factory=list)
@@ -219,6 +243,7 @@ class ProjectGraph:
             "totalDevices": self.total_devices,
             "returnTrackCount": len(self.return_tracks),
             "locators": self.locators,
+            "sidechainLinks": [s.to_dict() for s in self.sidechain_links],
         }
 
 
