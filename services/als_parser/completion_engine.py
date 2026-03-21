@@ -70,12 +70,25 @@ def _section_beat_range(section: Optional[ArrangementSection], total_beats: floa
     return section.start_bar, section.end_bar
 
 
-def _bars_label(start_beat: float, end_beat: float) -> str:
-    start_bar = int(start_beat / 4) + 1
-    end_bar = int(end_beat / 4) + 1
+def _beats_per_bar(graph: "ProjectGraph") -> float:
+    """Returns the number of quarter-note beats per bar for this project."""
+    num = getattr(graph, "time_signature_numerator", None) or 4
+    den = getattr(graph, "time_signature_denominator", None) or 4
+    return float(num) * (4.0 / float(den))
+
+
+def _bars_label(start_beat: float, end_beat: float, beats_per_bar: float = 4.0) -> str:
+    bpb = beats_per_bar if beats_per_bar > 0 else 4.0
+    start_bar = int(start_beat / bpb) + 1
+    end_bar = int(end_beat / bpb) + 1
     if start_bar == end_bar:
         return f"{start_bar}"
     return f"{start_bar}–{end_bar}"
+
+
+def _bl(graph: "ProjectGraph", start_beat: float, end_beat: float) -> str:
+    """Convenience wrapper: _bars_label with time-signature from graph."""
+    return _bars_label(start_beat, end_beat, _beats_per_bar(graph))
 
 
 def _track_names(tracks: List[TrackNode]) -> List[str]:
@@ -92,7 +105,8 @@ def _generate_structure_actions(
     graph: ProjectGraph, weaknesses: List[str], actions: List[CompletionAction]
 ) -> None:
     total_beats = graph.arrangement_length or 128.0
-    total_bars = total_beats / 4
+    bpb = _beats_per_bar(graph)
+    total_bars = total_beats / bpb
 
     section_labels = [s.label.lower() for s in graph.sections]
 
@@ -791,6 +805,27 @@ def _generate_sidechain_actions(
         l for l in graph.sidechain_links
         if l.relation_type.startswith("AI_PROPOSED")
     ]
+
+    # Fallback: if no sidechain links at all but kick+bass exist, synthesise a proposal
+    if not proposed_links and not graph.sidechain_links:
+        kick_tracks = [t for t in graph.all_tracks if t.inferred_role == "kick"]
+        bass_tracks = [t for t in graph.all_tracks if t.inferred_role in ("bass", "rumble")]
+        if kick_tracks and bass_tracks:
+            from .models import SidechainLink
+            proposed_links = [
+                SidechainLink(
+                    source_track_id=kick_tracks[0].id,
+                    target_track_id=bass_tracks[0].id,
+                    source_track_name=kick_tracks[0].name,
+                    target_track_name=bass_tracks[0].name,
+                    device_class="Compressor2",
+                    device_id="ai_proposed_sc_fallback",
+                    confidence=0.88,
+                    relation_type="AI_PROPOSED_KICK_TO_BASS_DUCK",
+                    purpose="Add pumping groove — kick ducking bass is standard in techno/dance",
+                    detection_method="AI_PROPOSED",
+                )
+            ]
 
     for link in proposed_links[:2]:
         # Find the groove/peak section for context

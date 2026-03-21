@@ -193,6 +193,7 @@ class SidechainLink:
     confidence: float = 0.7
     relation_type: str = "INFERRED_KICK_TO_BASS_DUCK"
     purpose: str = "groove_ducking"
+    detection_method: str = "INFERRED"  # DETECTED | INFERRED | AI_PROPOSED
     bars: Optional[List[float]] = None
     automation_evidence: bool = False
     device_evidence: bool = False
@@ -208,6 +209,7 @@ class SidechainLink:
             "confidence": self.confidence,
             "relationType": self.relation_type,
             "purpose": self.purpose,
+            "detectionMethod": self.detection_method,
             "bars": self.bars,
             "automationEvidence": self.automation_evidence,
             "deviceEvidence": self.device_evidence,

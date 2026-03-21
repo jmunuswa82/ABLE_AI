@@ -138,8 +138,7 @@ class ALSPatcher:
                 xml_bytes = gz.read()
             parser = etree.XMLParser(recover=True, resolve_entities=False, no_network=True)
             self.root = etree.fromstring(xml_bytes, parser=parser)
-            _ls = self.root.find("LiveSet")
-            self.liveset = _ls if _ls is not None else self.root
+            self.liveset = self.root.find("LiveSet") or self.root
             self._build_track_index()
         except Exception as e:
             logger.error(f"ALSPatcher: failed to load ALS: {e}")

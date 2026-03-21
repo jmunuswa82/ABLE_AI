@@ -17,6 +17,8 @@ export interface SidechainLink {
   /** DETECTED_COMPRESSOR_SIDECHAIN | INFERRED_KICK_TO_BASS_DUCK | INFERRED_KICK_TO_TEXTURE_DUCK | AI_PROPOSED_KICK_TO_BASS_DUCK | AI_PROPOSED_KICK_TO_TEXTURE_DUCK */
   relationType: string;
   purpose: string;
+  /** DETECTED | INFERRED | AI_PROPOSED */
+  detectionMethod: string;
   /** @nullable */
   bars?: number[] | null;
   automationEvidence: boolean;

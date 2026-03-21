@@ -52,16 +52,20 @@ def build_minimal_als(
     arr_end_el.set("LoopEnd", str(arrangement_length))
     arr_end_el.set("LoopOn", "false")
 
-    # Locators — parser reads AutomationEvent or Locator tags under <Locators>
+    # Locators
     if locators:
         locs_el = etree.SubElement(ls, "Locators")
+        locs_inner = etree.SubElement(locs_el, "Locators")
         for i, loc in enumerate(locators):
-            # Use AutomationEvent format (what the parser's _extract_locators reads)
-            loc_tag = etree.SubElement(locs_el, "AutomationEvent")
-            loc_tag.set("Time", str(float(loc.get("time", 0))))
-            loc_tag.set("Value", "0")
-            name_el = etree.SubElement(loc_tag, "Name")
+            cue = etree.SubElement(locs_inner, "CuePoint")
+            cue.set("Id", str(i + 1))
+            cue.set("Time", str(float(loc.get("time", 0))))
+            name_el = etree.SubElement(cue, "Name")
             name_el.set("Value", loc.get("name", "Cue"))
+            ann_el = etree.SubElement(cue, "Annotation")
+            ann_el.set("Value", "")
+            ss = etree.SubElement(cue, "IsSongStart")
+            ss.set("Value", "false")
 
     # Tracks
     tracks_el = etree.SubElement(ls, "Tracks")

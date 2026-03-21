@@ -271,7 +271,7 @@ class TestParserLocators(unittest.TestCase):
         parser = ALSParser(project_id="test-18")
         graph = parser.parse(als)
         for loc in graph.locators:
-            # graph.locators is a list of dicts with "time" key
+            # locators are stored as dicts: {"time": float, "name": str}
             t = loc.get("time", 0.0) if isinstance(loc, dict) else loc.time
             self.assertGreaterEqual(t, 0.0)
 

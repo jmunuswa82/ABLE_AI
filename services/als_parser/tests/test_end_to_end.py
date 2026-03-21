@@ -10,9 +10,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 from services.als_parser.tests.helpers import build_minimal_als, kick_pattern_notes
 from services.als_parser.parser import ALSParser
 from services.als_parser.completion_engine import generate_completion_plan
-from services.als_parser.als_patcher import patch_als, validate_als_bytes
+from services.als_parser.als_patcher import ALSPatcher, validate_als_bytes
 from services.als_parser.weakness_detection import detect_weaknesses
-from services.als_parser.role_inference import apply_role_inference as infer_roles
+from services.als_parser.role_inference import apply_role_inference
+from services.als_parser.section_inference import infer_sections
 
 
 class TestEndToEndFullPipeline(unittest.TestCase):
@@ -71,7 +72,7 @@ class TestEndToEndFullPipeline(unittest.TestCase):
         als = self._build_rich_als()
         parser = ALSParser(project_id="e2e-2")
         graph = parser.parse(als)
-        infer_roles(list(graph.all_tracks))
+        apply_role_inference(graph.all_tracks)
         roles = [t.inferred_role for t in graph.tracks]
         self.assertIn("kick", roles, f"Should infer kick role, got: {roles}")
 
@@ -79,7 +80,7 @@ class TestEndToEndFullPipeline(unittest.TestCase):
         als = self._build_rich_als()
         parser = ALSParser(project_id="e2e-3")
         graph = parser.parse(als)
-        infer_roles(list(graph.all_tracks))
+        apply_role_inference(graph.all_tracks)
         weaknesses = detect_weaknesses(graph)
         self.assertIsInstance(weaknesses, list)
 
@@ -87,7 +88,7 @@ class TestEndToEndFullPipeline(unittest.TestCase):
         als = self._build_rich_als()
         parser = ALSParser(project_id="e2e-4")
         graph = parser.parse(als)
-        infer_roles(list(graph.all_tracks))
+        apply_role_inference(graph.all_tracks)
         weaknesses = detect_weaknesses(graph)
         plan = generate_completion_plan(graph, weaknesses)
         self.assertIsNotNone(plan)
@@ -97,25 +98,44 @@ class TestEndToEndFullPipeline(unittest.TestCase):
         als = self._build_rich_als()
         parser = ALSParser(project_id="e2e-5")
         graph = parser.parse(als)
-        infer_roles(list(graph.all_tracks))
+        apply_role_inference(graph.all_tracks)
         weaknesses = detect_weaknesses(graph)
         plan = generate_completion_plan(graph, weaknesses)
 
-        # Collect safe mutation payloads, normalized to camelCase dicts for the patcher
-        normalized = []
+        # Collect safe mutation payloads and convert to camelCase dicts for the patcher
+        safe_payloads = []
         for action in plan.actions:
             for mp in action.mutation_payloads:
                 if mp.safe:
-                    normalized.append(mp.to_dict() if hasattr(mp, "to_dict") else mp)
-                    if len(normalized) >= 5:
+                    safe_payloads.append(mp)
+                    if len(safe_payloads) >= 5:
                         break
-            if len(normalized) >= 5:
+            if len(safe_payloads) >= 5:
                 break
 
-        if not normalized:
+        if not safe_payloads:
             self.skipTest("No safe payloads generated — skipping patcher test")
 
-        result = patch_als(als, normalized)
+        # Convert MutationPayload dataclasses to camelCase dicts that the patcher expects
+        normalized = []
+        for p in safe_payloads:
+            normalized.append({
+                "mutationType": p.mutation_type,
+                "startBeat": p.start_beat,
+                "endBeat": p.end_beat,
+                "locatorName": p.locator_name,
+                "targetTrackId": p.target_track_id,
+                "targetTrackName": p.target_track_name,
+                "automationParameter": p.automation_parameter,
+                "automationPoints": p.automation_points,
+                "notes": p.notes,
+                "clipType": p.clip_type,
+                "newTrackName": p.new_track_name,
+                "safe": p.safe,
+            })
+
+        patcher = ALSPatcher(als)
+        result = patcher.apply(normalized)
         self.assertGreater(len(result.mutations_applied), 0, "Should apply at least one mutation")
 
         if result.als_bytes:
@@ -126,7 +146,7 @@ class TestEndToEndFullPipeline(unittest.TestCase):
         als = self._build_rich_als()
         parser = ALSParser(project_id="e2e-6")
         graph = parser.parse(als)
-        infer_roles(list(graph.all_tracks))
+        apply_role_inference(graph.all_tracks)
         weaknesses = detect_weaknesses(graph)
         plan = generate_completion_plan(graph, weaknesses)
 

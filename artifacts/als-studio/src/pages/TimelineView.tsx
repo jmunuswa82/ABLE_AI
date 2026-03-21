@@ -15,6 +15,51 @@ const SECTION_HEIGHT = 20;
 const MIN_PX_PER_BAR = 1.5;
 const MAX_PX_PER_BAR = 96;
 
+// ─── TimeMapper ─────────────────────────────────────────────────────────────────
+// Converts beats to pixels using the project's actual time signature.
+// beatsPerBar = timeSignatureNumerator (beats per bar, e.g. 3 for 3/4, 6 for 6/8)
+// beatDuration = 4 / timeSignatureDenominator (relative to quarter note)
+// pixelsPerBar = pixelsPerBar prop (controlled by zoom)
+// beatsToPixels(beat) = (beat / beatsPerBar) * pixelsPerBar
+
+class TimeMapper {
+  readonly beatsPerBar: number;
+  readonly pixelsPerBar: number;
+
+  constructor(numerator: number, denominator: number, pixelsPerBar: number) {
+    // Ableton stores time in quarter-note beats regardless of time signature.
+    // One bar in quarter-note beats = numerator * (4 / denominator)
+    this.beatsPerBar = numerator * (4 / denominator);
+    this.pixelsPerBar = pixelsPerBar;
+  }
+
+  /** Convert a beat position (quarter notes) to a pixel offset. */
+  beatsToPixels(beat: number): number {
+    return (beat / this.beatsPerBar) * this.pixelsPerBar;
+  }
+
+  /** Convert a pixel offset back to beats. */
+  pixelsToBeats(px: number): number {
+    return (px / this.pixelsPerBar) * this.beatsPerBar;
+  }
+
+  /** Total pixel width for a given number of beats. */
+  beatsWidth(beats: number): number {
+    return (beats / this.beatsPerBar) * this.pixelsPerBar;
+  }
+
+  /** Number of bars for totalBeats. */
+  totalBars(totalBeats: number): number {
+    return Math.ceil(totalBeats / this.beatsPerBar);
+  }
+
+  /** Debug label showing conversion details. */
+  debugLabel(beat: number): string {
+    const px = this.beatsToPixels(beat);
+    return `beat ${beat.toFixed(1)} → ${px.toFixed(1)}px (${this.beatsPerBar}qn/bar, ${this.pixelsPerBar.toFixed(1)}px/bar)`;
+  }
+}
+
 export default function TimelineView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -26,6 +71,14 @@ export default function TimelineView() {
   const [viewMode, setViewMode] = useState<ViewMode>("arrangement");
   const [pixelsPerBar, setPixelsPerBar] = useState(10);
   const [expandedAutoTracks, setExpandedAutoTracks] = useState<Set<string>>(new Set());
+
+  // Build TimeMapper early (uses graph's time signature or 4/4 default)
+  const tsNum = (graph as any)?.timeSignatureNumerator ?? 4;
+  const tsDen = (graph as any)?.timeSignatureDenominator ?? 4;
+  const timeMapper = useMemo(
+    () => new TimeMapper(tsNum, tsDen, pixelsPerBar),
+    [tsNum, tsDen, pixelsPerBar]
+  );
 
   const handleWheel = useCallback((e: WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
@@ -48,8 +101,7 @@ export default function TimelineView() {
   // Scroll to locateAtBeat when set from CompletionPlanView
   useEffect(() => {
     if (locateAtBeat == null || !scrollContainerRef.current) return;
-    const barPx = pixelsPerBar * 4;
-    const targetX = (locateAtBeat / 4) * barPx;
+    const targetX = timeMapper.beatsToPixels(locateAtBeat);
     const container = scrollContainerRef.current;
     const containerWidth = container.clientWidth;
     const scrollTo = Math.max(0, targetX - containerWidth / 4);
@@ -59,7 +111,7 @@ export default function TimelineView() {
     // Clear after a delay
     const timer = setTimeout(() => setLocateAtBeat(null), 3000);
     return () => clearTimeout(timer);
-  }, [locateAtBeat, locateActionId]);
+  }, [locateAtBeat, locateActionId, timeMapper]);
 
   if (isLoading) {
     return (
@@ -82,8 +134,8 @@ export default function TimelineView() {
   const maxClipEnd = allTracks.reduce((max: number, t: any) =>
     (t.clips ?? []).reduce((m: number, c: any) => Math.max(m, c.end ?? 0), max), 0);
   const totalBeats = Math.max(graph.arrangementLength ?? 128, maxClipEnd, 64);
-  const totalBars = Math.ceil(totalBeats / 4);
-  const timelineWidth = totalBars * pixelsPerBar * 4;
+  const totalBars = timeMapper.totalBars(totalBeats);
+  const timelineWidth = totalBars * pixelsPerBar;
   const selectedTrack = allTracks.find((t: any) => t.id === selectedTrackId) ?? null;
 
   // Collect all mutation payloads from the completion plan
@@ -110,9 +162,8 @@ export default function TimelineView() {
   const zoomIn = () => setPixelsPerBar((p) => Math.min(MAX_PX_PER_BAR, p * 1.3));
   const zoomOut = () => setPixelsPerBar((p) => Math.max(MIN_PX_PER_BAR, p / 1.3));
 
-  // Compute bar interval for ruler/grid
-  const barPx = pixelsPerBar * 4;
-  const barInterval = barPx < 6 ? 32 : barPx < 12 ? 16 : barPx < 24 ? 8 : barPx < 48 ? 4 : barPx < 96 ? 2 : 1;
+  // Compute bar interval for ruler/grid — pixelsPerBar is already per-bar in TimeMapper
+  const barInterval = pixelsPerBar < 6 ? 32 : pixelsPerBar < 12 ? 16 : pixelsPerBar < 24 ? 8 : pixelsPerBar < 48 ? 4 : pixelsPerBar < 96 ? 2 : 1;
   const majorInterval = barInterval * 4;
 
   return (
@@ -126,7 +177,6 @@ export default function TimelineView() {
           plan={plan}
           totalBeats={totalBeats}
           allTracks={allTracks}
-          pixelsPerBar={pixelsPerBar}
           zoomIn={zoomIn}
           zoomOut={zoomOut}
         />
@@ -143,10 +193,10 @@ export default function TimelineView() {
                   className="shrink-0 sticky left-0 z-30 bg-[#222] flex items-end pb-1"
                   style={{ width: LABEL_WIDTH, borderRight: "1px solid #2a2a2a" }}
                 >
-                  <span className="text-[9px] text-[#555] px-2 font-mono">{Math.round(pixelsPerBar * 4)}px/bar</span>
+                  <span className="text-[9px] text-[#555] px-2 font-mono">{timeMapper.pixelsPerBar.toFixed(0)}px/bar · {tsNum}/{tsDen}</span>
                 </div>
                 <div className="relative overflow-hidden" style={{ width: timelineWidth, height: RULER_HEIGHT }}>
-                  <Ruler totalBars={totalBars} pixelsPerBar={pixelsPerBar} barInterval={barInterval} majorInterval={majorInterval} />
+                  <Ruler totalBars={totalBars} timeMapper={timeMapper} barInterval={barInterval} majorInterval={majorInterval} />
                 </div>
               </div>
 
@@ -161,7 +211,7 @@ export default function TimelineView() {
                   </div>
                   <div className="relative overflow-hidden" style={{ width: timelineWidth, height: LOCATOR_HEIGHT }}>
                     {graph.locators.map((loc: any, i: number) => (
-                      <LocatorMarker key={i} loc={loc} pixelsPerBar={pixelsPerBar} />
+                      <LocatorMarker key={i} loc={loc} timeMapper={timeMapper} />
                     ))}
                   </div>
                 </div>
@@ -178,7 +228,7 @@ export default function TimelineView() {
                   </div>
                   <div className="relative overflow-hidden" style={{ width: timelineWidth, height: SECTION_HEIGHT }}>
                     {graph.sections.map((section: any) => (
-                      <SectionMarker key={section.id} section={section} pixelsPerBar={pixelsPerBar} totalBeats={totalBeats} />
+                      <SectionMarker key={section.id} section={section} timeMapper={timeMapper} totalBeats={totalBeats} />
                     ))}
                   </div>
                 </div>
@@ -263,14 +313,14 @@ export default function TimelineView() {
                       {/* Clip canvas area */}
                       <div className="relative" style={{ width: timelineWidth, height: TRACK_HEIGHT }}>
                         {/* Vertical grid lines */}
-                        <GridLines totalBars={totalBars} pixelsPerBar={pixelsPerBar} barInterval={barInterval} majorInterval={majorInterval} />
+                        <GridLines totalBars={totalBars} timeMapper={timeMapper} barInterval={barInterval} majorInterval={majorInterval} />
                         {/* Clips — dimmed in proposed mode */}
                         {track.clips?.map((clip: any) => (
                           <ClipBlock
                             key={clip.id}
                             clip={clip}
                             trackColor={trackColor}
-                            pixelsPerBar={pixelsPerBar}
+                            timeMapper={timeMapper}
                             muted={track.muted || viewMode === "proposed"}
                             dimmed={viewMode === "proposed"}
                           />
@@ -288,7 +338,7 @@ export default function TimelineView() {
                                 <MutationOverlay
                                   key={`mp-${mpIdx}`}
                                   mutation={mp}
-                                  pixelsPerBar={pixelsPerBar}
+                                  timeMapper={timeMapper}
                                   trackHeight={TRACK_HEIGHT}
                                   isDiff={viewMode === "diff"}
                                 />
@@ -304,7 +354,7 @@ export default function TimelineView() {
                         key={`${track.id}-auto-${idx}`}
                         lane={lane}
                         trackColor={trackColor}
-                        pixelsPerBar={pixelsPerBar}
+                        timeMapper={timeMapper}
                         timelineWidth={timelineWidth}
                         totalBars={totalBars}
                         barInterval={barInterval}
@@ -341,10 +391,10 @@ const VIEW_MODE_CONFIG: Record<ViewMode, { label: string; title: string; color?:
 };
 
 function Toolbar({
-  viewMode, setViewMode, graph, plan, totalBeats, allTracks, pixelsPerBar, zoomIn, zoomOut,
+  viewMode, setViewMode, graph, plan, totalBeats, allTracks, zoomIn, zoomOut,
 }: {
   viewMode: ViewMode; setViewMode: (m: ViewMode) => void;
-  graph: any; plan: any; totalBeats: number; allTracks: any[]; pixelsPerBar: number;
+  graph: any; plan: any; totalBeats: number; allTracks: any[];
   zoomIn: () => void; zoomOut: () => void;
 }) {
   const totalClips = allTracks.reduce((s: number, t: any) => s + (t.clips?.length ?? 0), 0);
@@ -418,14 +468,14 @@ function Toolbar({
 
 // ─── Ruler ─────────────────────────────────────────────────────────────────────
 
-function Ruler({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
-  totalBars: number; pixelsPerBar: number; barInterval: number; majorInterval: number;
+function Ruler({ totalBars, timeMapper, barInterval, majorInterval }: {
+  totalBars: number; timeMapper: TimeMapper; barInterval: number; majorInterval: number;
 }) {
-  const barPx = pixelsPerBar * 4;
   const markers = [];
   for (let bar = 0; bar <= totalBars; bar += barInterval) {
     const isMajor = bar % majorInterval === 0 || bar === 0;
-    const x = bar * barPx;
+    // bar index → beats = bar * beatsPerBar → pixels
+    const x = timeMapper.beatsToPixels(bar * timeMapper.beatsPerBar);
     markers.push(
       <div key={bar} className="absolute top-0 bottom-0" style={{ left: x }}>
         <div
@@ -436,7 +486,7 @@ function Ruler({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
             background: isMajor ? "#555" : "#3a3a3a",
           }}
         />
-        {isMajor && barPx >= 3 && (
+        {isMajor && timeMapper.pixelsPerBar >= 3 && (
           <span
             className="absolute text-[9px] font-mono whitespace-nowrap"
             style={{ left: 3, bottom: 4, color: "#777" }}
@@ -444,7 +494,7 @@ function Ruler({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
             {bar + 1}
           </span>
         )}
-        {!isMajor && barPx >= 24 && (
+        {!isMajor && timeMapper.pixelsPerBar >= 24 && (
           <span
             className="absolute text-[8px] font-mono whitespace-nowrap"
             style={{ left: 3, bottom: 4, color: "#555" }}
@@ -460,10 +510,9 @@ function Ruler({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
 
 // ─── Grid lines ────────────────────────────────────────────────────────────────
 
-function GridLines({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
-  totalBars: number; pixelsPerBar: number; barInterval: number; majorInterval: number;
+function GridLines({ totalBars, timeMapper, barInterval, majorInterval }: {
+  totalBars: number; timeMapper: TimeMapper; barInterval: number; majorInterval: number;
 }) {
-  const barPx = pixelsPerBar * 4;
   const lines = [];
   for (let bar = 0; bar <= totalBars; bar += barInterval) {
     const isMajor = bar % majorInterval === 0;
@@ -472,7 +521,7 @@ function GridLines({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
         key={bar}
         className="absolute top-0 bottom-0"
         style={{
-          left: bar * barPx,
+          left: timeMapper.beatsToPixels(bar * timeMapper.beatsPerBar),
           width: 1,
           backgroundColor: isMajor ? "#2a2a2a" : "#222",
         }}
@@ -484,9 +533,8 @@ function GridLines({ totalBars, pixelsPerBar, barInterval, majorInterval }: {
 
 // ─── Locator marker ────────────────────────────────────────────────────────────
 
-function LocatorMarker({ loc, pixelsPerBar }: { loc: any; pixelsPerBar: number }) {
-  const barPx = pixelsPerBar * 4;
-  const x = (loc.time / 4) * barPx;
+function LocatorMarker({ loc, timeMapper }: { loc: any; timeMapper: TimeMapper }) {
+  const x = timeMapper.beatsToPixels(loc.time);
   return (
     <div className="absolute top-0 bottom-0" style={{ left: x }}>
       {/* Vertical line */}
@@ -504,7 +552,7 @@ function LocatorMarker({ loc, pixelsPerBar }: { loc: any; pixelsPerBar: number }
           borderTop: "7px solid #E88200",
         }}
       />
-      {barPx >= 3 && (
+      {timeMapper.pixelsPerBar >= 3 && (
         <span
           className="absolute top-0 whitespace-nowrap font-medium"
           style={{ left: 8, top: 2, fontSize: 9, color: "#E88200", letterSpacing: "0.03em" }}
@@ -518,13 +566,12 @@ function LocatorMarker({ loc, pixelsPerBar }: { loc: any; pixelsPerBar: number }
 
 // ─── Section marker ────────────────────────────────────────────────────────────
 
-function SectionMarker({ section, pixelsPerBar, totalBeats }: {
-  section: any; pixelsPerBar: number; totalBeats: number;
+function SectionMarker({ section, timeMapper, totalBeats }: {
+  section: any; timeMapper: TimeMapper; totalBeats: number;
 }) {
-  const barPx = pixelsPerBar * 4;
-  // section.startBar is in beats, section.endBar is in beats
-  const left = (section.startBar / 4) * barPx;
-  const width = ((section.endBar - section.startBar) / 4) * barPx;
+  // section.startBar/endBar are in beats (Ableton quarter-note time)
+  const left = timeMapper.beatsToPixels(section.startBar);
+  const width = timeMapper.beatsWidth(section.endBar - section.startBar);
 
   const colors: Record<string, string> = {
     intro: "#3355CC", buildup: "#8833CC", "build up": "#8833CC",
@@ -549,7 +596,7 @@ function SectionMarker({ section, pixelsPerBar, totalBeats }: {
           borderTop: `6px solid ${sectionColor}`,
         }}
       />
-      {barPx >= 2.5 && width > 30 && (
+      {timeMapper.pixelsPerBar >= 2.5 && width > 30 && (
         <span
           className="absolute pl-2 font-medium uppercase truncate"
           style={{ left: 0, top: 4, fontSize: 9, color: sectionColor, letterSpacing: "0.06em", maxWidth: width - 4 }}
@@ -568,16 +615,19 @@ function SectionMarker({ section, pixelsPerBar, totalBeats }: {
 
 // ─── Clip block ────────────────────────────────────────────────────────────────
 
-function ClipBlock({ clip, trackColor, pixelsPerBar, muted, dimmed }: {
-  clip: any; trackColor: string; pixelsPerBar: number; muted: boolean; dimmed?: boolean;
+function ClipBlock({ clip, trackColor, timeMapper, muted, dimmed }: {
+  clip: any; trackColor: string; timeMapper: TimeMapper; muted: boolean; dimmed?: boolean;
 }) {
-  const barPx = pixelsPerBar * 4;
-  const left = (clip.start / 4) * barPx;
-  const width = Math.max(((clip.end - clip.start) / 4) * barPx, 2);
+  const left = timeMapper.beatsToPixels(clip.start);
+  const width = Math.max(timeMapper.beatsWidth(clip.end - clip.start), 2);
   const isMidi = clip.clipType === "midi";
 
   const clipColor = clip.clipColor != null ? getAbletonColor(clip.clipColor, trackColor) : trackColor;
   const opacity = muted ? 0.3 : dimmed ? 0.2 : 1;
+
+  const startBar = Math.round(clip.start / timeMapper.beatsPerBar) + 1;
+  const endBar = Math.round(clip.end / timeMapper.beatsPerBar);
+  const durationBars = ((clip.end - clip.start) / timeMapper.beatsPerBar).toFixed(1);
 
   return (
     <div
@@ -591,7 +641,7 @@ function ClipBlock({ clip, trackColor, pixelsPerBar, muted, dimmed }: {
         borderRadius: 2,
         borderLeft: `2px solid ${clipColor}EE`,
       }}
-      title={`${isMidi ? "MIDI" : "Audio"} · bars ${Math.round(clip.start / 4) + 1}–${Math.round(clip.end / 4)} · ${((clip.end - clip.start) / 4).toFixed(1)}b${clip.midiNoteCount ? ` · ${clip.midiNoteCount} notes` : ""}`}
+      title={`${isMidi ? "MIDI" : "Audio"} · bars ${startBar}–${endBar} · ${durationBars}b${clip.midiNoteCount ? ` · ${clip.midiNoteCount} notes` : ""}`}
     >
       {/* Dark header strip */}
       <div
@@ -683,14 +733,13 @@ const MUTATION_COLORS: Record<string, { bg: string; border: string; label: strin
   extend_clip:       { bg: "#06b6d420", border: "#06b6d4", label: "→ Ext" },
 };
 
-function MutationOverlay({ mutation, pixelsPerBar, trackHeight, isDiff }: {
-  mutation: any; pixelsPerBar: number; trackHeight: number; isDiff: boolean;
+function MutationOverlay({ mutation, timeMapper, trackHeight, isDiff }: {
+  mutation: any; timeMapper: TimeMapper; trackHeight: number; isDiff: boolean;
 }) {
-  const barPx = pixelsPerBar * 4;
   const start = mutation.startBeat ?? 0;
   const end = mutation.endBeat ?? (start + 16);
-  const left = (start / 4) * barPx;
-  const width = Math.max(((end - start) / 4) * barPx, 2);
+  const left = timeMapper.beatsToPixels(start);
+  const width = Math.max(timeMapper.beatsWidth(end - start), 2);
 
   const config = MUTATION_COLORS[mutation.mutationType] ?? MUTATION_COLORS.add_clip;
 
@@ -724,7 +773,7 @@ function MutationOverlay({ mutation, pixelsPerBar, trackHeight, isDiff }: {
         borderRadius: 2,
         zIndex: 5,
       }}
-      title={`${config.label}: ${mutation.actionTitle} — bars ${Math.round(start/4)+1}–${Math.round(end/4)}`}
+      title={`${config.label}: ${mutation.actionTitle} — bars ${Math.round(start/timeMapper.beatsPerBar)+1}–${Math.round(end/timeMapper.beatsPerBar)}`}
     >
       {width > 20 && (
         <div
@@ -771,14 +820,13 @@ function AudioWavePreview({ width, height, seed }: { width: number; height: numb
 
 // ─── Automation lane ───────────────────────────────────────────────────────────
 
-function AutomationLaneRow({ lane, trackColor, pixelsPerBar, timelineWidth, totalBars, barInterval, majorInterval }: {
-  lane: any; trackColor: string; pixelsPerBar: number; timelineWidth: number; totalBars: number;
+function AutomationLaneRow({ lane, trackColor, timeMapper, timelineWidth, totalBars, barInterval, majorInterval }: {
+  lane: any; trackColor: string; timeMapper: TimeMapper; timelineWidth: number; totalBars: number;
   barInterval: number; majorInterval: number;
 }) {
   const points = lane.points ?? [];
   if (points.length === 0) return null;
 
-  const barPx = pixelsPerBar * 4;
   const vals = points.map((p: any) => p.value);
   const minVal = Math.min(...vals);
   const maxVal = Math.max(...vals);
@@ -786,7 +834,7 @@ function AutomationLaneRow({ lane, trackColor, pixelsPerBar, timelineWidth, tota
 
   // Build SVG path — linear segments matching Ableton's step/linear interpolation
   const svgPoints = points.map((p: any) => {
-    const x = (p.time / 4) * barPx;
+    const x = timeMapper.beatsToPixels(p.time);
     const y = AUTO_LANE_HEIGHT - 6 - ((p.value - minVal) / range) * (AUTO_LANE_HEIGHT - 12);
     return { x, y };
   });
@@ -816,7 +864,7 @@ function AutomationLaneRow({ lane, trackColor, pixelsPerBar, timelineWidth, tota
         <span className="text-[7px] shrink-0 font-mono" style={{ color: "#555" }}>{points.length}pt</span>
       </div>
       <div className="relative overflow-hidden" style={{ width: timelineWidth, height: AUTO_LANE_HEIGHT, background: "#141414" }}>
-        <GridLines totalBars={totalBars} pixelsPerBar={pixelsPerBar} barInterval={barInterval} majorInterval={majorInterval} />
+        <GridLines totalBars={totalBars} timeMapper={timeMapper} barInterval={barInterval} majorInterval={majorInterval} />
         <svg width={timelineWidth} height={AUTO_LANE_HEIGHT} className="absolute inset-0">
           {/* Area fill */}
           <path d={fillD} fill={trackColor} opacity={0.08} />
@@ -845,6 +893,12 @@ function AutomationLaneRow({ lane, trackColor, pixelsPerBar, timelineWidth, tota
 
 // ─── Sidechain view ────────────────────────────────────────────────────────────
 
+const DETECTION_METHOD_CONFIG: Record<string, { label: string; color: string; description: string }> = {
+  DETECTED:    { label: "Detected",    color: "#22c55e", description: "Confirmed via XML routing or SidechainInput element" },
+  INFERRED:    { label: "Inferred",    color: "#f59e0b", description: "Heuristic: compressor on bass/synth near kick" },
+  AI_PROPOSED: { label: "AI Proposed", color: "#a855f7", description: "No sidechain found — AI recommends adding one" },
+};
+
 function SidechainView({ graph }: { graph: any }) {
   const links = graph.sidechainLinks ?? [];
   const allTracks = [...(graph.tracks ?? []), ...(graph.returnTracks ?? [])];
@@ -863,6 +917,17 @@ function SidechainView({ graph }: { graph: any }) {
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-3xl mx-auto space-y-4">
+        {/* Legend */}
+        <div className="flex items-center gap-4 flex-wrap">
+          {Object.entries(DETECTION_METHOD_CONFIG).map(([key, cfg]) => (
+            <div key={key} className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
+              <span className="text-[10px]" style={{ color: cfg.color }}>{cfg.label}</span>
+              <span className="text-[9px] text-[#555]">— {cfg.description}</span>
+            </div>
+          ))}
+        </div>
+
         <p className="text-xs text-[#888]">
           {links.length} sidechain relationship{links.length !== 1 ? "s" : ""} detected
         </p>
@@ -872,8 +937,22 @@ function SidechainView({ graph }: { graph: any }) {
             const tgt = allTracks.find((t: any) => t.id === link.targetTrackId);
             const srcColor = src ? (src.color != null ? getTrackColor(src.color) : getRoleColor(src.inferredRole)) : "#666";
             const tgtColor = tgt ? (tgt.color != null ? getTrackColor(tgt.color) : getRoleColor(tgt.inferredRole)) : "#666";
+            const method = link.detectionMethod ?? "INFERRED";
+            const methodCfg = DETECTION_METHOD_CONFIG[method] ?? DETECTION_METHOD_CONFIG.INFERRED;
             return (
-              <div key={i} className="bg-[#1e1e1e] border border-[#333] rounded-lg p-4 flex items-center gap-4">
+              <div
+                key={i}
+                className="bg-[#1e1e1e] rounded-lg p-4 flex items-center gap-4"
+                style={{ border: `1px solid ${methodCfg.color}40` }}
+              >
+                {/* Detection method badge */}
+                <div
+                  className="shrink-0 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider"
+                  style={{ backgroundColor: methodCfg.color + "20", color: methodCfg.color, minWidth: 62, textAlign: "center" }}
+                >
+                  {methodCfg.label}
+                </div>
+
                 <div className="flex items-center gap-2 min-w-[120px]">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: srcColor }} />
                   <div>
@@ -882,9 +961,9 @@ function SidechainView({ graph }: { graph: any }) {
                   </div>
                 </div>
                 <div className="flex-1 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-[#444]" />
-                  <span className="text-xs text-primary font-mono">⊃ SC</span>
-                  <div className="h-px flex-1 bg-[#444]" />
+                  <div className="h-px flex-1" style={{ backgroundColor: methodCfg.color + "55" }} />
+                  <span className="text-xs font-mono" style={{ color: methodCfg.color }}>⊃ SC</span>
+                  <div className="h-px flex-1" style={{ backgroundColor: methodCfg.color + "55" }} />
                 </div>
                 <div className="flex items-center gap-2 min-w-[120px]">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tgtColor }} />
@@ -893,9 +972,11 @@ function SidechainView({ graph }: { graph: any }) {
                     <p className="text-[9px] text-[#666]">Target</p>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 space-y-0.5">
                   <p className="text-[10px] text-[#777]">{link.deviceClass}</p>
-                  <p className="text-[10px] text-[#666]">{Math.round(link.confidence * 100)}%</p>
+                  <p className="text-[10px]" style={{ color: methodCfg.color + "bb" }}>
+                    {Math.round(link.confidence * 100)}% conf
+                  </p>
                 </div>
               </div>
             );

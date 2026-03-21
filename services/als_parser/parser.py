@@ -15,11 +15,16 @@ from __future__ import annotations
 
 import gzip
 import io
+import re
 import uuid
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from lxml import etree
+
+# Regex to extract numeric Ableton track ID from routing target strings like
+# "AudioIn/Track.100" or just "100" or "AudioOutputDevice.100"
+_re_track_id = re.compile(r"\.(\d+)$|^(\d+)$")
 
 from .models import (
     ProjectGraph, TrackNode, ClipNode, DeviceNode,
@@ -382,7 +387,7 @@ class ALSParser:
         if locators_el is None:
             return locators
 
-        for loc_el in locators_el.iter("AutomationEvent", "Locator"):
+        for loc_el in locators_el.iter("AutomationEvent", "Locator", "CuePoint"):
             time_val = self._safe_float(loc_el, "Time", 0.0)
             name_el = loc_el.find("Name")
             name = name_el.get("Value", "") if name_el is not None else ""
@@ -914,10 +919,10 @@ class ALSParser:
     def _detect_sidechain_links(self, graph: ProjectGraph) -> List[SidechainLink]:
         """
         Detect sidechain relationships using multi-source evidence:
-        1. Actual SidechainInput XML elements in compressor devices
-        2. Routing evidence (track output routing to sidechain)
-        3. Heuristic inference (compressor on bass/synth = likely SC from kick)
-        4. AI-proposed sidechain when none detected but would be beneficial
+        1. XML routing: AudioInputRouting Target pointing to another track's id (DETECTED, confidence=1.0)
+        2. Device SidechainInput XML elements in compressor devices (DETECTED, confidence=0.92)
+        3. Heuristic inference (compressor on bass/synth near kick) (INFERRED)
+        4. AI-proposed sidechain when none detected but would be beneficial (AI_PROPOSED)
         """
         links: List[SidechainLink] = []
 
@@ -929,9 +934,70 @@ class ALSParser:
         bass_tracks = [t for t in graph.tracks if t.inferred_role in ("bass", "rumble")]
         synth_tracks = [t for t in graph.tracks if t.inferred_role in ("lead", "synth_stab", "drone", "texture")]
 
+        # Build a track-id-to-TrackNode index for XML routing resolution
+        # Ableton XML track IDs are numeric strings (the Id attribute)
+        track_by_ableton_id: Dict[str, Any] = {}
+        for t in all_tracks:
+            # our internal ID format: track_<type>_<ableton_id>_<order>
+            parts = t.id.split("_")
+            if len(parts) >= 3:
+                ableton_id = parts[2]
+                track_by_ableton_id[ableton_id] = t
+
         detected_count = 0
+        seen_pairs: set = set()
+
+        def _add_link(src, tgt, dev_class, dev_id, confidence, relation_type, purpose, detection_method, device_ev=False):
+            nonlocal detected_count
+            pair = (src.id, tgt.id, dev_id)
+            if pair in seen_pairs:
+                return
+            seen_pairs.add(pair)
+            links.append(SidechainLink(
+                source_track_id=src.id,
+                target_track_id=tgt.id,
+                source_track_name=src.name,
+                target_track_name=tgt.name,
+                device_class=dev_class,
+                device_id=dev_id,
+                confidence=confidence,
+                relation_type=relation_type,
+                purpose=purpose,
+                detection_method=detection_method,
+                device_evidence=device_ev,
+            ))
+            if detection_method in ("DETECTED", "INFERRED"):
+                detected_count += 1
 
         for track in all_tracks:
+            # 1. XML routing: check AudioInputRouting Target for cross-track references
+            audio_input = track.routing.get("audioInput", {})
+            routing_target = audio_input.get("target", "")
+            # Ableton routing target format for sidechain: "AudioIn/Track.N" or numeric track ref
+            # The target value often contains the track's Ableton Id
+            if routing_target and routing_target not in ("", "AudioIn/Master", "AudioIn/External"):
+                # Try to parse track reference from target string like "AudioIn/Track.5" or just "5"
+                routed_track = None
+                # Try numeric suffix: "AudioIn/Track.100" -> "100"
+                m = _re_track_id.search(routing_target)
+                if m:
+                    ableton_id = m.group(1) or m.group(2)
+                    routed_track = track_by_ableton_id.get(ableton_id)
+                if routed_track and routed_track.id != track.id:
+                    # This track's audio INPUT comes from routed_track -> sidechain signal
+                    _add_link(
+                        src=routed_track,
+                        tgt=track,
+                        dev_class="AudioInputRouting",
+                        dev_id=f"routing_{track.id}",
+                        confidence=1.0,
+                        relation_type="DETECTED_COMPRESSOR_SIDECHAIN",
+                        purpose="xml_routing_sidechain",
+                        detection_method="DETECTED",
+                        device_ev=True,
+                    )
+                    continue
+
             for device in track.devices:
                 if device.device_class not in ("Compressor2", "GlueCompressor", "MultibandDynamics", "Gate"):
                     continue
@@ -939,97 +1005,96 @@ class ALSParser:
                 if track.inferred_role == "kick":
                     continue
 
-                # DETECTED: Device has actual sidechain input wiring
+                # 2. DETECTED: Device has actual SidechainInput XML element
                 if device.has_sidechain_input:
                     if kick_tracks:
                         source = kick_tracks[0]
                     else:
-                        # Find any drum-role track as source
+                        # Fallback: find any percussive track by role or name
                         drum_tracks = [t for t in graph.tracks if t.inferred_role in ("kick", "percussion", "snare")]
-                        source = drum_tracks[0] if drum_tracks else None
+                        if drum_tracks:
+                            source = drum_tracks[0]
+                        else:
+                            # Last resort: any track other than the target
+                            others = [t for t in graph.tracks if t.id != track.id]
+                            # Prefer tracks with "kick" / "drum" / "perc" in name (case-insensitive)
+                            name_matches = [t for t in others if any(
+                                kw in t.name.lower() for kw in ("kick", "drum", "perc", "bd")
+                            )]
+                            source = name_matches[0] if name_matches else (others[0] if others else None)
 
                     if source:
-                        links.append(SidechainLink(
-                            source_track_id=source.id,
-                            target_track_id=track.id,
-                            source_track_name=source.name,
-                            target_track_name=track.name,
-                            device_class=device.device_class,
-                            device_id=device.id,
+                        _add_link(
+                            src=source,
+                            tgt=track,
+                            dev_class=device.device_class,
+                            dev_id=device.id,
                             confidence=0.92,
                             relation_type="DETECTED_COMPRESSOR_SIDECHAIN",
                             purpose="kick_duck",
-                            device_evidence=True,
-                        ))
-                        detected_count += 1
+                            detection_method="DETECTED",
+                            device_ev=True,
+                        )
                     continue
 
-                # INFERRED: Heuristic — compressor on bass/synth near kick
+                # 3. INFERRED: Heuristic — compressor on bass/synth near kick
                 if not kick_tracks:
                     continue
 
                 if track.inferred_role in ("bass", "rumble"):
                     source = kick_tracks[0]
                     confidence = 0.82 if device.device_class == "Compressor2" else 0.65
-                    links.append(SidechainLink(
-                        source_track_id=source.id,
-                        target_track_id=track.id,
-                        source_track_name=source.name,
-                        target_track_name=track.name,
-                        device_class=device.device_class,
-                        device_id=device.id,
+                    _add_link(
+                        src=source,
+                        tgt=track,
+                        dev_class=device.device_class,
+                        dev_id=device.id,
                         confidence=confidence,
                         relation_type="INFERRED_KICK_TO_BASS_DUCK",
                         purpose="low_end_groove",
-                        device_evidence=True,
-                    ))
-                    detected_count += 1
+                        detection_method="INFERRED",
+                        device_ev=True,
+                    )
 
                 elif track.inferred_role in ("lead", "synth_stab", "drone", "texture", "vocal"):
                     source = kick_tracks[0]
-                    links.append(SidechainLink(
-                        source_track_id=source.id,
-                        target_track_id=track.id,
-                        source_track_name=source.name,
-                        target_track_name=track.name,
-                        device_class=device.device_class,
-                        device_id=device.id,
+                    _add_link(
+                        src=source,
+                        tgt=track,
+                        dev_class=device.device_class,
+                        dev_id=device.id,
                         confidence=0.58,
                         relation_type="INFERRED_KICK_TO_TEXTURE_DUCK",
                         purpose="texture_pumping",
-                        device_evidence=True,
-                    ))
-                    detected_count += 1
+                        detection_method="INFERRED",
+                        device_ev=True,
+                    )
 
-        # AI-PROPOSED: When no sidechain detected but project would benefit from it
+        # 4. AI-PROPOSED: When no sidechain detected but project would benefit from it
         if detected_count == 0 and kick_tracks:
-            # Propose kick -> bass sidechain if bass exists
             for bass in bass_tracks[:1]:
-                links.append(SidechainLink(
-                    source_track_id=kick_tracks[0].id,
-                    target_track_id=bass.id,
-                    source_track_name=kick_tracks[0].name,
-                    target_track_name=bass.name,
-                    device_class="Compressor2",
-                    device_id="ai_proposed_sc_0",
+                _add_link(
+                    src=kick_tracks[0],
+                    tgt=bass,
+                    dev_class="Compressor2",
+                    dev_id="ai_proposed_sc_0",
                     confidence=0.88,
                     relation_type="AI_PROPOSED_KICK_TO_BASS_DUCK",
                     purpose="Add pumping groove — kick ducking bass is standard in techno/dance",
-                ))
+                    detection_method="AI_PROPOSED",
+                )
 
-            # Propose kick -> main synth/texture sidechain
             for synth in synth_tracks[:1]:
-                links.append(SidechainLink(
-                    source_track_id=kick_tracks[0].id,
-                    target_track_id=synth.id,
-                    source_track_name=kick_tracks[0].name,
-                    target_track_name=synth.name,
-                    device_class="Compressor2",
-                    device_id="ai_proposed_sc_1",
+                _add_link(
+                    src=kick_tracks[0],
+                    tgt=synth,
+                    dev_class="Compressor2",
+                    dev_id="ai_proposed_sc_1",
                     confidence=0.72,
                     relation_type="AI_PROPOSED_KICK_TO_TEXTURE_DUCK",
                     purpose="Texture pumping — sidechain creates rhythmic movement in pads/synths",
-                ))
+                    detection_method="AI_PROPOSED",
+                )
 
         return links
 
