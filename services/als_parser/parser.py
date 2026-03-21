@@ -555,13 +555,31 @@ class ALSParser:
         clip_type = "audio" if "Audio" in tag else "midi"
 
         start = self._safe_float(el, "Time", 0.0)
-        end_attr = el.get("CurrentEnd") or el.get("LoopEnd")
-        end = float(end_attr) if end_attr else start + 4.0
+        end = self._safe_float(el, "CurrentEnd", 0.0)
+        if end <= start:
+            loop_el_pre = el.find("Loop")
+            if loop_el_pre is not None:
+                loop_end_val = self._safe_float(loop_el_pre, "LoopEnd", 4.0)
+                end = start + loop_end_val
+            else:
+                end = start + 4.0
 
-        loop_el = el.find(".//Loop")
+        loop_el = el.find("Loop")
+        if loop_el is None:
+            loop_el = el.find(".//Loop")
         loop = False
         if loop_el is not None:
             loop = self._safe_bool(loop_el, "LoopOn", False)
+
+        # Clip color (some ALS use ColorIndex child element, others use Color attribute)
+        clip_color: Optional[int] = None
+        color_idx_val = self._safe_int(el, "ColorIndex", -1)
+        if color_idx_val >= 0:
+            clip_color = color_idx_val
+        else:
+            color_attr_val = self._safe_int(el, "Color", -1)
+            if color_attr_val >= 0:
+                clip_color = color_attr_val
 
         # Gain
         gain_val = 1.0
@@ -569,21 +587,21 @@ class ALSParser:
         if gain_el is not None:
             gain_val = self._safe_float(gain_el, "Value", 1.0)
 
-        # MIDI notes
+        # MIDI notes — KeyTrack holds pitch via MidiKey attribute on KeyTrack itself
         midi_notes = []
         if clip_type == "midi":
             notes_el = el.find(".//Notes")
             if notes_el is not None:
                 for key_track in notes_el.iter("KeyTrack"):
+                    pitch = self._safe_int(key_track, "MidiKey", 60)
                     for note_el in key_track.iter("MidiNoteEvent"):
                         try:
                             note = MidiNote(
-                                pitch=self._safe_int(note_el, "NoteId", 60),
+                                pitch=pitch,
                                 time=self._safe_float(note_el, "Time", 0.0),
                                 duration=self._safe_float(note_el, "Duration", 0.25),
                                 velocity=self._safe_int(note_el, "Velocity", 100),
                             )
-                            # Actually KeyTrack has a MidiKey attribute
                             midi_notes.append(note)
                         except Exception:
                             pass
@@ -602,6 +620,7 @@ class ALSParser:
             gain_info=gain_val,
             midi_notes=midi_notes,
             content_summary=content_summary,
+            clip_color=clip_color,
         )
 
     def _extract_automation_lanes(self, track_el: etree._Element) -> List[AutomationLane]:

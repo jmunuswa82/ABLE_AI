@@ -1,0 +1,146 @@
+{
+  "projectId": "7b6d4097-29ed-49c8-ae60-bba340cde7a4",
+  "summary": "Analyzed a hypnotic techno, raw techno project with 14 tracks, 109 clips, at 132 BPM. Found 11 potential improvements. Generated 8 completion actions (0 critical, 4 high priority).",
+  "confidence": 0.95,
+  "completionScore": 0.97,
+  "styleTags": [
+    "hypnotic techno",
+    "raw techno",
+    "minimal techno"
+  ],
+  "actions": [
+    {
+      "id": "9afcffd8-91ea-4131-a93d-49fad86d94f3",
+      "category": "bass",
+      "title": "Add Bass / Sub Element",
+      "description": "No bass track detected. Add a sub bass (30-80Hz) that locks to the kick pattern or runs a continuous groove. Consider a single-note bass with filter automation for movement.",
+      "affectedTracks": [
+        "New bass track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.9,
+      "expectedImpact": "high",
+      "rationale": "Sub bass provides low-end weight and energy on large sound systems.",
+      "priority": "high"
+    },
+    {
+      "id": "faf10a6e-2699-486c-827d-dc6e153eb0a8",
+      "category": "automation",
+      "title": "Add Filter Sweep Automation",
+      "description": "Automate filter cutoff on key tracks through section transitions. Build from fully closed to 60-70% open over 4-8 bars leading into the drop, and close again entering the breakdown.",
+      "affectedTracks": [
+        "Synth tracks",
+        "Bass tracks"
+      ],
+      "affectedBars": null,
+      "confidence": 0.85,
+      "expectedImpact": "high",
+      "rationale": "Filter sweeps are the primary energy tool in techno and are expected by listeners.",
+      "priority": "high"
+    },
+    {
+      "id": "ff3543f0-1d01-4081-ae7a-316eda80ad1e",
+      "category": "transitions",
+      "title": "Add Tension Sweeps at Section Boundaries",
+      "description": "Add white noise or filtered sweep risers (4-8 bars) before major section changes. Also add downward pitch automation on synths as the drop hits to create impact.",
+      "affectedTracks": [
+        "New FX/sweep track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.82,
+      "expectedImpact": "high",
+      "rationale": "Sweeps signal section changes and build anticipation — critical for floor impact.",
+      "priority": "high"
+    },
+    {
+      "id": "c610256d-e29f-4ab6-8e36-368e488d3c6f",
+      "category": "ending",
+      "title": "Build Outro Strip-Back Sequence",
+      "description": "Create a 16-bar outro where elements drop out gradually: first remove leads and synths (bar 1-4), then percussion (bar 5-8), leaving kick+bass to bar 12, then only kick to bar 16. Fade kick with volume automation.",
+      "affectedTracks": [
+        "All tracks"
+      ],
+      "affectedBars": "Last 16 bars",
+      "confidence": 0.88,
+      "expectedImpact": "high",
+      "rationale": "A proper outro is essential for live DJ mixing — allows smooth transition to the next track.",
+      "priority": "high"
+    },
+    {
+      "id": "ba9c5a13-ce33-494f-9d1e-17312c087dd0",
+      "category": "drums",
+      "title": "Add Hi-Hat Variation",
+      "description": "Hi-hat tracks show static repetition. Add open hi-hat accents on off-beats, ghost notes between the main pattern, or introduce velocity variation to add groove and movement.",
+      "affectedTracks": [
+        "HAT 1",
+        "HAT 2",
+        "HAT 3"
+      ],
+      "affectedBars": null,
+      "confidence": 0.82,
+      "expectedImpact": "medium",
+      "rationale": "Static hi-hats make a groove feel robotic. Subtle variation creates human feel.",
+      "priority": "medium"
+    },
+    {
+      "id": "95c41f97-7bc6-42b1-a2cc-ac3469a50aee",
+      "category": "automation",
+      "title": "Add Send Level Automation",
+      "description": "Automate reverb/delay send amounts on key elements. Throw reverb sends up during breakdowns and transition moments to create space and anticipation.",
+      "affectedTracks": [
+        "Reverb/Delay return tracks"
+      ],
+      "affectedBars": null,
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Automated send throws create depth and atmosphere essential for techno tension.",
+      "priority": "medium"
+    },
+    {
+      "id": "82c91563-ae7b-41e7-aac2-299c7db6f2cc",
+      "category": "transitions",
+      "title": "Add Drum Fill at Key Transitions",
+      "description": "Add a 1-2 bar drum fill or roll before each major section change (especially before the drop). A 1/16th to 1/32nd note roll on the snare or clap works well.",
+      "affectedTracks": [
+        "Percussion tracks",
+        "Clap/Snare track"
+      ],
+      "affectedBars": null,
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Fills signal transitions and energize the moment of section change.",
+      "priority": "medium"
+    },
+    {
+      "id": "036cdcdf-7579-4493-adde-5f601164ecfa",
+      "category": "automation",
+      "title": "Add Resonance Automation",
+      "description": "Automate filter resonance on basslines or synth tracks through peak sections. A rising resonance (Q) from 0.5 to 2.0 creates tension and urgency.",
+      "affectedTracks": [
+        "Bass tracks",
+        "Lead synth tracks"
+      ],
+      "affectedBars": null,
+      "confidence": 0.72,
+      "expectedImpact": "medium",
+      "rationale": "Resonance automation adds harmonic tension absent from purely gain-based dynamics.",
+      "priority": "low"
+    }
+  ],
+  "weaknesses": [
+    "Very little automation detected — arrangement feels static and lacks dynamic movement",
+    "Multiple section transitions lack tension-building elements (no sweeps, FX, or transition clips detected)",
+    "Section 'Breakdown': weak or absent transition into this section",
+    "Section 'Peak': weak or absent transition into this section",
+    "No bass/sub track detected — low-end continuity may be weak",
+    "Last 8 bars appear to have no active tracks — ending may be missing or unfinished",
+    "2 return track(s) detected but may be underused (no automated sends)",
+    "Hi-hat track 'HAT 1': same length clips throughout — no variation or open/closed pattern evolution",
+    "Hi-hat track 'HAT 2': same length clips throughout — no variation or open/closed pattern evolution",
+    "Hi-hat track 'HAT 3': same length clips throughout — no variation or open/closed pattern evolution",
+    "11 tracks with many clips but zero automation — consider adding filter sweeps, send throws, or gain automation"
+  ],
+  "warnings": [],
+  "rationale": "This hypnotic techno project has been analyzed using rule-based music analysis. Completion suggestions are based on: arrangement structure analysis, role inference (track type detection without relying on names), section energy/density profiling, automation density analysis, and genre-specific production conventions for hypnotic techno. All suggestions include confidence scores based on parse quality (100%) and detection certainty.",
+  "generatedAt": "2026-03-21T11:09:17.684415+00:00"
+}

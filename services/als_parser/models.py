@@ -74,6 +74,7 @@ class ClipNode:
     midi_notes: List[MidiNote] = field(default_factory=list)
     gain_info: float = 1.0
     content_summary: str = ""
+    clip_color: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -85,8 +86,10 @@ class ClipNode:
             "loop": self.loop,
             "sourceRef": self.source_ref,
             "midiNoteCount": len(self.midi_notes),
+            "midiNotes": [{"pitch": n.pitch, "time": n.time, "duration": n.duration, "velocity": n.velocity} for n in self.midi_notes[:128]],
             "gainInfo": self.gain_info,
             "contentSummary": self.content_summary,
+            "clipColor": self.clip_color,
         }
 
 
