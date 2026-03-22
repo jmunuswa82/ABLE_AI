@@ -334,6 +334,97 @@ router.get("/projects/:id/artifacts/:artifactId/download", async (req: Request, 
   }
 });
 
+// GET /projects/:id/export-status
+router.get("/projects/:id/export-status", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const artifacts = await db
+      .select()
+      .from(artifactFilesTable)
+      .where(eq(artifactFilesTable.projectId, id))
+      .orderBy(desc(artifactFilesTable.createdAt));
+
+    const patchedAls = artifacts.find((a) => a.type === "patched_als");
+    const patchedAlsExists = patchedAls ? existsSync(patchedAls.filePath) : false;
+
+    const jobs = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.projectId, id))
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+
+    const latestJob = jobs[0] ?? null;
+
+    // Count mutations from description field if available
+    const mutationsApplied = patchedAls
+      ? parseInt((patchedAls.description ?? "0 mutations").match(/(\d+) mutations/)?.[1] ?? "0")
+      : 0;
+
+    const trustLabel = patchedAls?.description?.match(/(SAFE_\w+|STRUCTURALLY_VALID_ALS|REQUIRES_MANUAL_REVIEW)/)?.[1] ?? null;
+
+    res.json({
+      projectId: id,
+      projectStatus: project.status,
+      hasPatchedAls: patchedAlsExists,
+      patchedAlsFileName: patchedAls?.fileName ?? null,
+      patchedAlsFileSize: patchedAls?.fileSize ?? null,
+      mutationsApplied,
+      trustLabel,
+      jobState: latestJob?.state ?? null,
+      jobMessage: latestJob?.message ?? null,
+      originalFileName: project.originalFileName ?? null,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get export status");
+    res.status(500).json({ error: "Failed to get export status" });
+  }
+});
+
+// GET /projects/:id/export-als  — streams the patched .als file for download
+router.get("/projects/:id/export-als", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const artifacts = await db
+      .select()
+      .from(artifactFilesTable)
+      .where(eq(artifactFilesTable.projectId, id))
+      .orderBy(desc(artifactFilesTable.createdAt));
+
+    const patchedAls = artifacts.find((a) => a.type === "patched_als");
+
+    if (!patchedAls) {
+      res.status(409).json({
+        error: "No patched .als file available. Upload and analyse a project first.",
+        code: "NO_PATCHED_ALS",
+      });
+      return;
+    }
+
+    if (!existsSync(patchedAls.filePath)) {
+      res.status(404).json({
+        error: "Patched .als file was registered but is missing from disk.",
+        code: "FILE_MISSING",
+      });
+      return;
+    }
+
+    res.setHeader("Content-Type", "application/x-ableton-live-set");
+    res.setHeader("Content-Disposition", `attachment; filename="${patchedAls.fileName}"`);
+    res.setHeader("X-Trust-Label", patchedAls.description ?? "");
+    res.download(patchedAls.filePath, patchedAls.fileName);
+  } catch (err) {
+    req.log.error({ err }, "Failed to export ALS");
+    res.status(500).json({ error: "Failed to export ALS" });
+  }
+});
+
 // POST /projects/:id/parse (manual trigger)
 router.post("/projects/:id/parse", async (req: Request, res: Response) => {
   const { id } = req.params;

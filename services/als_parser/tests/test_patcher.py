@@ -228,7 +228,11 @@ class TestPatcherClip(unittest.TestCase):
         root = _read_xml(result.als_bytes)
         tracks = root.findall(".//MidiTrack")
         self.assertGreater(len(tracks), 0, "Should create a new MidiTrack")
-        track_names = [el.get("Value", "") for el in root.findall(".//MidiTrack/EffectiveName")]
+        # EffectiveName is under <Name><EffectiveName> in Ableton format — use deep search
+        track_names = [el.get("Value", "") for el in root.findall(".//MidiTrack//EffectiveName")]
+        # Also check UserName in case EffectiveName path differs
+        if not track_names:
+            track_names = [el.get("Value", "") for el in root.findall(".//MidiTrack//UserName")]
         self.assertIn("Hi-Hat", track_names)
 
     def test_clip_trust_label_structural(self):
@@ -326,6 +330,140 @@ class TestPatcherSafetyAndSkipping(unittest.TestCase):
         ])
         skipped_types = [s["type"] for s in result.mutations_skipped]
         self.assertIn("totally_unknown_type", skipped_types)
+
+
+class TestIDAllocatorInvariants(unittest.TestCase):
+    """
+    Property/invariant tests for the IDAllocator.
+    All new IDs must be unique and above any pre-existing ID in the document.
+    """
+
+    def _get_all_ids(self, als_bytes: bytes) -> list[int]:
+        """Extract all integer Id attribute values from a patched ALS."""
+        from lxml import etree
+        root = _read_xml(als_bytes)
+        ids = []
+        for elem in root.iter():
+            raw = elem.get("Id", "")
+            if raw:
+                try:
+                    ids.append(int(raw))
+                except ValueError:
+                    pass
+        return ids
+
+    def test_no_duplicate_ids_after_locators(self):
+        """Adding multiple locators must not produce duplicate IDs."""
+        als = build_minimal_als()
+        result = patch_als(als, [
+            {"mutationType": "add_locator", "startBeat": 0.0, "locatorName": "A", "safe": True},
+            {"mutationType": "add_locator", "startBeat": 16.0, "locatorName": "B", "safe": True},
+            {"mutationType": "add_locator", "startBeat": 32.0, "locatorName": "C", "safe": True},
+            {"mutationType": "add_locator", "startBeat": 48.0, "locatorName": "D", "safe": True},
+            {"mutationType": "add_locator", "startBeat": 64.0, "locatorName": "E", "safe": True},
+        ])
+        self.assertIsNotNone(result.als_bytes)
+        ids = self._get_all_ids(result.als_bytes)
+        self.assertEqual(len(ids), len(set(ids)), f"Duplicate IDs found: {ids}")
+
+    def test_no_duplicate_ids_after_clips(self):
+        """Adding clips with notes must not produce duplicate IDs."""
+        als = build_minimal_als(tracks=[{"name": "Kick", "type": "MidiTrack"}])
+        notes = kick_pattern_notes(bars=4)
+        result = patch_als(als, [
+            {"mutationType": "add_clip", "targetTrackName": "Kick",
+             "startBeat": 0.0, "endBeat": 16.0, "clipType": "midi",
+             "notes": notes, "safe": True},
+            {"mutationType": "add_clip", "targetTrackName": "Kick",
+             "startBeat": 16.0, "endBeat": 32.0, "clipType": "midi",
+             "notes": notes, "safe": True},
+        ])
+        self.assertIsNotNone(result.als_bytes)
+        ids = self._get_all_ids(result.als_bytes)
+        self.assertEqual(len(ids), len(set(ids)), f"Duplicate IDs after clip adds: {ids}")
+
+    def test_new_ids_above_existing_maximum(self):
+        """All IDs added by the patcher must be above the max pre-existing ID."""
+        # Build ALS with known high IDs
+        als = build_minimal_als(tracks=[{"name": "Track", "type": "MidiTrack"}])
+        original_ids = set(self._get_all_ids(als))
+        max_original = max(original_ids) if original_ids else 0
+
+        result = patch_als(als, [
+            {"mutationType": "add_locator", "startBeat": 0.0, "locatorName": "X", "safe": True},
+            {"mutationType": "add_clip", "targetTrackName": "Track",
+             "startBeat": 0.0, "endBeat": 16.0, "clipType": "midi",
+             "notes": kick_pattern_notes(bars=1), "safe": True},
+        ])
+        self.assertIsNotNone(result.als_bytes)
+        patched_ids = set(self._get_all_ids(result.als_bytes))
+        new_ids = patched_ids - original_ids
+        for new_id in new_ids:
+            self.assertGreater(
+                new_id, max_original,
+                f"New ID {new_id} is not above original max {max_original}"
+            )
+
+    def test_id_zero_not_assigned_to_new_elements(self):
+        """The IDAllocator must never assign Id='0' to newly created elements."""
+        als = build_minimal_als()
+        result = patch_als(als, [
+            {"mutationType": "add_locator", "startBeat": 0.0, "locatorName": "Test", "safe": True},
+            {"mutationType": "add_clip", "newTrackName": "NewTrack",
+             "startBeat": 0.0, "endBeat": 8.0, "clipType": "midi",
+             "notes": [], "safe": True},
+        ])
+        self.assertIsNotNone(result.als_bytes)
+        root = _read_xml(result.als_bytes)
+        # Id=0 is only valid for MasterTrack; new elements must not get it
+        for elem in root.iter():
+            if elem.tag in ("CuePoint", "MidiClip", "AudioClip", "MidiTrack",
+                            "AudioTrack", "AutomationEnvelope", "KeyTrack"):
+                eid = elem.get("Id", "")
+                self.assertNotEqual(eid, "0", f"<{elem.tag}> must not have Id='0'")
+
+    def test_deterministic_id_allocation_order(self):
+        """IDs are allocated in strictly increasing order within a session."""
+        als = build_minimal_als()
+        result = patch_als(als, [
+            {"mutationType": "add_locator", "startBeat": 0.0, "locatorName": "First", "safe": True},
+            {"mutationType": "add_locator", "startBeat": 16.0, "locatorName": "Second", "safe": True},
+        ])
+        self.assertIsNotNone(result.als_bytes)
+        root = _read_xml(result.als_bytes)
+        cue_ids = [int(cp.get("Id", "0")) for cp in root.findall(".//CuePoint")]
+        # IDs should be monotonically increasing for sequential allocations
+        self.assertEqual(cue_ids, sorted(cue_ids), "CuePoint IDs should be in ascending order")
+
+    def test_pre_export_validator_catches_structural_issue(self):
+        """validate_pre_export must flag duplicate IDs as hard errors."""
+        from lxml import etree as _etree
+        from services.als_parser.als_patcher import validate_pre_export
+        root = _etree.fromstring(b"""
+        <Ableton>
+          <LiveSet>
+            <Tracks>
+              <MidiTrack Id="42"/>
+              <MidiTrack Id="42"/>
+            </Tracks>
+          </LiveSet>
+        </Ableton>""")
+        passed, errors = validate_pre_export(root)
+        self.assertFalse(passed, "Should fail due to duplicate Id=42")
+        self.assertTrue(any("42" in e and "DUPLICATE" in e for e in errors),
+                        f"Expected DUPLICATE_ID error, got: {errors}")
+
+    def test_pre_export_validator_passes_clean_document(self):
+        """validate_pre_export must pass for a clean minimal ALS document."""
+        from services.als_parser.als_patcher import validate_pre_export
+        als = build_minimal_als(tracks=[
+            {"name": "Kick", "type": "MidiTrack"},
+            {"name": "Bass", "type": "MidiTrack"},
+        ])
+        root = _read_xml(als)
+        passed, errors = validate_pre_export(root)
+        hard_errors = [e for e in errors if not e.startswith("WARN:")]
+        self.assertTrue(passed, f"Expected clean document to pass, got: {hard_errors}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,285 @@
+{
+  "projectId": "eeeb626d-d99c-410f-b734-7b4d3fac95d8",
+  "summary": "Analyzed a hypnotic techno, raw techno project with 14 tracks, 109 clips, 0 automated tracks, at 132 BPM — 224 bars total. Found 5 potential improvements. Generated 7 completion actions (0 critical, 4 high priority).",
+  "confidence": 0.95,
+  "completionScore": 0.97,
+  "styleTags": [
+    "hypnotic techno",
+    "raw techno",
+    "minimal techno"
+  ],
+  "actions": [
+    {
+      "id": "c13b1723-8833-4afb-ab0b-e8ae8c38dd91",
+      "category": "bass",
+      "title": "Add Bass / Sub Element",
+      "description": "No bass track detected. Add a sub bass (30–80 Hz) that locks to the kick pattern or runs a continuous groove. Single-note bass with filter automation creates movement.",
+      "affectedTracks": [
+        "New bass track"
+      ],
+      "affectedBars": "1–225",
+      "confidence": 0.9,
+      "expectedImpact": "high",
+      "rationale": "Sub bass provides low-end weight and energy on large sound systems.",
+      "priority": "high",
+      "startBeat": 0,
+      "endBeat": 896,
+      "targetTrackIds": [],
+      "createsNewTrack": true,
+      "addsAutomation": false,
+      "addsSidechain": false,
+      "mutationPayloads": [],
+      "sectionLabel": null
+    },
+    {
+      "id": "497bf655-9300-4fef-9f7c-f30908742c76",
+      "category": "automation",
+      "title": "Add Filter Sweep Automation",
+      "description": "Automate filter cutoff on key tracks through section transitions (bars 17–65). Build from fully closed to 60–70% open over 4–8 bars leading into the drop, close again entering breakdown.",
+      "affectedTracks": [
+        "CLICK",
+        "ACID",
+        "ACID"
+      ],
+      "affectedBars": "17–65",
+      "confidence": 0.85,
+      "expectedImpact": "high",
+      "rationale": "Filter sweeps are the primary energy tool in techno and are expected by listeners.",
+      "priority": "high",
+      "startBeat": 64,
+      "endBeat": 256,
+      "targetTrackIds": [
+        "track_midi_37_1",
+        "track_midi_33_8",
+        "track_midi_39_9"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": "track_midi_37_1",
+          "targetTrackName": "CLICK",
+          "startBeat": 64,
+          "endBeat": 256,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Filter Cutoff",
+          "automationPoints": [
+            {
+              "time": 64,
+              "value": 0.15
+            },
+            {
+              "time": 252,
+              "value": 0.75
+            },
+            {
+              "time": 256,
+              "value": 0.75
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Filter sweep for build section"
+        }
+      ],
+      "sectionLabel": "Build"
+    },
+    {
+      "id": "1ad729e6-d34f-4d0b-bc6a-ad7d0ad6a9b8",
+      "category": "transitions",
+      "title": "Add Tension Sweeps at Section Boundaries",
+      "description": "Add white noise or filtered sweep risers (4–8 bars) before major section changes. Section boundaries at: bar 17 before Build, bar 65 before Intro, bar 97 before Breakdown, bar 129 before Peak. Also add downward pitch automation on synths as the drop hits.",
+      "affectedTracks": [
+        "New FX/sweep track"
+      ],
+      "affectedBars": "9–17",
+      "confidence": 0.82,
+      "expectedImpact": "high",
+      "rationale": "Sweeps signal section changes and build anticipation — critical for floor impact.",
+      "priority": "high",
+      "startBeat": 32,
+      "endBeat": 64,
+      "targetTrackIds": [],
+      "createsNewTrack": true,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_clip",
+          "targetTrackId": null,
+          "targetTrackName": null,
+          "startBeat": 32,
+          "endBeat": 64,
+          "newTrackName": "FX Sweep",
+          "newTrackType": "audio",
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": "audio",
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Riser/sweep transition clip placeholder"
+        }
+      ],
+      "sectionLabel": "Build"
+    },
+    {
+      "id": "41231ec8-8948-4a0e-ab53-544da0c09032",
+      "category": "sidechain",
+      "title": "Add Sidechain: KICK → CLICK",
+      "description": "No sidechain relationship detected. AI proposes adding a kick-triggered sidechain compressor on 'CLICK' sourced from 'KICK'. Apply through the groove section (bars 129–161). Purpose: Texture pumping — sidechain creates rhythmic movement in pads/synths. Use Ableton's Compressor with Sidechain > Audio From set to the kick track.",
+      "affectedTracks": [
+        "KICK",
+        "CLICK"
+      ],
+      "affectedBars": "129–161",
+      "confidence": 0.72,
+      "expectedImpact": "high",
+      "rationale": "Texture pumping — sidechain creates rhythmic movement in pads/synths",
+      "priority": "high",
+      "startBeat": 512,
+      "endBeat": 640,
+      "targetTrackIds": [
+        "track_midi_37_1"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": false,
+      "addsSidechain": true,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_sidechain_proposal",
+          "targetTrackId": "track_midi_37_1",
+          "targetTrackName": "CLICK",
+          "startBeat": 512,
+          "endBeat": 640,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": false,
+          "reason": "Add Compressor with sidechain input from KICK"
+        }
+      ],
+      "sectionLabel": "Peak"
+    },
+    {
+      "id": "a6c1aeac-5e4f-46ed-b364-145d15a02e6f",
+      "category": "automation",
+      "title": "Add Send Level Automation",
+      "description": "Automate reverb/delay send amounts on key elements (bars 97–129). Throw reverb sends up during breakdown to create space and anticipation.",
+      "affectedTracks": [
+        "DIRTY VERB"
+      ],
+      "affectedBars": "97–129",
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Automated send throws create depth and atmosphere essential for techno tension.",
+      "priority": "medium",
+      "startBeat": 384,
+      "endBeat": 512,
+      "targetTrackIds": [
+        "track_return_2_0"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [],
+      "sectionLabel": "Breakdown"
+    },
+    {
+      "id": "5b5df608-fdda-49ef-94fa-e7eb433a780c",
+      "category": "transitions",
+      "title": "Add Drum Fill at Key Transitions",
+      "description": "Add a 1–2 bar drum fill (bars 15–17) before each major section change. A 1/16th–1/32nd note roll on snare or clap works well.",
+      "affectedTracks": [
+        "SHOTS",
+        "PERC"
+      ],
+      "affectedBars": "15–17",
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Fills signal transitions and energize the moment of section change.",
+      "priority": "medium",
+      "startBeat": 56,
+      "endBeat": 64,
+      "targetTrackIds": [
+        "track_midi_40_3",
+        "track_midi_45_4"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": false,
+      "addsSidechain": false,
+      "mutationPayloads": [],
+      "sectionLabel": null
+    },
+    {
+      "id": "62d5ef7f-cfe7-4183-863a-ded61c90417b",
+      "category": "automation",
+      "title": "Add Resonance Automation",
+      "description": "Automate filter resonance on 'CLICK' through the peak section (bars 129–161). Rising resonance (Q) from 0.5 to 2.0 creates tension and urgency.",
+      "affectedTracks": [
+        "CLICK"
+      ],
+      "affectedBars": "129–161",
+      "confidence": 0.72,
+      "expectedImpact": "medium",
+      "rationale": "Resonance automation adds harmonic tension absent from purely gain-based dynamics.",
+      "priority": "low",
+      "startBeat": 512,
+      "endBeat": 640,
+      "targetTrackIds": [
+        "track_midi_37_1"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": "track_midi_37_1",
+          "targetTrackName": "CLICK",
+          "startBeat": 512,
+          "endBeat": 640,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Filter Resonance",
+          "automationPoints": [
+            {
+              "time": 512,
+              "value": 0.3
+            },
+            {
+              "time": 640,
+              "value": 0.85
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": null
+        }
+      ],
+      "sectionLabel": "Peak"
+    }
+  ],
+  "weaknesses": [
+    "Very little automation detected — arrangement feels static and lacks dynamic movement",
+    "Section 'Peak': weak or absent transition into this section",
+    "No bass/sub track detected — low-end continuity may be weak",
+    "2 return track(s) detected but may be underused (no automated sends)",
+    "11 tracks with many clips but zero automation — consider adding filter sweeps, send throws, or gain automation"
+  ],
+  "warnings": [],
+  "rationale": "This hypnotic techno project has been analyzed using rule-based music analysis. Completion suggestions are based on: arrangement structure analysis, role inference (track type detection without relying on names), section energy/density profiling, automation density analysis (0 tracks with automation detected), sidechain graph analysis (1 links detected or proposed), and genre-specific production conventions for hypnotic techno. All suggestions include exact bar placements derived from the parsed arrangement, machine-executable mutation payloads, and confidence scores based on parse quality (100%) and detection certainty.",
+  "generatedAt": "2026-03-21T19:35:07.049236+00:00",
+  "mutationPlanVersion": "1.0.0"
+}

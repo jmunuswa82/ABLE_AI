@@ -1,0 +1,402 @@
+You are now the principal engineer responsible for repairing and hardening the ALS export subsystem for an advanced Ableton Live AI application.
+
+This is not a UI task.
+This is not a packaging task.
+This is not a "download bundle" task.
+
+This is a critical compiler/export correctness task.
+
+==================================================
+MISSION-CRITICAL REQUIREMENT
+==================================================
+
+The app must export a SINGLE valid modified `.als` file as the primary and mandatory output.
+
+The exported `.als` must:
+1. Open successfully in Ableton Live without corruption errors
+2. Preserve the original project structure unless intentionally changed
+3. Apply AI-generated modifications into the actual Ableton XML structure
+4. Maintain valid object identity, references, ordering, and schema-safe values
+5. Support Live 10 / 11 / 12 as robustly as possible
+6. Never generate invalid `Id` attributes
+7. Never ship a fake export flow where JSON/package files exist but the `.als` is unusable
+
+The current implementation is unacceptable because the exported `.als` fails to load with errors like:
+- Illegal value for 'Id' attribute
+- Corrupt document
+- Invalid XML graph / malformed references
+
+Your task is to completely redesign the export pipeline into a production-grade, schema-safe ALS mutation and compilation system.
+
+==================================================
+NON-NEGOTIABLE PRODUCT CHANGE
+==================================================
+
+The Export page must be redesigned so that the PRIMARY and DEFAULT action is:
+
+[ Export Modified .als ]
+
+This is mandatory.
+
+The export UX must no longer prioritize:
+- patch package zip
+- structural manifests
+- developer-oriented bundle output
+- JSON-first packaging
+
+Those can exist only as secondary debug artifacts behind an advanced/debug toggle.
+
+The normal user flow must be:
+Upload ALS -> Analyze -> Modify -> Export valid `.als`
+
+No excuses, no fake packaging detour, no broken compiler.
+
+==================================================
+ROOT PROBLEM TO SOLVE
+==================================================
+
+The existing system appears to treat Ableton ALS as generic XML.
+
+That is wrong.
+
+Ableton ALS must be treated as a structured project graph with:
+- stable object identities
+- cross-references
+- ordering constraints
+- device/track/clip relationships
+- automation lane relationships
+- routing dependencies
+- version-specific structural differences
+
+The exporter must NOT perform naive string replacement or blind XML insertion.
+
+Instead implement a proper pipeline:
+
+1. Parse original ALS into a loss-minimizing XML/AST representation
+2. Build a normalized internal ProjectGraph
+3. Apply AI changes to the ProjectGraph
+4. Validate graph integrity
+5. Recompile to ALS XML using deterministic rules
+6. Validate all IDs and cross-references before writing file
+7. Run fixture-based sanity checks on exported ALS
+8. Return the final `.als` for download
+
+==================================================
+REQUIRED ARCHITECTURE
+==================================================
+
+Implement or refactor to this export architecture.
+
+A. ALS INPUT LAYER
+- Load `.als` safely (gzip-aware if needed)
+- Parse XML preserving ordering and unmodified nodes wherever possible
+- Preserve unknown tags and attributes for round-trip safety
+- Support large projects efficiently
+
+B. ROUND-TRIP XML AST
+Create a round-trip-safe XML representation:
+- tag name
+- ordered attributes
+- children order
+- text values
+- comments if present
+- unknown nodes preserved
+- exact subtree pass-through for untouched regions
+
+Important:
+Untouched sections must remain as close as possible to original source.
+Do not regenerate the whole file from scratch if not necessary.
+Prefer surgical subtree mutation with validated recomposition.
+
+C. PROJECT GRAPH
+Build an internal graph model for:
+- project metadata
+- tempo
+- locators / arrangement sections
+- tracks
+- return tracks
+- master track
+- devices
+- chains if relevant
+- clips
+- automation envelopes
+- mixer/routing/send data
+- muted/solo/arm states where relevant
+- timeline/bar positions
+- unique node identities
+- parent-child and reference links
+
+D. MUTATION ENGINE
+AI modifications must be applied to the graph through typed operations only.
+
+Examples:
+- add MIDI clip
+- add audio clip placeholder metadata
+- add arrangement section locator
+- add automation envelope points
+- add send automation
+- add Utility gain automation
+- add filter sweeps
+- create sidechain routing metadata if supported structurally
+- update track names
+- add generated tracks
+- extend arrangement length
+
+Do NOT mutate XML directly from AI output.
+AI output must be transformed into typed graph mutations.
+
+E. IDENTITY / REFERENCE MANAGER
+Implement a dedicated ID manager.
+
+This is mandatory.
+
+The ID manager must:
+- scan all existing IDs in the source ALS
+- preserve existing IDs unchanged where possible
+- generate new IDs only through a central allocator
+- guarantee uniqueness
+- ensure format validity for Ableton-compatible XML attribute usage
+- update all corresponding references when new nodes are created
+- never reuse deleted IDs in the same compile pass
+- maintain deterministic behavior between runs
+
+Build validation checks for:
+- duplicate IDs
+- null IDs
+- malformed IDs
+- orphan references
+- broken parent references
+- automation target references that do not exist
+- device parameter references that do not exist
+
+F. ALS COMPILER
+Build a deterministic compiler that:
+- applies graph changes back into the XML AST
+- preserves original XML regions untouched where possible
+- inserts new nodes in schema-consistent positions
+- ensures required sibling ordering
+- serializes valid XML only
+- preserves stable formatting as much as practical
+- writes a valid `.als` output file
+
+G. PRE-EXPORT VALIDATOR
+Before allowing download, run validations:
+1. XML well-formedness
+2. No duplicate IDs
+3. All references resolve
+4. Required root structure intact
+5. Track/device/clip tree integrity
+6. Automation envelope integrity
+7. Bar/time values valid and non-negative
+8. No illegal attribute encodings
+9. No empty required elements
+10. No accidental removal of critical project sections
+
+If validation fails:
+- do not export
+- show exact failure reason
+- show mutation step that caused failure
+- write detailed debug log
+
+==================================================
+IMPLEMENTATION RULES
+==================================================
+
+1. DO NOT use regex/string hacks to build XML
+2. DO NOT rebuild unknown Ableton structures from assumptions
+3. DO NOT drop nodes you do not understand
+4. DO NOT make export dependent on JSON package download
+5. DO NOT expose broken `.als` as “verified build”
+6. DO NOT fake success if validation did not pass
+7. DO NOT produce a zip as the main output
+8. DO NOT mutate IDs ad hoc inside different services
+
+==================================================
+EXPORT UX REQUIREMENTS
+==================================================
+
+Redesign the export page.
+
+Current export page behavior is wrong if it emphasizes package zip/manifests.
+
+Replace it with a user-facing export experience that makes the `.als` file the center of the product.
+
+Required UI structure:
+
+Primary card:
+- Title: Export Modified Ableton Project
+- Subtitle: Download the AI-modified `.als` file ready to open in Ableton Live
+- Primary CTA button: Export Modified .als
+- Status badge:
+  - Ready
+  - Validating
+  - Exporting
+  - Failed Validation
+  - Export Complete
+
+Below that show:
+- Original file name
+- Modified file name
+- Live compatibility target (10 / 11 / 12 if detected)
+- Number of AI modifications applied
+- Tracks added
+- Clips added
+- Automation lanes added
+- Arrangement locators added
+- Validation result summary
+
+Secondary debug section (collapsed by default):
+- Download project graph JSON
+- Download mutation plan JSON
+- Download export diagnostics log
+
+But the primary experience must always be `.als` export only.
+
+==================================================
+BACKEND API REQUIREMENTS
+==================================================
+
+Create or refactor backend endpoints into something like:
+
+POST /api/projects/:id/analyze
+POST /api/projects/:id/plan
+POST /api/projects/:id/apply-mutations
+POST /api/projects/:id/validate-export
+POST /api/projects/:id/export-als
+GET  /api/projects/:id/export-status
+GET  /api/projects/:id/export-diagnostics
+
+The final export endpoint must return the compiled `.als` binary/file stream only when validation passes.
+
+If validation fails, return structured errors:
+- code
+- summary
+- failing node path
+- mutation operation id
+- human-readable fix hint
+
+==================================================
+TEST STRATEGY (MANDATORY)
+==================================================
+
+Implement real fixture-based tests.
+
+You must create a fixtures suite with representative Ableton projects:
+- minimal empty project
+- one MIDI track
+- one audio track
+- multiple tracks with devices
+- project with arrangement locators
+- project with automation
+- project with return tracks
+- project with long timeline
+- Live 10 sample
+- Live 11 sample
+- Live 12 sample
+
+For each fixture test:
+1. Parse original ALS
+2. Compile without mutation
+3. Ensure round-trip validity
+4. Apply one mutation
+5. Export
+6. Re-parse exported ALS
+7. Verify intended mutation exists
+8. Verify identity/reference integrity
+9. Verify no duplicate IDs
+10. Verify expected structural invariants
+
+Create property/invariant tests for:
+- unique IDs
+- reference closure
+- stable untouched subtrees
+- deterministic export
+- no silent node loss
+
+Add golden tests where appropriate.
+
+==================================================
+DEBUGGING & DIAGNOSTICS
+==================================================
+
+Implement deep diagnostics for failed export.
+
+When export fails, log:
+- original file metadata
+- detected Live version
+- mutation sequence applied
+- last successful compile stage
+- failing node XPath/path
+- duplicate ID report
+- unresolved reference report
+- serializer output snippet around failure
+- exact validation error
+
+Surface this clearly in developer logs and optionally in a diagnostics panel.
+
+==================================================
+FILE FORMAT HANDLING
+==================================================
+
+You must inspect how `.als` is stored and ensure correct read/write behavior.
+Handle compression/container expectations correctly.
+Do not assume plain text save if the source format requires processing before XML parse or after XML write.
+
+Preserve:
+- encoding correctness
+- newline safety where relevant
+- binary/container integrity if required by ALS format handling
+
+==================================================
+DELIVERABLES
+==================================================
+
+Implement all of the following directly in the repo:
+
+1. Robust ALS parser module
+2. Round-trip-safe XML AST layer
+3. ProjectGraph model
+4. Typed mutation engine
+5. Central ID allocator and reference manager
+6. Compiler back to ALS
+7. Pre-export validation system
+8. Export-only `.als` API flow
+9. Redesigned export page with `.als` as primary output
+10. Diagnostics and logging
+11. Full fixture-based tests
+12. Removal/demotion of patch-package-first UX
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+The task is only complete if all of the following are true:
+
+- Export page primary CTA downloads a modified `.als`
+- Exported `.als` opens in Ableton without corruption error
+- AI-applied changes actually exist in the exported project
+- IDs are valid and unique
+- Cross-references remain intact
+- Export is deterministic
+- Tests pass across multiple fixture ALS files
+- Debug artifacts are secondary, not primary
+- No fake "deployment ready" packaging flow replaces the actual ALS export
+
+==================================================
+EXECUTION MODE
+==================================================
+
+Work like a senior production engineer, not a scaffolding assistant.
+
+You must:
+- inspect the current repo
+- find all export-path flaws
+- replace weak logic with production-grade implementation
+- patch backend + frontend + tests
+- remove placeholder behavior
+- deliver working code, not notes
+
+Do not stop with recommendations.
+Do not leave TODOs for critical paths.
+Do not produce mock export behavior.
+Implement the real corrected system end to end.
