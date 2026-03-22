@@ -331,9 +331,13 @@ class ALSPatcher:
         track_name: Optional[str],
     ) -> Optional[etree._Element]:
         if track_id:
-            # Parser stores IDs as "track_<order>_<ableton_id>" — extract numeric suffix
-            parts = track_id.rsplit("_", 1)
-            ableton_id = parts[-1] if len(parts) > 1 else track_id
+            # Parser stores IDs as "track_<type>_<ableton_id>_<order>" e.g. "track_midi_1234_0"
+            # Extract index [2] which is the Ableton numeric XML Id attribute
+            parts = track_id.split("_")
+            if len(parts) >= 3:
+                ableton_id = parts[2]
+            else:
+                ableton_id = parts[-1]
             if ableton_id in self._track_index:
                 return self._track_index[ableton_id]
             if track_id in self._track_index:
@@ -658,15 +662,12 @@ class ALSPatcher:
         if locators_outer is None:
             locators_outer = etree.SubElement(self.liveset, "Locators")
 
-        # Ableton 11/12: Locators > Locators > CuePoint
-        locators_inner = locators_outer.find("Locators")
-        if locators_inner is None:
-            locators_inner = etree.SubElement(locators_outer, "Locators")
-
+        # Ableton 10/11/12: <Locators><CuePoint .../></Locators> — flat structure.
+        # Always insert CuePoint directly into locators_outer (matches _extract_locators).
         time_beats = float(payload.get("startBeat", 0.0))
         name = payload.get("locatorName", "Marker")
 
-        cue = etree.SubElement(locators_inner, "CuePoint")
+        cue = etree.SubElement(locators_outer, "CuePoint")
         cue.set("Id", self._ids.allocate())
         cue.set("Time", str(time_beats))
         cue.set("ColorIndex", "13")
@@ -717,13 +718,14 @@ class ALSPatcher:
                 f"'{track_name or track_id}'; using synthetic PointeeId={pointee_id}"
             )
 
-        # Find or create ArrangerAutomation
-        arranger_auto = target_el.find("ArrangerAutomation")
+        # Deep search: ArrangerAutomation lives at DeviceChain/MainSequencer/ClipTimeable/
+        # in real ALS files, but may be a direct child in minimal/test ALS structures.
+        arranger_auto = target_el.find(".//ArrangerAutomation")
         if arranger_auto is None:
             arranger_auto = etree.SubElement(target_el, "ArrangerAutomation")
 
         # Ableton canonical order: AutomationEnvelopes BEFORE Events
-        # Find or create AutomationEnvelopes, then ensure it is before Events
+        # AutomationEnvelopes is a sibling of Events directly under ArrangerAutomation.
         auto_envs = arranger_auto.find("AutomationEnvelopes")
         events_el = arranger_auto.find("Events")
 
@@ -786,7 +788,9 @@ class ALSPatcher:
         if target_el is None:
             return f"Track not found: id={track_id!r}, name={track_name!r}"
 
-        arranger_auto = target_el.find("ArrangerAutomation")
+        # Deep search: ArrangerAutomation may be nested under DeviceChain/MainSequencer/
+        # ClipTimeable/ in real ALS files, or a direct child in minimal/test structures.
+        arranger_auto = target_el.find(".//ArrangerAutomation")
         if arranger_auto is None:
             arranger_auto = etree.SubElement(target_el, "ArrangerAutomation")
 
@@ -867,7 +871,7 @@ class ALSPatcher:
         if target_el is None:
             return f"Track not found: {track_id or track_name}"
 
-        arranger_auto = target_el.find("ArrangerAutomation")
+        arranger_auto = target_el.find(".//ArrangerAutomation")
         if arranger_auto is None:
             return "No ArrangerAutomation element found on track"
 

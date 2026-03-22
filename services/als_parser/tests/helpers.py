@@ -63,12 +63,11 @@ def build_minimal_als(
     arr_end_el.set("LoopEnd", str(arrangement_length))
     arr_end_el.set("LoopOn", "false")
 
-    # Locators
+    # Locators — Ableton 10/11/12 flat structure: <Locators><CuePoint .../></Locators>
     if locators:
         locs_el = etree.SubElement(ls, "Locators")
-        locs_inner = etree.SubElement(locs_el, "Locators")
         for loc in locators:
-            cue = etree.SubElement(locs_inner, "CuePoint")
+            cue = etree.SubElement(locs_el, "CuePoint")
             cue.set("Id", str(next_id()))
             cue.set("Time", str(float(loc.get("time", 0))))
             name_el = etree.SubElement(cue, "Name")

@@ -466,5 +466,85 @@ class TestIDAllocatorInvariants(unittest.TestCase):
         self.assertTrue(passed, f"Expected clean document to pass, got: {hard_errors}")
 
 
+class TestRoundTripSmokeTest(unittest.TestCase):
+    """
+    Round-trip test: patch a synthetic ALS, re-parse the patched bytes through ALSParser,
+    and confirm that the locator, clip, and automation lane appear in the resulting ProjectGraph.
+
+    This exercises both root-cause fixes:
+    - Bug 1: track ID extraction (track_<type>_<ableton_id>_<order> → parts[2])
+    - Bug 2/3: ArrangerAutomation deep search (.//ArrangerAutomation)
+    - Bug 4: locator flat insertion into <Locators>
+    """
+
+    def test_round_trip_locator_clip_automation(self):
+        from services.als_parser.parser import ALSParser
+
+        track_name = "Synth Lead"
+        als = build_minimal_als(
+            tempo=120.0,
+            tracks=[{
+                "name": track_name,
+                "type": "MidiTrack",
+                "clips": [],
+                "devices": [{"class": "AutoFilter", "automationTargets": {"Cutoff": 5001}}],
+            }],
+        )
+
+        mutations = [
+            {
+                "mutationType": "add_locator",
+                "startBeat": 16.0,
+                "locatorName": "Section A",
+                "safe": True,
+            },
+            {
+                "mutationType": "add_clip",
+                "targetTrackName": track_name,
+                "startBeat": 0.0,
+                "endBeat": 16.0,
+                "clipType": "midi",
+                "notes": kick_pattern_notes(bars=4),
+                "safe": True,
+            },
+            {
+                "mutationType": "add_automation",
+                "targetTrackName": track_name,
+                "automationParameter": "Filter Cutoff",
+                "startBeat": 0.0,
+                "endBeat": 16.0,
+                "automationPoints": [
+                    {"time": 0.0, "value": 0.2},
+                    {"time": 16.0, "value": 0.8},
+                ],
+                "safe": True,
+            },
+        ]
+
+        result = patch_als(als, mutations)
+
+        self.assertIsNotNone(result.als_bytes, f"Patched bytes must not be None. Warnings: {result.warnings}")
+        self.assertTrue(result.validation_passed, f"Validation failed. Diagnostics: {result.diagnostics}")
+        self.assertEqual(len(result.mutations_applied), 3, f"All 3 mutations must apply. Skipped: {result.mutations_skipped}")
+
+        parser = ALSParser(project_id="test_round_trip")
+        graph = parser.parse(result.als_bytes)
+
+        # (a) locator appears in graph.locators
+        locator_times = [loc["time"] for loc in graph.locators]
+        self.assertIn(16.0, locator_times,
+                      f"Expected locator at beat 16.0 in graph.locators, got: {graph.locators}")
+
+        # (b) track's clips count increased
+        track = next((t for t in graph.tracks if t.name == track_name), None)
+        self.assertIsNotNone(track, f"Track '{track_name}' must exist in graph after round-trip")
+        self.assertGreater(len(track.clips), 0,
+                           f"Track '{track_name}' must have at least 1 clip after add_clip, got: {track.clips}")
+
+        # (c) track's automation_lanes count increased
+        self.assertGreater(len(track.automation_lanes), 0,
+                           f"Track '{track_name}' must have at least 1 automation lane, got: {track.automation_lanes}")
+
+
 if __name__ == "__main__":
     unittest.main()
