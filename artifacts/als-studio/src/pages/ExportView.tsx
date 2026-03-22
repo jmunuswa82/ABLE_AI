@@ -1,34 +1,36 @@
+/**
+ * ExportView — "Deploy" page.
+ *
+ * Derives all export readiness from the SAME project lifecycle state
+ * that all other pages use (useProjectPolling). No independent state
+ * source, no fake readiness, no stale data.
+ *
+ * Export CTA is enabled ONLY when project.status === "exported"
+ * AND the patched .als file physically exists on disk (confirmed
+ * via /export-status which also gives file size and trust label).
+ */
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download, Music2, ShieldCheck, ChevronDown, ChevronUp,
-  FileJson, FileText, AlertTriangle, CheckCircle2, Clock,
-  Loader2, XCircle, FileCode, Zap, Package,
+  FileJson, FileText, AlertTriangle, CheckCircle2,
+  Loader2, XCircle, FileCode, Zap, Play, Brain,
 } from "lucide-react";
 import { useListProjectArtifacts } from "@workspace/api-client-react";
+import { useProjectPolling } from "@/hooks/use-polling";
+import { PipelineStatus } from "@/components/PipelineStatus";
 import { formatBytes } from "@/lib/utils";
 import { ANIMATION_VARIANTS } from "@/lib/design";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-type ExportStatus =
-  | "ready"
-  | "no_als"
-  | "loading"
-  | "error";
-
 interface ExportStatusData {
-  projectId: string;
-  projectStatus: string;
   hasPatchedAls: boolean;
   patchedAlsFileName: string | null;
   patchedAlsFileSize: number | null;
   mutationsApplied: number;
   trustLabel: string | null;
-  jobState: string | null;
-  jobMessage: string | null;
-  originalFileName: string | null;
 }
 
 const TRUST_LABELS: Record<string, { label: string; color: string; description: string }> = {
@@ -45,7 +47,7 @@ const TRUST_LABELS: Record<string, { label: string; color: string; description: 
   STRUCTURALLY_VALID_ALS: {
     label: "Structurally Modified",
     color: "#ffb703",
-    description: "Clips and tracks modified — validated and safe to open",
+    description: "Clips and tracks modified — validated and safe to open in Live",
   },
   REQUIRES_MANUAL_REVIEW: {
     label: "Manual Review",
@@ -54,99 +56,48 @@ const TRUST_LABELS: Record<string, { label: string; color: string; description: 
   },
 };
 
-function StatusBadge({ status }: { status: ExportStatus }) {
-  const config: Record<ExportStatus, { icon: React.ReactNode; label: string; color: string }> = {
-    ready: {
-      icon: <CheckCircle2 className="w-3 h-3" />,
-      label: "Ready to Export",
-      color: "#22c55e",
-    },
-    no_als: {
-      icon: <Clock className="w-3 h-3" />,
-      label: "Awaiting Analysis",
-      color: "#64748b",
-    },
-    loading: {
-      icon: <Loader2 className="w-3 h-3 animate-spin" />,
-      label: "Loading…",
-      color: "#94a3b8",
-    },
-    error: {
-      icon: <XCircle className="w-3 h-3" />,
-      label: "Export Unavailable",
-      color: "#ef4444",
-    },
-  };
-  const c = config[status];
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-label uppercase tracking-widest font-bold"
-      style={{
-        color: c.color,
-        backgroundColor: `${c.color}18`,
-        border: `1px solid ${c.color}30`,
-      }}
-    >
-      {c.icon}
-      {c.label}
-    </span>
-  );
-}
+const IN_PROGRESS = new Set([
+  "uploaded", "parsing", "analyzing", "generating", "exporting", "queued",
+]);
 
 export default function ExportView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
+  // Derive readiness from SAME source as all other pages
+  const { projectDetail: project } = useProjectPolling(id);
   const { data: artifacts = [] } = useListProjectArtifacts(id);
 
-  const [statusData, setStatusData] = useState<ExportStatusData | null>(null);
-  const [statusLoading, setStatusLoading] = useState(true);
+  const [exportStatus, setExportStatus] = useState<ExportStatusData | null>(null);
+  const [exportStatusLoading, setExportStatusLoading] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
-  const [diagOpen, setDiagOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  const isExported = project?.status === "exported";
+  const isAnalyzing = IN_PROGRESS.has(project?.status ?? "");
+
+  // Fetch export-status detail only when project is exported
   useEffect(() => {
+    if (!isExported || !id) return;
     let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch(`${BASE}/api/projects/${id}/export-status`);
-        if (!res.ok) throw new Error("Failed to fetch export status");
-        const data = await res.json();
-        if (!cancelled) {
-          setStatusData(data);
-          // Auto-expand diagnostics panel when patch failed and diagnostics exist
-          if (!data.hasPatchedAls) {
-            setDiagOpen(true);
-          }
-        }
-      } catch {
-        if (!cancelled) setStatusData(null);
-      } finally {
-        if (!cancelled) setStatusLoading(false);
-      }
-    }
-    load();
+    setExportStatusLoading(true);
+    fetch(`${BASE}/api/projects/${id}/export-status`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (!cancelled) setExportStatus(data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setExportStatusLoading(false); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, isExported]);
 
-  const exportStatus: ExportStatus = statusLoading
-    ? "loading"
-    : !statusData
-    ? "error"
-    : statusData.hasPatchedAls
-    ? "ready"
-    : "no_als";
-
-  const trustInfo = statusData?.trustLabel
-    ? TRUST_LABELS[statusData.trustLabel] ?? null
+  const trustInfo = exportStatus?.trustLabel
+    ? TRUST_LABELS[exportStatus.trustLabel] ?? null
     : null;
 
-  const debugArtifacts = artifacts.filter((a: any) =>
+  const exportReady = isExported && !!exportStatus?.hasPatchedAls;
+
+  const debugArtifacts = (artifacts as any[]).filter((a) =>
     ["project_graph", "completion_plan", "instructions", "original_als", "patch_package"].includes(a.type)
   );
-
-  const patchPackageArt = artifacts.find((a: any) => a.type === "patch_package");
-  const exportDiagnosticsArt = artifacts.find((a: any) => a.type === "export_diagnostics");
 
   const typeIcon = (type: string) => {
     if (type.includes("als")) return <Music2 className="w-4 h-4" />;
@@ -164,16 +115,26 @@ export default function ExportView() {
   };
 
   const handleExport = () => {
-    if (exportStatus !== "ready") return;
+    if (!exportReady) return;
     setDownloading(true);
     const a = document.createElement("a");
     a.href = `${BASE}/api/projects/${id}/export-als`;
-    a.download = statusData?.patchedAlsFileName ?? "patched.als";
+    a.download = exportStatus?.patchedAlsFileName ?? "patched.als";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => setDownloading(false), 3000);
   };
+
+  // ── Not yet analysed ─────────────────────────────────────────────────────
+  if (!project) {
+    return (
+      <div className="p-8 flex items-center gap-3 text-[var(--text-muted)]">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="font-label text-[11px] uppercase tracking-widest">Loading project…</span>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -197,175 +158,231 @@ export default function ExportView() {
         </p>
       </motion.div>
 
-      {/* Primary Export Card */}
+      {/* Pipeline Status — always visible so the user sees exact blocking state */}
       <motion.div variants={ANIMATION_VARIANTS.slideUp}>
         <div
-          className="rounded-xl p-6"
+          className="rounded-xl p-5"
           style={{
             background: "var(--bg-panel)",
-            border: exportStatus === "ready"
-              ? "1px solid rgba(255,183,3,0.25)"
+            border: isExported
+              ? "1px solid rgba(34,197,94,0.15)"
+              : isAnalyzing
+              ? "1px solid rgba(255,183,3,0.15)"
               : "1px solid rgba(81,69,50,0.1)",
           }}
         >
-          {/* Card header */}
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{
-                  background: exportStatus === "ready"
-                    ? "rgba(255,183,3,0.12)"
-                    : "var(--bg-overlay)",
-                }}
-              >
-                <Music2
-                  className="w-5 h-5"
-                  style={{ color: exportStatus === "ready" ? "var(--amber)" : "var(--text-muted)" }}
-                />
-              </div>
-              <div>
-                <h2 className="text-[15px] font-display font-bold text-[var(--text-primary)]">
-                  Export Modified Ableton Project
-                </h2>
-                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                  {statusData?.patchedAlsFileName ?? "Awaiting analysis to generate patched file"}
-                </p>
-              </div>
-            </div>
-            <StatusBadge status={exportStatus} />
-          </div>
-
-          {/* Modification stats */}
-          {statusData && exportStatus === "ready" && (
-            <div
-              className="grid grid-cols-2 gap-3 mb-5 p-4 rounded-lg"
-              style={{ background: "var(--bg-card)" }}
-            >
-              <div>
-                <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
-                  Source File
-                </p>
-                <p className="text-[12px] font-mono text-[var(--amber-light)] truncate">
-                  {statusData.originalFileName ?? "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
-                  Modified File
-                </p>
-                <p className="text-[12px] font-mono text-[var(--amber-light)] truncate">
-                  {statusData.patchedAlsFileName ?? "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
-                  File Size
-                </p>
-                <p className="text-[13px] font-display font-bold text-[var(--text-primary)]">
-                  {statusData.patchedAlsFileSize
-                    ? formatBytes(statusData.patchedAlsFileSize)
-                    : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
-                  AI Mutations Applied
-                </p>
-                <p className="text-[13px] font-display font-bold text-[var(--text-primary)]">
-                  {statusData.mutationsApplied > 0
-                    ? `${statusData.mutationsApplied} operations`
-                    : "Locators + Analysis"}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Trust level badge */}
-          {trustInfo && (
-            <div
-              className="flex items-start gap-2.5 p-3 rounded-lg mb-5"
-              style={{
-                background: `${trustInfo.color}0d`,
-                border: `1px solid ${trustInfo.color}25`,
-              }}
-            >
-              <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: trustInfo.color }} />
-              <div>
-                <p
-                  className="text-[10px] font-label uppercase tracking-widest font-bold mb-0.5"
-                  style={{ color: trustInfo.color }}
-                >
-                  {trustInfo.label}
-                </p>
-                <p className="text-[11px] text-[var(--text-muted)]">{trustInfo.description}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Export button */}
-          <button
-            onClick={handleExport}
-            disabled={exportStatus !== "ready" || downloading}
-            className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-display font-bold text-[14px] uppercase tracking-wider transition-all"
-            style={
-              exportStatus === "ready"
-                ? {
-                    background: downloading
-                      ? "rgba(255,183,3,0.5)"
-                      : "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
-                    color: "#271900",
-                    cursor: downloading ? "default" : "pointer",
-                  }
-                : {
-                    background: "var(--bg-overlay)",
-                    color: "var(--text-muted)",
-                    cursor: "not-allowed",
-                  }
-            }
-          >
-            {downloading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Downloading…
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                {exportStatus === "ready"
-                  ? "Export Modified .als"
-                  : exportStatus === "no_als"
-                  ? "Analysis Required First"
-                  : exportStatus === "loading"
-                  ? "Loading…"
-                  : "Export Unavailable"}
-              </>
-            )}
-          </button>
-
-          {/* No ALS explanation */}
-          {exportStatus === "no_als" && (
-            <div className="mt-4 flex items-start gap-2 text-[11px] text-[var(--text-muted)]">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#ffb703" }} />
-              <span>
-                {exportDiagnosticsArt
-                  ? "The AI patch could not be applied — mutations did not pass pre-serialisation validation. See the Pipeline Diagnostics panel below for details."
-                  : "Upload an .als file and run the full analysis pipeline to generate a modified export. The AI will parse your project, build a completion plan, and apply safe mutations before making the export available here."}
-              </span>
-            </div>
-          )}
+          <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-4">
+            Pipeline State · {project.name}
+          </p>
+          <PipelineStatus status={project.status} jobs={project.jobs ?? []} />
         </div>
       </motion.div>
 
-      {/* Validation Summary */}
-      {exportStatus === "ready" && (
+      {/* Blocking state when pipeline is running */}
+      {isAnalyzing && (
+        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+          <div
+            className="rounded-xl p-5 flex items-start gap-3"
+            style={{
+              background: "rgba(255,183,3,0.05)",
+              border: "1px solid rgba(255,183,3,0.15)",
+            }}
+          >
+            <Brain className="w-4 h-4 shrink-0 mt-0.5 text-[var(--amber)]" />
+            <div>
+              <p className="text-[12px] font-label uppercase tracking-widest text-[var(--amber)] font-bold mb-1">
+                Analysis in Progress
+              </p>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                The export will become available once the full pipeline completes. This page
+                refreshes automatically.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* No file uploaded */}
+      {!project.originalFileName && !isAnalyzing && (
+        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+          <div
+            className="rounded-xl p-5 flex items-start gap-3"
+            style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[var(--amber)]" />
+            <p className="text-[12px] text-[var(--text-muted)]">
+              Upload an .als file and run the full analysis pipeline to enable export.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Primary Export Card — shown only when exported */}
+      {isExported && (
+        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+          <div
+            className="rounded-xl p-6"
+            style={{
+              background: "var(--bg-panel)",
+              border: exportReady
+                ? "1px solid rgba(255,183,3,0.25)"
+                : "1px solid rgba(81,69,50,0.1)",
+            }}
+          >
+            {/* Card header */}
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: exportReady
+                      ? "rgba(255,183,3,0.12)"
+                      : "var(--bg-overlay)",
+                  }}
+                >
+                  <Music2
+                    className="w-5 h-5"
+                    style={{ color: exportReady ? "var(--amber)" : "var(--text-muted)" }}
+                  />
+                </div>
+                <div>
+                  <h2 className="text-[15px] font-display font-bold text-[var(--text-primary)]">
+                    Export Modified Ableton Project
+                  </h2>
+                  <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                    {exportStatus?.patchedAlsFileName ?? (exportStatusLoading ? "Checking…" : "Awaiting export artifact")}
+                  </p>
+                </div>
+              </div>
+              {exportReady ? (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-label uppercase tracking-widest font-bold"
+                  style={{
+                    color: "#22c55e",
+                    backgroundColor: "rgba(34,197,94,0.08)",
+                    border: "1px solid rgba(34,197,94,0.2)",
+                  }}
+                >
+                  <CheckCircle2 className="w-3 h-3" /> Ready
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-label uppercase tracking-widest font-bold"
+                  style={{
+                    color: "#64748b",
+                    backgroundColor: "rgba(100,116,139,0.08)",
+                    border: "1px solid rgba(100,116,139,0.2)",
+                  }}
+                >
+                  <Loader2 className="w-3 h-3 animate-spin" /> Checking
+                </span>
+              )}
+            </div>
+
+            {/* Stats */}
+            {exportStatus && exportReady && (
+              <div
+                className="grid grid-cols-2 gap-3 mb-5 p-4 rounded-lg"
+                style={{ background: "var(--bg-card)" }}
+              >
+                <div>
+                  <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
+                    Source File
+                  </p>
+                  <p className="text-[12px] font-mono text-[var(--amber-light)] truncate">
+                    {project.originalFileName ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
+                    Modified File
+                  </p>
+                  <p className="text-[12px] font-mono text-[var(--amber-light)] truncate">
+                    {exportStatus.patchedAlsFileName ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
+                    File Size
+                  </p>
+                  <p className="text-[13px] font-display font-bold text-[var(--text-primary)]">
+                    {exportStatus.patchedAlsFileSize
+                      ? formatBytes(exportStatus.patchedAlsFileSize)
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
+                    AI Mutations Applied
+                  </p>
+                  <p className="text-[13px] font-display font-bold text-[var(--text-primary)]">
+                    {exportStatus.mutationsApplied > 0
+                      ? `${exportStatus.mutationsApplied} operations`
+                      : "Locators + Analysis"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Trust level badge */}
+            {trustInfo && (
+              <div
+                className="flex items-start gap-2.5 p-3 rounded-lg mb-5"
+                style={{
+                  background: `${trustInfo.color}0d`,
+                  border: `1px solid ${trustInfo.color}25`,
+                }}
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: trustInfo.color }} />
+                <div>
+                  <p
+                    className="text-[10px] font-label uppercase tracking-widest font-bold mb-0.5"
+                    style={{ color: trustInfo.color }}
+                  >
+                    {trustInfo.label}
+                  </p>
+                  <p className="text-[11px] text-[var(--text-muted)]">{trustInfo.description}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Export button */}
+            <button
+              onClick={handleExport}
+              disabled={!exportReady || downloading}
+              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-display font-bold text-[14px] uppercase tracking-wider transition-all"
+              style={
+                exportReady
+                  ? {
+                      background: downloading
+                        ? "rgba(255,183,3,0.5)"
+                        : "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
+                      color: "#271900",
+                      cursor: downloading ? "default" : "pointer",
+                    }
+                  : {
+                      background: "var(--bg-overlay)",
+                      color: "var(--text-muted)",
+                      cursor: "not-allowed",
+                    }
+              }
+            >
+              {downloading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Downloading…</>
+              ) : (
+                <><Download className="w-4 h-4" /> Export Modified .als</>
+              )}
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Validation summary */}
+      {exportReady && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
             className="rounded-xl p-5"
-            style={{
-              background: "var(--bg-panel)",
-              border: "1px solid rgba(81,69,50,0.1)",
-            }}
+            style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
           >
             <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-3">
               Export Validation
@@ -388,82 +405,7 @@ export default function ExportView() {
         </motion.div>
       )}
 
-      {/* Patch Package — secondary download */}
-      {patchPackageArt && (
-        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-          <div
-            className="rounded-xl p-5 flex flex-col md:flex-row items-center gap-5"
-            style={{
-              background: "var(--bg-panel)",
-              border: "1px solid rgba(81,69,50,0.1)",
-            }}
-          >
-            <div className="w-12 h-12 rounded-xl bg-[var(--bg-overlay)] flex items-center justify-center border border-[var(--amber-border)] shrink-0">
-              <Package className="w-5 h-5 text-[var(--text-secondary)]" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-[13px] font-label font-bold text-[var(--text-primary)] mb-1 uppercase tracking-wide">
-                Master Patch Package
-              </h3>
-              <p className="text-[11px] text-[var(--text-muted)] mb-1.5 leading-relaxed">
-                Complete bundle: original .als + analysis files + completion plan + AI patch (if available).
-              </p>
-              <div className="text-[10px] font-mono text-[var(--amber-light)] bg-[var(--bg-overlay)] inline-block px-2.5 py-1 rounded border border-[var(--amber-border)]">
-                {patchPackageArt.fileName} · {formatBytes(patchPackageArt.fileSize)}
-              </div>
-            </div>
-            <a
-              href={`${BASE}/api/projects/${id}/artifacts/${patchPackageArt.id}/download`}
-              download={patchPackageArt.fileName}
-              className="shrink-0 px-5 py-2.5 rounded-lg text-[12px] border border-[var(--amber-border)] text-[var(--amber-light)] hover:bg-primary/10 transition-all font-label font-bold uppercase tracking-wide"
-            >
-              Download
-            </a>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Diagnostics panel — shown when export_diagnostics artifact exists */}
-      {exportDiagnosticsArt && (
-        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-          <button
-            onClick={() => setDiagOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors"
-            style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle
-                className="w-3.5 h-3.5"
-                style={{ color: exportStatus !== "ready" ? "#ffb703" : "var(--text-muted)" }}
-              />
-              <span className="text-[11px] font-label uppercase tracking-widest text-[var(--text-secondary)]">
-                Pipeline Diagnostics — Why did export {exportStatus === "ready" ? "succeed?" : "fail?"}
-              </span>
-            </div>
-            {diagOpen ? (
-              <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
-            )}
-          </button>
-
-          <AnimatePresence>
-            {diagOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <DiagnosticsPanel projectId={id} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-      {/* Debug / Secondary artifacts — collapsed by default */}
+      {/* Debug artifacts — collapsed */}
       {debugArtifacts.length > 0 && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <button
@@ -541,145 +483,5 @@ export default function ExportView() {
         </motion.div>
       )}
     </motion.div>
-  );
-}
-
-function DiagnosticsPanel({ projectId }: { projectId: string }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = async () => {
-    if (data || loading) return;
-    setLoading(true);
-    try {
-      const resp = await fetch(`${BASE}/api/projects/${projectId}/export-diagnostics`);
-      if (!resp.ok) throw new Error(`${resp.status}: ${await resp.text()}`);
-      setData(await resp.json());
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load diagnostics");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!data && !loading && !error) load();
-
-  if (loading) {
-    return (
-      <div
-        className="rounded-b-lg p-6 border-t-0 font-mono text-xs text-[var(--text-muted)]"
-        style={{ background: "var(--bg-card)", border: "1px solid rgba(81,69,50,0.1)" }}
-      >
-        Loading diagnostics…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div
-        className="rounded-b-lg p-6 border-t-0 font-mono text-xs text-red-400"
-        style={{ background: "var(--bg-card)", border: "1px solid rgba(81,69,50,0.1)" }}
-      >
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const violations: string[] = data?.diagnostics?.violations ?? [];
-  const warnings: string[] = data?.warnings ?? [];
-  const skipped: any[] = data?.skippedDetails ?? [];
-
-  return (
-    <div
-      className="rounded-b-lg p-5 border-t-0 space-y-4"
-      style={{ background: "var(--bg-card)", border: "1px solid rgba(81,69,50,0.1)" }}
-    >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Trust Level" value={data.trustLabel ?? "—"} />
-        <Stat label="Applied" value={String(data.mutationsApplied ?? 0)} />
-        <Stat label="Skipped" value={String(data.mutationsSkipped ?? 0)} />
-        <Stat
-          label="Validation"
-          value={data.validationPassed ? "Passed" : "Failed"}
-          valueClass={data.validationPassed ? "text-[#22c55e]" : "text-yellow-400"}
-        />
-      </div>
-
-      {violations.length > 0 && (
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-2">
-            Validation Violations
-          </p>
-          <ul className="space-y-1">
-            {violations.map((v: string, i: number) => (
-              <li
-                key={i}
-                className="text-[11px] font-mono text-red-400 bg-red-500/5 px-3 py-1.5 rounded border border-red-500/20"
-              >
-                {v}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {skipped.length > 0 && (
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-2">
-            Skipped Mutations
-          </p>
-          <ul className="space-y-1">
-            {skipped.map((s: any, i: number) => (
-              <li
-                key={i}
-                className="text-[11px] font-mono text-[var(--text-secondary)] bg-[var(--bg-overlay)] px-3 py-1.5 rounded border border-[var(--amber-border)]"
-              >
-                <span className="text-[var(--amber-light)]">{s.type}</span>: {s.reason}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {warnings.length > 0 && (
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-2">
-            Pipeline Warnings
-          </p>
-          <ul className="space-y-1">
-            {warnings.slice(0, 8).map((w: string, i: number) => (
-              <li
-                key={i}
-                className="text-[11px] font-mono text-yellow-400/80 bg-yellow-500/5 px-3 py-1.5 rounded border border-yellow-500/20"
-              >
-                {w}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {violations.length === 0 && warnings.length === 0 && skipped.length === 0 && (
-        <p className="text-[12px] text-[var(--text-muted)] font-mono">
-          No issues detected in the export pipeline.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function Stat({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
-  return (
-    <div
-      className="rounded-lg px-3 py-2.5 border border-[var(--amber-border)]"
-      style={{ background: "var(--bg-overlay)" }}
-    >
-      <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">{label}</p>
-      <p className={`text-[13px] font-mono font-bold truncate ${valueClass ?? "text-white"}`}>{value}</p>
-    </div>
   );
 }

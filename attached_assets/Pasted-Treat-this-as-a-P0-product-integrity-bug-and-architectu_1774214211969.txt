@@ -1,0 +1,512 @@
+Treat this as a P0 product integrity bug and architecture correction.
+
+The current application has broken workflow/state behavior:
+- clicking “Initiate Pipeline” opens the file picker again
+- uploaded ALS file is not being reliably persisted as the active project artifact
+- analysis output is not bound to the actual uploaded .als file
+- “Neural Completion Strategy” displays stale/demo/placeholder results instead of real analysis from the uploaded file
+- Deploy/Export state is out of sync with Strategy/Analysis state
+- the app appears to have disconnected frontend screens instead of one unified project pipeline
+
+This is unacceptable.
+
+Your task is to redesign and implement the ingestion-to-analysis pipeline so that the app behaves like a real production system:
+Upload `.als` -> persist project -> analyze actual file -> generate real strategy from that file -> enable export based on same project state
+
+No demo data.
+No placeholder analysis.
+No disconnected screen logic.
+No duplicate upload prompts after file already exists.
+
+==================================================
+CORE REQUIREMENT
+==================================================
+
+The uploaded `.als` file must become the single source of truth for the active project.
+
+Every downstream screen must derive from that exact uploaded project:
+- Hub / Upload
+- Overview
+- Matrix
+- Strategy
+- Deploy / Export
+
+If the user uploads “raw 2.als”, every analysis card, track count, BPM, bars, style detection, completion actions, and export artifact must come from that same stored project record and same analysis job output.
+
+==================================================
+PRIMARY BUGS TO FIX
+==================================================
+
+1. INITIATE PIPELINE BUG
+Current bad behavior:
+- user uploads/selects ALS
+- button says Initiate Pipeline
+- clicking it opens the file picker again
+
+Correct behavior:
+- if a file is already uploaded and stored for the active project, “Initiate Pipeline” must start analysis on that existing stored file
+- it must NOT reopen file picker unless the user explicitly clicks Replace File / Upload New File
+
+2. STALE / FAKE STRATEGY BUG
+Current bad behavior:
+- “Neural Completion Strategy” shows generic text or previous run output, not the actual uploaded ALS result
+
+Correct behavior:
+- Strategy page must render only real analysis results for the active project ID and active artifact version
+- if no analysis exists, show a clean “No analysis yet” state
+- if analysis is running, show real progress state
+- if analysis completed, show real metrics from backend result
+- if analysis failed, show real failure reason
+
+3. CROSS-SCREEN STATE DESYNC
+Current bad behavior:
+- one page implies analysis exists
+- another page says “Awaiting analysis”
+- export and strategy are not reading same state
+
+Correct behavior:
+- all screens must use the same project state model and backend source of truth
+- no screen may invent local fake readiness
+- no hardcoded metrics
+- no placeholder score/confidence
+- no mock cards after real upload starts
+
+==================================================
+REQUIRED SYSTEM DESIGN
+==================================================
+
+Implement a proper project lifecycle model.
+
+Each uploaded project must have:
+- project_id
+- original filename
+- stored source artifact path
+- file hash
+- upload timestamp
+- detected Live version if available
+- ingestion status
+- parse status
+- analysis status
+- plan status
+- mutation status
+- export status
+- current active analysis result id
+- current active strategy result id
+- current active export id
+- error state and diagnostics
+
+Example lifecycle states:
+- CREATED
+- FILE_UPLOADED
+- INGESTING
+- INGESTED
+- PARSING
+- PARSED
+- ANALYZING
+- ANALYZED
+- PLANNING
+- PLANNED
+- READY_FOR_EXPORT
+- EXPORTING
+- EXPORTED
+- FAILED
+
+All UI pages must read from this same lifecycle state.
+
+==================================================
+UPLOAD / INGESTION REQUIREMENTS
+==================================================
+
+Refactor upload so it works like this:
+
+1. User selects `.als`
+2. Frontend uploads file once to backend
+3. Backend stores artifact and creates project record
+4. Backend returns:
+   - project_id
+   - artifact_id
+   - original filename
+   - file size
+   - upload status
+5. Frontend stores active project_id in central state/router
+6. “Initiate Pipeline” now acts on that existing project_id
+
+Critical rule:
+After successful upload, the file picker must never reopen automatically from “Initiate Pipeline”.
+
+Add separate buttons:
+- Upload ALS
+- Replace File
+- Initiate Analysis Pipeline
+
+Do not mix them.
+
+==================================================
+BACKEND API CONTRACT
+==================================================
+
+Implement or refactor backend endpoints into a clean stateful flow:
+
+POST   /api/projects/upload
+  -> accepts `.als`
+  -> creates project + stores file
+  -> returns project metadata
+
+GET    /api/projects/:projectId
+  -> returns full project lifecycle state
+
+POST   /api/projects/:projectId/initiate-pipeline
+  -> starts ingest/parse/analyze/plan jobs for the already uploaded file
+  -> never requires reopening file picker
+
+GET    /api/projects/:projectId/status
+  -> returns unified state:
+     uploadStatus
+     ingestStatus
+     parseStatus
+     analysisStatus
+     planStatus
+     exportStatus
+     progress percentages
+     latest error
+
+GET    /api/projects/:projectId/analysis
+  -> returns actual parsed/analyzed metrics for that project only
+
+GET    /api/projects/:projectId/strategy
+  -> returns actual completion strategy derived from project analysis only
+
+GET    /api/projects/:projectId/export
+  -> returns export readiness and artifact info
+
+POST   /api/projects/:projectId/export-als
+  -> exports modified `.als` only after successful analysis/mutation/validation
+
+Important:
+Strategy and Export must not read from any global demo JSON or static file.
+Everything must be keyed by project_id.
+
+==================================================
+FRONTEND STATE ARCHITECTURE
+==================================================
+
+Refactor frontend to a single source of truth using a proper central store.
+
+Use:
+- React Query / TanStack Query or equivalent for server state
+- Zustand or equivalent for lightweight local UI state if needed
+- route param or persisted active project_id
+- no fake local analysis objects hardcoded in pages
+
+Required state slices:
+1. activeProjectId
+2. upload state
+3. project lifecycle state
+4. analysis result
+5. strategy result
+6. export readiness
+7. diagnostics
+
+Every page must load using activeProjectId.
+
+Pages:
+- Hub page:
+  shows uploaded file and pipeline status
+- Overview page:
+  shows real project metadata from analysis
+- Matrix page:
+  shows parsed tracks/devices/clips from same project
+- Strategy page:
+  shows actual completion recommendations for same project
+- Deploy page:
+  shows export state for same project
+
+==================================================
+STRATEGY PAGE REQUIREMENTS
+==================================================
+
+The “Neural Completion Strategy” page must be rebuilt to display only real data.
+
+Do not render any default fake text like:
+- generic techno summary
+- hardcoded track counts
+- hardcoded BPM
+- hardcoded score/confidence
+- fake completion actions
+
+Instead:
+
+Case A: No project uploaded
+Show:
+- No project uploaded yet
+- Upload an Ableton Live .als file to begin structural analysis
+
+Case B: Project uploaded but no analysis started
+Show:
+- File uploaded successfully
+- Ready to initiate analysis pipeline
+
+Case C: Analysis running
+Show:
+- current stage
+- percent progress
+- log lines or sub-status
+- estimated task breakdown:
+  ingesting / parsing / structural analysis / automation detection / strategy generation
+
+Case D: Analysis completed
+Show real data only:
+- detected project type/style
+- detected bpm
+- bars
+- tracks
+- clips
+- automated tracks
+- arrangement sections
+- devices/devices per track if available
+- confidence based on actual scoring output
+- completion recommendations generated from real analysis results
+
+Case E: Analysis failed
+Show:
+- stage failed
+- exact reason
+- diagnostics reference
+- retry button
+
+==================================================
+ANALYSIS ENGINE REQUIREMENTS
+==================================================
+
+The analysis pipeline must be real, not decorative.
+
+Minimum analysis stages:
+1. artifact load / file verification
+2. ALS decode/decompress if needed
+3. XML parse
+4. project graph extraction
+5. track inventory
+6. clip inventory
+7. tempo and timing extraction
+8. arrangement/locator detection
+9. automation envelope detection
+10. device chain detection
+11. routing/send topology detection where possible
+12. structural gap analysis
+13. style inference from project characteristics
+14. completion recommendation generation
+
+Analysis output must be saved as structured data per project_id.
+
+Example fields:
+- detected_live_version
+- tempo
+- time_signature if detectable
+- total_tracks
+- midi_tracks
+- audio_tracks
+- return_tracks
+- total_clips
+- arrangement_length_bars
+- locators
+- automation_lane_count
+- automated_track_count
+- track_names
+- device_summary
+- routing_summary
+- style_scores
+- structural_gaps
+- completion_actions
+- confidence_score
+- diagnostics
+
+==================================================
+REAL COMPLETION LOGIC
+==================================================
+
+Do not generate random recommendations.
+
+Completion recommendations must be derived from actual project state.
+
+Examples:
+- if no outro/exit section exists near final bars -> recommend outro
+- if filter automation is absent on transitions -> recommend automation sweeps
+- if bass and kick overlap structurally without sidechain/routing evidence -> recommend sidechain strategy
+- if arrangement density stays flat too long -> recommend breakdown/build variation
+- if return/send usage is absent -> recommend spatial contrast
+- if automation count is near zero in long arrangement -> recommend dynamic automation plan
+- if intro is too short/too dense -> recommend DJ-friendly opening adjustments
+
+Each action must contain:
+- action id
+- category
+- priority
+- reasoning
+- affected tracks
+- target bars
+- evidence from analysis
+- exportability flag
+- manual instruction summary
+
+==================================================
+UI/UX FIXES
+==================================================
+
+Hub page:
+- After upload, show the actual stored filename and status
+- “Initiate Pipeline” must call backend start endpoint, not open file dialog
+- Add “Replace File” separately
+- Add progress section showing actual backend stage updates
+
+Strategy page:
+- Must refresh from real project analysis
+- If activeProjectId changes, refetch everything
+- If analysis finishes, auto-refresh
+- Remove all demo/default summary cards
+
+Deploy page:
+- Must read export readiness from same project status
+- If project analyzed successfully, deploy page must not say “Awaiting analysis”
+- If analysis not finished, show exact blocking status
+- If finished, enable export CTA
+
+Overview/Matrix:
+- Must reflect same project metadata and artifact version
+- No stale cached values from earlier uploads
+
+==================================================
+CACHE / STALENESS RULES
+==================================================
+
+You must eliminate stale analysis display bugs.
+
+Implement:
+- project_id-based query keys
+- artifact hash/version-based invalidation
+- replacing uploaded file invalidates old analysis/strategy/export
+- strategy page must never display old project results for new upload
+- pipeline restart must clear obsolete derived outputs
+- no local static JSON fallbacks once a real project exists
+
+==================================================
+ERROR HANDLING
+==================================================
+
+If file is uploaded but parse fails:
+- show parse failure
+- do not fake strategy
+- do not enable export
+
+If analysis fails:
+- show failure in Hub, Strategy, Deploy consistently
+
+If user navigates before job completes:
+- background job continues
+- pages poll or subscribe for state
+- UI reflects latest known real status
+
+If no activeProjectId exists:
+- all pages show proper empty state
+
+==================================================
+INSTRUMENTATION / DEBUGGING
+==================================================
+
+Add detailed diagnostics:
+- upload request logs
+- project_id assignment
+- artifact storage path
+- analysis job start/finish logs
+- active project id on each frontend page
+- query cache keys
+- stale data detection warnings
+- route/store mismatch logs
+
+Add a hidden debug panel showing:
+- activeProjectId
+- artifactId
+- artifactHash
+- lifecycle stage
+- last analysis timestamp
+- analysis result id
+- strategy result id
+- export readiness reason
+
+This is essential to kill fake/stale screen behavior.
+
+==================================================
+MANDATORY TESTS
+==================================================
+
+Add end-to-end and integration tests for these exact failures:
+
+1. Upload + Initiate Pipeline
+- upload ALS
+- click Initiate Pipeline
+- assert file picker does NOT reopen
+- assert analysis endpoint is called with current project_id
+
+2. Strategy Binding
+- upload ALS A
+- run analysis
+- strategy shows ALS A metrics
+- upload ALS B
+- old strategy must not remain
+- strategy updates to ALS B only
+
+3. Cross-Page Consistency
+- analyze project
+- Overview, Strategy, Deploy must all show same project_id and consistent state
+
+4. Failure Handling
+- simulate parse failure
+- Strategy must show failure/empty state, not fake summary
+
+5. Export Gating
+- export disabled until analysis/mutation ready
+- export enabled only after real completion
+
+6. Refresh Persistence
+- refresh browser after upload
+- active project restored
+- pipeline state still linked correctly
+
+==================================================
+CODE QUALITY RULES
+==================================================
+
+Do not:
+- hardcode analysis summary content in frontend
+- keep fake sample strategy cards in production pages
+- make button handlers perform unrelated actions
+- open file picker from analysis button
+- mix upload and analyze responsibilities
+- use generic “success” UI when backend state is unknown
+- let Deploy use different readiness logic than Strategy
+
+Do:
+- unify state model
+- bind everything to active project_id
+- invalidate stale results on file replacement
+- render only real backend-derived data
+- separate Upload / Analyze / Export actions cleanly
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+This task is complete only if:
+
+1. Uploading an `.als` creates a real project record
+2. “Initiate Pipeline” runs analysis on the already uploaded file
+3. It does NOT open the file picker again
+4. Strategy page updates to actual uploaded `.als` analysis
+5. No stale/demo/default summary remains after real upload
+6. Deploy page reflects same project state and does not incorrectly say “Awaiting analysis”
+7. Replacing file invalidates old analysis and regenerates strategy
+8. All pages show consistent data from same project_id
+9. Export path is correctly gated by same analysis lifecycle
+
+Implement the real fix across frontend, backend, state management, and tests.
+Do not leave placeholders or recommendations.
+Ship the corrected working system.

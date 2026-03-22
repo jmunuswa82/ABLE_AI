@@ -11,7 +11,7 @@
   ],
   "actions": [
     {
-      "id": "b416d5b6-5b73-44a0-a45c-f6968edc4d32",
+      "id": "0968d289-2c81-48e2-b6a5-bfbf0c6587bc",
       "category": "structure",
       "title": "Add Outro / Exit Section",
       "description": "No outro section detected. Add an 8–16 bar outro that gradually strips elements back, leaving only kick and a fading element to allow DJ mixing out.",
@@ -50,7 +50,7 @@
       "sectionLabel": "Outro"
     },
     {
-      "id": "273f6d9c-0a21-4167-923a-cb6530db9c1d",
+      "id": "163d553e-80b9-4047-9267-dba106bb1294",
       "category": "structure",
       "title": "Add Breakdown Section",
       "description": "Insert a 16–32 bar breakdown (bars 75–106) that removes kick and bass, keeping atmospheric elements. Creates contrast and anticipation before the drop.",
@@ -120,7 +120,7 @@
       "sectionLabel": "Breakdown"
     },
     {
-      "id": "555a870a-bb2a-4384-a016-927afbb445ae",
+      "id": "b6755627-90c9-4c4d-adc3-ba8db03c261c",
       "category": "automation",
       "title": "Add Filter Sweep Automation",
       "description": "Automate filter cutoff on key tracks through section transitions (bars 55–91). Build from fully closed to 60–70% open over 4–8 bars leading into the drop, close again entering breakdown.",
@@ -178,7 +178,7 @@
       "sectionLabel": null
     },
     {
-      "id": "6ec821b1-e295-4b55-b8ca-4ec67a8567ab",
+      "id": "947f9f7d-753c-4422-b6b5-079ddb7e47c2",
       "category": "transitions",
       "title": "Add Tension Sweeps at Section Boundaries",
       "description": "Add white noise or filtered sweep risers (4–8 bars) before major section changes. Section boundaries at: bar 5 before Intro, bar 15 before Intro. Also add downward pitch automation on synths as the drop hits.",
@@ -217,7 +217,7 @@
       "sectionLabel": "Intro"
     },
     {
-      "id": "b5f73332-7d3f-44a0-a7d3-1f5caf726036",
+      "id": "6542b710-f75d-4c3c-b512-b3b35dbe29bd",
       "category": "ending",
       "title": "Build Outro Strip-Back Sequence",
       "description": "Create a 16-bar outro (bars 165–180) where elements drop out gradually: first remove leads/synths (bars 1–4 of outro), then percussion (bars 5–8), leaving kick+bass to bar 12, then only kick to bar 16. Fade kick with volume automation.",
@@ -269,7 +269,7 @@
       "sectionLabel": "Outro"
     },
     {
-      "id": "b22cc59a-ec52-4888-973d-5cac036a08c5",
+      "id": "dafd38f2-fbe6-4343-bed0-1a9b9ce017bd",
       "category": "sidechain",
       "title": "Add Sidechain: kick → bass",
       "description": "No sidechain relationship detected. AI proposes adding a kick-triggered sidechain compressor on 'bass' sourced from 'kick'. Apply through the groove section (bars 1–181). Purpose: Add pumping groove — kick ducking bass is standard in techno/dance. Use Ableton's Compressor with Sidechain > Audio From set to the kick track.",
@@ -311,7 +311,7 @@
       "sectionLabel": null
     },
     {
-      "id": "de277e17-cd7d-4ca5-a4ea-4533d7cf240f",
+      "id": "0e7ad13f-06e3-4fe3-9f25-9d17c7b4e749",
       "category": "sidechain",
       "title": "Add Sidechain: kick → lead 1",
       "description": "No sidechain relationship detected. AI proposes adding a kick-triggered sidechain compressor on 'lead 1' sourced from 'kick'. Apply through the groove section (bars 1–181). Purpose: Texture pumping — sidechain creates rhythmic movement in pads/synths. Use Ableton's Compressor with Sidechain > Audio From set to the kick track.",
@@ -353,7 +353,7 @@
       "sectionLabel": null
     },
     {
-      "id": "081b5b73-b374-4ff3-b19c-5b106a92bc3d",
+      "id": "2619c540-2adb-4db7-a6c9-bf3f0a133771",
       "category": "drums",
       "title": "Strengthen Percussion Layer",
       "description": "Add 1–2 additional percussion tracks (shakers, congas, industrial percussion) to create rhythmic complexity. Layer at 1/16th or 1/32nd offsets from the main groove.",
@@ -375,7 +375,7 @@
       "sectionLabel": null
     },
     {
-      "id": "fb7ed9fb-03fd-49da-87f1-2af64fe37745",
+      "id": "e8de15e4-8706-4a48-8471-398c3b8a222c",
       "category": "bass",
       "title": "Add Bass Filter Automation",
       "description": "Add filter cutoff automation to 'bass' to create movement. A low-pass filter opening from 200 Hz to 800 Hz over bars 46–91 creates a classic energy build.",
@@ -425,7 +425,7 @@
       "sectionLabel": null
     },
     {
-      "id": "6367f327-40da-4035-a97f-54295352adda",
+      "id": "f15ad1c1-f61b-42c7-b5d2-2ddf445cd807",
       "category": "automation",
       "title": "Add Send Level Automation",
       "description": "Automate reverb/delay send amounts on key elements (bars 91–118). Throw reverb sends up during breakdown to create space and anticipation.",
@@ -449,7 +449,7 @@
       "sectionLabel": null
     },
     {
-      "id": "7316d773-7980-4f04-9616-4b593a9db8c5",
+      "id": "42ffc9df-b913-4b13-9474-7be5e61e4594",
       "category": "transitions",
       "title": "Add Drum Fill at Key Transitions",
       "description": "Add a 1–2 bar drum fill (bars 3–5) before each major section change. A 1/16th–1/32nd note roll on snare or clap works well.",
@@ -477,7 +477,7 @@
       "sectionLabel": null
     },
     {
-      "id": "2573ceaa-9583-4fc9-a9c4-2f28073d123a",
+      "id": "64d7c031-958e-4488-8cdc-a9a39ebd2d5c",
       "category": "automation",
       "title": "Add Resonance Automation",
       "description": "Automate filter resonance on 'bass' through the peak section (bars 100–126). Rising resonance (Q) from 0.5 to 2.0 creates tension and urgency.",
@@ -535,6 +535,6 @@
   ],
   "warnings": [],
   "rationale": "This atmospheric techno project has been analyzed using rule-based music analysis. Completion suggestions are based on: arrangement structure analysis, role inference (track type detection without relying on names), section energy/density profiling, automation density analysis (0 tracks with automation detected), sidechain graph analysis (2 links detected or proposed), and genre-specific production conventions for atmospheric techno. All suggestions include exact bar placements derived from the parsed arrangement, machine-executable mutation payloads, and confidence scores based on parse quality (100%) and detection certainty.",
-  "generatedAt": "2026-03-22T21:04:44.823158+00:00",
+  "generatedAt": "2026-03-22T21:30:00.810581+00:00",
   "mutationPlanVersion": "1.0.0"
 }

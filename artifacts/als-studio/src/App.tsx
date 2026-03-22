@@ -14,7 +14,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 5000,
+      // 0 staleTime so polling hooks always get fresh data on remount.
+      // Project/job status is always polled at 2s intervals when in-flight
+      // so this does not cause extra network traffic for completed projects.
+      staleTime: 0,
     },
   },
 });

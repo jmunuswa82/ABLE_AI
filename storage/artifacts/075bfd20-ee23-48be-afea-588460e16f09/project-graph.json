@@ -25367,7 +25367,7 @@
   "masterTrackPresent": false,
   "sections": [
     {
-      "id": "251de32f-5769-4cb1-b58e-287875130c30",
+      "id": "1a329683-80eb-402b-9761-ea0b2ebb9a6d",
       "label": "Intro",
       "startBar": 0,
       "endBar": 16,
@@ -25385,7 +25385,7 @@
       "transitionQuality": 0.5
     },
     {
-      "id": "fe502757-e930-47a9-be84-b087a63a74fb",
+      "id": "80440a46-01e3-4b11-80ee-05dd2ea9588b",
       "label": "Intro",
       "startBar": 16,
       "endBar": 56,
@@ -25403,7 +25403,7 @@
       "transitionQuality": 0.5
     },
     {
-      "id": "09c4378b-0870-4104-a929-53c26ece6331",
+      "id": "2bd20351-ac8b-4173-8cb0-59c626f90e92",
       "label": "Intro",
       "startBar": 56,
       "endBar": 720,

@@ -1,13 +1,19 @@
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, FileAudio, Activity, ChevronRight, Lock, Database, Code2 } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  UploadCloud, FileAudio, Activity, ChevronRight, Lock,
+  Database, Code2, X, Play,
+} from "lucide-react";
 import {
   useListProjects,
   useCreateProject,
   useUploadAlsFile,
   getListProjectsQueryKey,
+  getGetProjectQueryKey,
+  getGetProjectGraphQueryKey,
+  getGetCompletionPlanQueryKey,
 } from "@workspace/api-client-react";
 import { getStatusColor, getStatusLabel, formatScore, isJobRunning, cn } from "@/lib/utils";
 import { ANIMATION_VARIANTS } from "@/lib/design";
@@ -36,25 +42,36 @@ export default function Dashboard() {
   const createProject = useCreateProject();
   const uploadFile = useUploadAlsFile();
 
+  const isPending = createProject.isPending || uploadFile.isPending;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectName.trim()) return;
+    if (!file || !projectName.trim() || isPending) return;
 
-    const project = await createProject.mutateAsync({
-      data: { name: projectName.trim() },
-    });
+    try {
+      const project = await createProject.mutateAsync({
+        data: { name: projectName.trim() },
+      });
 
-    if (file) {
       await uploadFile.mutateAsync({
         id: project.id,
         data: { file },
       });
-    }
 
-    await queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
-    setProjectName("");
-    setFile(null);
-    navigate(`/projects/${project.id}`);
+      // Invalidate all queries for this project so downstream pages get fresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(project.id) }),
+        queryClient.invalidateQueries({ queryKey: getGetProjectGraphQueryKey(project.id) }),
+        queryClient.invalidateQueries({ queryKey: getGetCompletionPlanQueryKey(project.id) }),
+      ]);
+
+      setProjectName("");
+      setFile(null);
+      navigate(`/projects/${project.id}`);
+    } catch {
+      // errors shown by mutation state
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -67,12 +84,15 @@ export default function Dashboard() {
     }
   };
 
-  const activeProjectCount = projects.filter((p: any) => !["failed", "exported"].includes(p.status)).length;
-  const stageUploadActive = true;
-  const stageParsingActive = activeProjectCount > 0;
+  const openPicker = () => fileRef.current?.click();
+  const clearFile = () => { setFile(null); };
+
+  const activeProjectCount = projects.filter(
+    (p: any) => !["failed", "exported"].includes(p.status)
+  ).length;
 
   return (
-    <motion.div 
+    <motion.div
       className="p-8 max-w-7xl mx-auto w-full mb-12"
       variants={ANIMATION_VARIANTS.fadeIn}
       initial="initial"
@@ -81,52 +101,59 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 relative z-10">
         <div className="max-w-xl">
-          <motion.h1 
+          <motion.h1
             className="text-[36px] font-display font-bold text-[var(--text-primary)] mb-4 tracking-[-1.8px]"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
             Neural <span className="text-primary">Ingestion</span> Hub
           </motion.h1>
-          <motion.p 
+          <motion.p
             className="text-[var(--text-secondary)] text-[16px] leading-[26px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            Deploy your Ableton Live Sets into our intelligence engine. We decompose your session into multidimensional data points for advanced structural modeling and sidechain optimization.
+            Deploy your Ableton Live Sets into our intelligence engine. We decompose your
+            session into multidimensional data points for advanced structural modeling.
           </motion.p>
         </div>
       </div>
 
       {/* Main Upload Bento Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
-        
+
         {/* Central Drop Zone */}
-        <div className="lg:col-span-8 bg-[var(--bg-panel)] border-2 border-dashed border-[var(--amber-border)] rounded-xl relative flex flex-col h-[500px]">
-          {/* Abstract Waveform Background */}
+        <div className="lg:col-span-8 bg-[var(--bg-panel)] border-2 border-dashed border-[var(--amber-border)] rounded-xl relative flex flex-col">
+          {/* Waveform BG */}
           <div className="absolute inset-0 flex items-end justify-center gap-1 opacity-[0.15] pointer-events-none pb-[96px] overflow-hidden">
             {Array.from({ length: 42 }).map((_, i) => (
               <motion.div
                 key={i}
                 className="w-1 bg-[var(--amber-light)] rounded-t-[2px]"
                 animate={{ height: `${20 + Math.random() * 60}%` }}
-                transition={{ duration: 2 + Math.random() * 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+                transition={{
+                  duration: 2 + Math.random() * 2,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut",
+                }}
               />
             ))}
-            <div className="absolute top-1/2 left-0 right-0 h-px bg-[var(--amber-light)] opacity-50" />
           </div>
 
-          <form onSubmit={handleSubmit} className="flex-1 flex flex-col items-center justify-center p-8 relative z-10 h-full">
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col relative z-10">
+            {/* ── Drop Zone (clicking here opens picker ONLY when no file staged) ── */}
             <div
-              onClick={() => fileRef.current?.click()}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center p-8 rounded-xl transition-all duration-300",
+                !file ? "cursor-pointer" : "cursor-default",
+                dragOver && "scale-[1.02]"
+              )}
+              onClick={!file ? openPicker : undefined}
               onDrop={handleDrop}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
-              className={cn(
-                "w-full max-w-sm flex flex-col items-center text-center cursor-pointer transition-all duration-300 p-8 rounded-2xl",
-                dragOver ? "scale-105" : ""
-              )}
             >
               <input
                 ref={fileRef}
@@ -139,63 +166,109 @@ export default function Dashboard() {
                     setFile(f);
                     if (!projectName) setProjectName(f.name.replace(".als", ""));
                   }
+                  // Reset so onChange fires again if same file selected
+                  e.target.value = "";
                 }}
               />
 
-              <div className="bg-[var(--bg-overlay)] p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] mb-8 transition-transform hover:scale-110">
-                {file ? <FileAudio className="w-8 h-8 text-[var(--amber-light)]" /> : <UploadCloud className="w-8 h-8 text-[var(--amber-light)]" />}
+              <div
+                className={cn(
+                  "p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] mb-8 transition-transform",
+                  !file && "hover:scale-110"
+                )}
+                style={{ background: "var(--bg-overlay)" }}
+              >
+                {file ? (
+                  <FileAudio className="w-8 h-8 text-[var(--amber-light)]" />
+                ) : (
+                  <UploadCloud className="w-8 h-8 text-[var(--amber-light)]" />
+                )}
               </div>
 
               {file ? (
-                <>
-                  <h3 className="text-2xl font-display font-bold text-white mb-2">{file.name}</h3>
-                  <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
-                    READY FOR INGESTION • {(file.size / 1024 / 1024).toFixed(2)} MB
+                /* File staged — show file info and replace link */
+                <div className="text-center w-full max-w-sm">
+                  <h3 className="text-2xl font-display font-bold text-white mb-1 truncate">
+                    {file.name}
+                  </h3>
+                  <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-2">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB · Ready for ingestion
                   </p>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-2xl font-display font-bold text-white mb-2">Drop Ableton Live Set</h3>
-                  <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
-                    MAXIMUM FILE SIZE: 500MB (.ALS ONLY)
-                  </p>
-                </>
-              )}
+                  {/* Replace / Clear — these clicks do NOT submit the form */}
+                  <div className="flex items-center justify-center gap-4 mb-6">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openPicker(); }}
+                      className="text-[11px] font-label uppercase tracking-wider text-[var(--amber)] underline underline-offset-2 hover:text-[var(--amber-light)] transition-colors"
+                    >
+                      Replace File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); clearFile(); }}
+                      className="text-[11px] font-label uppercase tracking-wider text-[var(--text-muted)] hover:text-white flex items-center gap-1 transition-colors"
+                    >
+                      <X className="w-3 h-3" /> Clear
+                    </button>
+                  </div>
 
-              {file && (
-                <div className="w-full mb-6">
+                  {/* Project Name Input */}
                   <input
                     type="text"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     placeholder="Project Designation"
-                    className="w-full bg-[var(--bg-elevated)] border border-[var(--amber-border)] rounded-md px-4 py-3 text-sm text-center text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-mono"
                     required
                     onClick={(e) => e.stopPropagation()}
+                    className="w-full bg-[var(--bg-elevated)] border border-[var(--amber-border)] rounded-md px-4 py-3 text-sm text-center text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-mono"
                   />
                 </div>
+              ) : (
+                /* No file — pure drop/click zone */
+                <div className="text-center">
+                  <h3 className="text-2xl font-display font-bold text-white mb-2">
+                    Drop Ableton Live Set
+                  </h3>
+                  <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
+                    Maximum 500 MB · .als only
+                  </p>
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md border border-[var(--amber-border)] text-[var(--amber)] text-[12px] font-label uppercase tracking-wider">
+                    <UploadCloud className="w-3.5 h-3.5" /> Select from Browser
+                  </div>
+                </div>
               )}
-
-              <button
-                type={file ? "submit" : "button"}
-                disabled={createProject.isPending || uploadFile.isPending}
-                className="btn-primary w-full max-w-[260px] py-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-              >
-                {createProject.isPending || uploadFile.isPending ? (
-                  <><Activity className="w-4 h-4 animate-spin" /> Ingesting...</>
-                ) : file ? (
-                  "Initiate Pipeline"
-                ) : (
-                  "Select From Browser"
-                )}
-              </button>
             </div>
+
+            {/* ── Action Row — OUTSIDE the clickable drop zone ── */}
+            {file && (
+              <div className="px-8 pb-8">
+                {/* The button uses type="submit" but stopPropagation prevents the
+                    drop-zone's onClick from also firing. However, since the button is
+                    OUTSIDE the drop zone div this is naturally safe. */}
+                <button
+                  type="submit"
+                  disabled={isPending || !projectName.trim()}
+                  className="btn-primary w-full py-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 font-display font-bold uppercase tracking-wider text-[14px]"
+                >
+                  {isPending ? (
+                    <><Activity className="w-4 h-4 animate-spin" /> Ingesting…</>
+                  ) : (
+                    <><Play className="w-4 h-4" /> Initiate Pipeline</>
+                  )}
+                </button>
+                {createProject.isError && (
+                  <p className="text-red-400 text-[11px] text-center mt-2">
+                    Upload failed — please try again.
+                  </p>
+                )}
+              </div>
+            )}
           </form>
 
-          {/* Flow Line Simulation */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#33343a]">
-            <motion.div 
-              className="absolute top-0 bottom-0 left-0 bg-primary shadow-[0_0_10px_0_var(--amber)]" 
+          {/* Flow line */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#33343a] rounded-b-xl overflow-hidden pointer-events-none">
+            <motion.div
+              className="absolute top-0 bottom-0 left-0 bg-primary shadow-[0_0_10px_0_var(--amber)]"
               initial={{ width: "25%" }}
               animate={{ width: dragOver || file ? "100%" : "25%" }}
               transition={{ duration: 0.8 }}
@@ -203,68 +276,48 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Analysis Pipeline Stages */}
+        {/* Pipeline Stage Cards */}
         <div className="lg:col-span-4 flex flex-col gap-4">
-          <StageCard 
-            step="01" 
-            name="Upload" 
-            desc="Bit-perfect data ingestion with integrity verification for .als binary headers." 
-            active={stageUploadActive} 
-          />
-          <StageCard 
-            step="02" 
-            name="Parsing" 
-            desc="Decompressing XML project structure and mapping track routing topology." 
-            active={stageParsingActive} 
-          />
-          <StageCard 
-            step="03" 
-            name="Structure" 
-            desc="Identifying intro, verse, chorus, and bridge markers via waveform neural patterns." 
-            active={false} 
-          />
-          <StageCard 
-            step="04" 
-            name="Automation" 
-            desc="Extracting filter envelopes, gain riding, and VST parameter curves." 
-            active={false} 
-          />
+          <StageCard step="01" name="Upload" desc="Bit-perfect data ingestion with integrity verification for .als binary headers." active={true} />
+          <StageCard step="02" name="Parsing" desc="Decompressing XML project structure and mapping track routing topology." active={activeProjectCount > 0} />
+          <StageCard step="03" name="Structure" desc="Identifying intro, verse, chorus, and bridge markers via structural pattern detection." active={false} />
+          <StageCard step="04" name="Automation" desc="Extracting filter envelopes, gain riding, and VST parameter curves." active={false} />
         </div>
 
         {/* Bottom Info Cards */}
         <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
-          <InfoCard 
+          <InfoCard
             icon={<Lock className="w-6 h-6 text-primary" />}
             title="Secure Vault"
             subtitle="End-to-end Encrypted"
             metaLeft="Security Protocol"
             valLeft="AES-256-GCM"
             metaRight="Cloud Sync"
-            valRight="AWS STUDIO CLOUD"
+            valRight="LOCAL STORAGE"
           />
           <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-6 flex flex-col justify-between">
             <div className="flex gap-4 items-center mb-6">
-               <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20">
-                 <Database className="w-5 h-5 text-primary" />
-               </div>
-               <div>
-                 <h4 className="font-display font-bold text-base text-white">Neural Engine</h4>
-                 <span className="font-label text-[10px] text-[var(--text-muted)] uppercase">V4.2 Core Intelligence</span>
-               </div>
+              <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20">
+                <Database className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-base text-white">Neural Engine</h4>
+                <span className="font-label text-[10px] text-[var(--text-muted)] uppercase">V4.2 Core Intelligence</span>
+              </div>
             </div>
             <div className="mb-4">
-               <div className="flex items-center gap-2 mb-2">
-                 <div className="flex-1 h-1.5 bg-[#1e1f25] rounded-full overflow-hidden">
-                   <div className="h-full bg-primary w-[88%] shadow-[0_0_8px_var(--amber)]" />
-                 </div>
-                 <span className="font-mono text-[10px] text-[var(--amber-light)]">88% CAP</span>
-               </div>
-               <p className="font-label text-[10px] text-[var(--text-muted)] leading-relaxed">
-                 Allocating 128-thread processing for structure detection.
-               </p>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 h-1.5 bg-[#1e1f25] rounded-full overflow-hidden">
+                  <div className="h-full bg-primary w-[88%] shadow-[0_0_8px_var(--amber)]" />
+                </div>
+                <span className="font-mono text-[10px] text-[var(--amber-light)]">88% CAP</span>
+              </div>
+              <p className="font-label text-[10px] text-[var(--text-muted)] leading-relaxed">
+                Allocating processing capacity for structure detection.
+              </p>
             </div>
           </div>
-          <InfoCard 
+          <InfoCard
             icon={<Code2 className="w-6 h-6 text-primary" />}
             title="Version Support"
             subtitle="Compatibility Layer"
@@ -272,16 +325,17 @@ export default function Dashboard() {
             activeTag="ABLETON 12.x Beta"
           />
         </div>
-
       </div>
 
-      {/* Existing Projects Grid */}
+      {/* Existing Projects */}
       <div className="mt-12 relative z-10">
         <h2 className="font-display font-bold text-2xl text-white mb-6">Active Databanks</h2>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-4 glass-panel">
             <Activity className="w-8 h-8 text-primary animate-pulse" />
-            <div className="text-[var(--text-muted)] font-label text-xs uppercase tracking-widest">Scanning local databanks...</div>
+            <div className="text-[var(--text-muted)] font-label text-xs uppercase tracking-widest">
+              Scanning local databanks...
+            </div>
           </div>
         ) : projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-center glass-panel">
@@ -290,7 +344,7 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          <motion.div 
+          <motion.div
             variants={ANIMATION_VARIANTS.staggerContainer}
             initial="initial"
             animate="animate"
@@ -314,18 +368,24 @@ function StageCard({ step, name, desc, active }: any) {
   return (
     <div className={cn(
       "bg-[var(--bg-panel)] rounded-lg p-5 flex flex-col gap-3 transition-all relative overflow-hidden",
-      active ? "border-l-[3px] border-primary opacity-100" : "border-l-[3px] border-[var(--amber-border-strong)] opacity-60"
+      active
+        ? "border-l-[3px] border-primary opacity-100"
+        : "border-l-[3px] border-[var(--amber-border-strong)] opacity-60"
     )}>
       <div className="flex items-start justify-between">
         <div className="flex gap-3 items-center">
           <div className="font-display font-bold text-sm tracking-[1.4px] uppercase text-[var(--text-primary)]">
-            <span className="text-[var(--text-muted)]">Stage {step}:</span><br/>{name}
+            <span className="text-[var(--text-muted)]">Stage {step}:</span><br />{name}
           </div>
         </div>
         {active ? (
-          <span className="bg-primary/10 text-primary font-sans text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-bold">Active</span>
+          <span className="bg-primary/10 text-primary font-sans text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-bold">
+            Active
+          </span>
         ) : (
-          <span className="bg-[#1e293b] text-[#94a3b8] font-sans text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-bold">Pending</span>
+          <span className="bg-[#1e293b] text-[#94a3b8] font-sans text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-bold">
+            Pending
+          </span>
         )}
       </div>
       <p className="text-[12px] font-sans text-[var(--text-muted)] leading-[19.5px] max-w-[200px]">
@@ -347,14 +407,17 @@ function InfoCard({ icon, title, subtitle, metaLeft, valLeft, metaRight, valRigh
           <span className="font-label text-[10px] text-[var(--text-muted)] uppercase">{subtitle}</span>
         </div>
       </div>
-      
       {tags ? (
         <div className="flex flex-col gap-2">
           {tags.map((t: string) => (
-            <div key={t} className="bg-[#1e1f25] px-2 py-1 rounded-sm w-fit text-[10px] font-mono text-[var(--text-code)]">{t}</div>
+            <div key={t} className="bg-[#1e1f25] px-2 py-1 rounded-sm w-fit text-[10px] font-mono text-[var(--text-code)]">
+              {t}
+            </div>
           ))}
           {activeTag && (
-            <div className="bg-primary/20 px-2 py-1 rounded-sm w-fit text-[10px] font-mono text-primary font-bold">{activeTag}</div>
+            <div className="bg-primary/20 px-2 py-1 rounded-sm w-fit text-[10px] font-mono text-primary font-bold">
+              {activeTag}
+            </div>
           )}
         </div>
       ) : (
@@ -377,9 +440,9 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
   const statusColor = getStatusColor(project.status);
   const statusLabel = getStatusLabel(project.status);
   const running = isJobRunning(project.status);
-  const isActive = project.status === 'exported' || running;
+  const isActive = project.status === "exported" || running;
 
-  const score = project.completionScore != null ? project.completionScore : 0;
+  const score = project.completionScore ?? 0;
   const radius = 18;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - score * circumference;
@@ -390,11 +453,13 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
       onClick={onClick}
       className={cn(
         "bg-[var(--bg-panel)] rounded-lg p-6 cursor-pointer group relative overflow-hidden flex flex-col h-full border-y border-r transition-all",
-        isActive ? "border-l-[3px] border-l-primary border-y-[var(--amber-border)] border-r-[var(--amber-border)] hover:border-r-primary/50 hover:border-y-primary/50" : "border-l-[3px] border-[var(--amber-border)] hover:border-[var(--amber-border-strong)]"
+        isActive
+          ? "border-l-[3px] border-l-primary border-y-[var(--amber-border)] border-r-[var(--amber-border)] hover:border-r-primary/50 hover:border-y-primary/50"
+          : "border-l-[3px] border-[var(--amber-border)] hover:border-[var(--amber-border-strong)]"
       )}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none transition-opacity group-hover:bg-primary/10" />
-      
+
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div className="flex-1 min-w-0 pr-4">
           <h3 className="text-lg font-display font-bold text-white group-hover:text-primary transition-colors truncate">
@@ -406,7 +471,6 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
             </p>
           )}
         </div>
-        
         <div className="shrink-0 relative flex items-center justify-center w-12 h-12">
           <svg className="w-12 h-12 transform -rotate-90">
             <circle cx="24" cy="24" r={radius} stroke="currentColor" strokeWidth="2" fill="transparent" className="text-[var(--bg-elevated)]" />
@@ -431,20 +495,20 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
             ))}
           </div>
         )}
-
         <div className="flex items-center justify-between pt-4 border-t border-[var(--amber-border)]">
           <div className="flex items-center gap-2">
             {running && (
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
               </span>
             )}
             <span className={cn("text-[9px] font-label uppercase tracking-widest font-semibold", statusColor)}>
               {statusLabel}
             </span>
           </div>
-          <span className="text-[10px] text-[var(--text-code)] font-mono">
+          <span className="text-[10px] text-[var(--text-code)] font-mono flex items-center gap-1">
+            <ChevronRight className="w-3 h-3" />
             {new Date(project.createdAt).toLocaleDateString()}
           </span>
         </div>

@@ -145,4 +145,4 @@ Add filter cutoff automation to 'bass' to create movement. A low-pass filter ope
 - 6 tracks with many clips but zero automation — consider adding filter sweeps, send throws, or gain automation
 
 ---
-*Generated at 2026-03-22T21:04:46.703Z by Ableton AI Track Completion Studio*
+*Generated at 2026-03-22T21:30:01.737Z by Ableton AI Track Completion Studio*

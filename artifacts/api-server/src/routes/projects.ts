@@ -456,7 +456,7 @@ router.get("/projects/:id/export-diagnostics", async (req: Request, res: Respons
   }
 });
 
-// POST /projects/:id/parse (manual trigger)
+// POST /projects/:id/parse (manual trigger — legacy alias)
 router.post("/projects/:id/parse", async (req: Request, res: Response) => {
   const { id } = req.params;
   const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
@@ -471,6 +471,60 @@ router.post("/projects/:id/parse", async (req: Request, res: Response) => {
   });
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
   res.json({ id: job.id, projectId: job.projectId, type: job.type, state: job.state, progress: null, message: null, error: null, createdAt: job.createdAt.toISOString(), updatedAt: job.updatedAt.toISOString(), completedAt: null });
+});
+
+// POST /projects/:id/initiate-pipeline — start/restart the full analysis pipeline
+// Safe to call when project already has a file. Does NOT require re-uploading.
+router.post("/projects/:id/initiate-pipeline", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!project.filePath || !existsSync(project.filePath)) {
+      res.status(400).json({
+        error: "No uploaded file found for this project. Upload an .als file first.",
+        code: "NO_FILE",
+      });
+      return;
+    }
+
+    // Reset project status so UI reflects fresh pipeline start
+    await db.update(projectsTable).set({
+      status: "uploaded",
+      completionScore: null,
+      styleTags: [],
+      warnings: [],
+    }).where(eq(projectsTable.id, id));
+
+    const jobId = randomUUID();
+    await db.insert(jobsTable).values({
+      id: jobId,
+      projectId: id,
+      type: "parse",
+      state: "queued",
+      message: "Pipeline initiated by user",
+    });
+
+    runPipelineJob(id, jobId, project.filePath, project.originalFileName ?? "").catch((err) => {
+      logger.error({ err, projectId: id }, "Initiate-pipeline job failed");
+    });
+
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+    req.log.info({ projectId: id, jobId }, "Pipeline initiated");
+
+    res.json({
+      projectId: id,
+      jobId,
+      state: job.state,
+      message: "Pipeline started. Poll GET /projects/:id for status.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to initiate pipeline");
+    res.status(500).json({ error: "Failed to initiate pipeline" });
+  }
 });
 
 export default router;

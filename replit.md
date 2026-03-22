@@ -61,6 +61,12 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health`
+- Key pipeline API endpoints:
+  - `POST /api/projects/:id/upload` — upload ALS file, immediately starts pipeline
+  - `POST /api/projects/:id/initiate-pipeline` — restart full pipeline on already-uploaded file; resets status/score/tags/warnings, creates fresh job, returns immediately for frontend polling
+  - `POST /api/projects/:id/parse` — legacy alias for initiate-pipeline
+  - `GET /api/projects/:id/export-status` — check if patched .als exists on disk + trust label
+  - `GET /api/projects/:id/export-als` — download patched .als file
 - Job Runner: `src/lib/job-runner.ts` — orchestrates Python pipeline, creates artifacts + ALS Patch Package ZIP
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `archiver`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
@@ -101,12 +107,12 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 React + Vite frontend. Dark DAW-inspired UI with violet/purple accent.
 
 - Pages:
-  - **Dashboard**: Upload form, project grid, live polling for job status
-  - **ProjectDetail**: Stat cards, track list, job history, quick-nav buttons
+  - **Dashboard**: Upload form with cleanly separated drop zone (clickable) and "Initiate Pipeline" submit button (outside drop zone so clicking it never re-opens file picker). Project grid with live polling for in-flight jobs. Invalidates project/graph/plan caches on upload.
+  - **ProjectDetail**: Stat cards, track list, job history. Context-aware CTAs: "Initiate Pipeline" for uploaded/failed projects, "Retry Pipeline" for failed, "Arrangement Matrix"+"Neural Strategy" for exported. PipelineStatus component always visible when pipeline is running or failed.
   - **TimelineView**: DAW-style clip timeline with 5 view modes (Arrangement, Automation, Sidechain, AI Proposed, Diff), zoom controls, automation lane visualization (SVG), sidechain relationship map, track inspector panel, mutation overlay rendering (dashed green/blue overlays), locateAtBeat scrolling
-  - **CompletionPlanView**: Action cards by priority/category with filter tabs, mutation payload detail rows, "Locate in Timeline" button per action and per mutation that navigates to timeline with scrolled position
-  - **ExportView**: Artifact download cards with type-specific icons/colors, ALS Patch Package hero section
-- Components: Layout.tsx (sidebar nav with project sub-nav)
+  - **CompletionPlanView**: Lifecycle-aware states (6 cases): A=not found, B=no file, C=analyzing (live progress), D=plan exists (real action cards), E=failed+retry, F=uploaded-not-started. Zero hardcoded demo content. Polls project status every 2s when analyzing.
+  - **ExportView**: Derives readiness entirely from project.status===`exported` via same useProjectPolling hook as other pages. PipelineStatus always shown. Download enabled only when both `isExported` AND `hasPatchedAls` from export-status endpoint.
+- Components: Layout.tsx (sidebar nav with project sub-nav), PipelineStatus.tsx (shared 5-stage pipeline indicator: upload→parse→analyze→plan→export, compact and full modes, progress bar, error display)
 - Hooks: use-polling.ts (polls project status every 2s when jobs are running)
 - Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId, locateAtBeat, locateActionId)
 - Utils: lib/utils.ts (cn, formatScore, formatBars, beatsToBar, getStatusColor, getRoleColor, getTrackColor, formatBytes)
