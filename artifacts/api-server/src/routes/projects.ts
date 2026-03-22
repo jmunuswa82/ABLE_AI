@@ -425,6 +425,37 @@ router.get("/projects/:id/export-als", async (req: Request, res: Response) => {
   }
 });
 
+// GET /projects/:id/export-diagnostics
+router.get("/projects/:id/export-diagnostics", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const artifacts = await db
+      .select()
+      .from(artifactFilesTable)
+      .where(eq(artifactFilesTable.projectId, id))
+      .orderBy(desc(artifactFilesTable.createdAt));
+
+    const diagFile = artifacts.find((a) => a.type === "export_diagnostics");
+
+    if (!diagFile) {
+      res.status(404).json({ error: "No export diagnostics available for this project" });
+      return;
+    }
+
+    if (!existsSync(diagFile.filePath)) {
+      res.status(404).json({ error: "Diagnostics file not found on disk" });
+      return;
+    }
+
+    const raw = await fs.readFile(diagFile.filePath, "utf-8");
+    const diagnostics = JSON.parse(raw);
+    res.json(diagnostics);
+  } catch (err) {
+    req.log.error({ err }, "Failed to get export diagnostics");
+    res.status(500).json({ error: "Failed to get export diagnostics" });
+  }
+});
+
 // POST /projects/:id/parse (manual trigger)
 router.post("/projects/:id/parse", async (req: Request, res: Response) => {
   const { id } = req.params;

@@ -156,6 +156,100 @@ class TestEndToEndFullPipeline(unittest.TestCase):
             if action.end_beat is not None and action.start_beat is not None:
                 self.assertGreaterEqual(action.end_beat, action.start_beat)
 
+    def test_integration_round_trip_patch_re_parse(self):
+        """
+        Integration round-trip: build a rich synthetic .als, run the full
+        parse → generate_completion_plan → patch pipeline, then feed patched bytes
+        back through ALSParser and assert:
+          - graph.tracks count >= original track count
+          - tempo is preserved
+          - no parse warnings about unknown IDs or malformed elements
+        """
+        original_als = self._build_rich_als()
+
+        # Parse the original
+        parser = ALSParser(project_id="e2e-roundtrip-1")
+        original_graph = parser.parse(original_als)
+        original_track_count = len(original_graph.tracks)
+        original_tempo = original_graph.tempo
+
+        self.assertGreater(original_track_count, 0, "Original ALS must have tracks")
+        self.assertAlmostEqual(original_tempo, 128.0, places=0)
+
+        # Build completion plan
+        apply_role_inference(original_graph.all_tracks)
+        weaknesses = detect_weaknesses(original_graph)
+        plan = generate_completion_plan(original_graph, weaknesses)
+
+        # Collect safe mutation payloads (up to 8)
+        safe_payloads = []
+        for action in plan.actions:
+            for mp in action.mutation_payloads:
+                if mp.safe:
+                    safe_payloads.append({
+                        "mutationType": mp.mutation_type,
+                        "startBeat": mp.start_beat,
+                        "endBeat": mp.end_beat,
+                        "locatorName": mp.locator_name,
+                        "targetTrackId": mp.target_track_id,
+                        "targetTrackName": mp.target_track_name,
+                        "automationParameter": mp.automation_parameter,
+                        "automationPoints": mp.automation_points,
+                        "notes": mp.notes,
+                        "clipType": mp.clip_type,
+                        "newTrackName": mp.new_track_name,
+                        "safe": mp.safe,
+                    })
+                    if len(safe_payloads) >= 8:
+                        break
+            if len(safe_payloads) >= 8:
+                break
+
+        if not safe_payloads:
+            self.skipTest("No safe payloads generated — skipping round-trip test")
+
+        # Patch the ALS
+        patcher = ALSPatcher(original_als)
+        result = patcher.apply(safe_payloads)
+
+        self.assertGreater(len(result.mutations_applied), 0, "At least one mutation must be applied")
+
+        if result.als_bytes is None:
+            self.skipTest(
+                f"Patcher produced no bytes (trust={result.trust_label}, "
+                f"warnings={result.warnings}) — skipping re-parse assertion"
+            )
+
+        # Validate the patched bytes
+        valid, err = validate_als_bytes(result.als_bytes)
+        self.assertTrue(valid, f"Patched ALS failed validation: {err}")
+
+        # Re-parse the patched ALS through ALSParser
+        re_parser = ALSParser(project_id="e2e-roundtrip-2")
+        patched_graph = re_parser.parse(result.als_bytes)
+
+        # Tempo must be preserved
+        self.assertAlmostEqual(
+            patched_graph.tempo, original_tempo, places=0,
+            msg=f"Tempo changed after patching: {patched_graph.tempo} vs {original_tempo}"
+        )
+
+        # Track count must be >= original (we may have added tracks)
+        self.assertGreaterEqual(
+            len(patched_graph.tracks), original_track_count,
+            f"Track count decreased after patching: {len(patched_graph.tracks)} < {original_track_count}"
+        )
+
+        # No warnings about unknown IDs or malformed elements
+        bad_warning_keywords = ["unknown id", "malformed", "corrupt", "invalid element"]
+        for w in patched_graph.warnings:
+            w_lower = w.lower()
+            for kw in bad_warning_keywords:
+                self.assertNotIn(
+                    kw, w_lower,
+                    f"Re-parse produced warning about '{kw}': {w}"
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

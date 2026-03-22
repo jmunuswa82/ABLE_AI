@@ -192,21 +192,24 @@ def validate_pre_export(root: etree._Element) -> Tuple[bool, List[str]]:
 
 def validate_als_bytes(data: bytes) -> Tuple[bool, str]:
     """
-    Validate bytes form a valid gzip-compressed ALS (XML) file.
+    Validate that bytes form a valid gzip-compressed ALS (XML) file.
+    Reads the full decompressed XML — no size cap.
+    Also checks for duplicate Id attributes across the document.
     Returns (is_valid, error_message).
     """
     if not data:
         return False, "Empty bytes"
 
+    # 1. Must be gzip — decompress fully, no cap
     try:
         with gzip.GzipFile(fileobj=io.BytesIO(data)) as gz:
-            xml_bytes = gz.read(1024 * 1024 * 4)
+            xml_bytes = gz.read()
     except Exception as e:
         return False, f"Gzip decompression failed: {e}"
 
     try:
         parser = etree.XMLParser(recover=False, resolve_entities=False, no_network=True)
-        root = etree.fromstring(xml_bytes[:min(len(xml_bytes), 2 * 1024 * 1024)], parser=parser)
+        root = etree.fromstring(xml_bytes, parser=parser)
         if root is None:
             return False, "XML root is None"
         if root.tag not in ("Ableton", "LiveSet") and root.find("LiveSet") is None:
@@ -215,6 +218,19 @@ def validate_als_bytes(data: bytes) -> Tuple[bool, str]:
         return False, f"XML parse error: {e}"
     except Exception as e:
         return False, f"Validation error: {e}"
+
+    # 2. Duplicate Id check — scan all elements for duplicate Id attributes
+    seen_ids: Dict[str, int] = {}
+    duplicates: List[str] = []
+    for el in root.iter():
+        el_id = el.get("Id")
+        if el_id is not None:
+            seen_ids[el_id] = seen_ids.get(el_id, 0) + 1
+    for id_val, count in seen_ids.items():
+        if count > 1:
+            duplicates.append(f"Id={id_val} appears {count} times")
+    if duplicates:
+        return False, f"Duplicate Id attributes found: {'; '.join(duplicates[:10])}"
 
     return True, ""
 
@@ -230,7 +246,7 @@ class PatchResult:
         trust_label: str,
         warnings: List[str],
         validation_passed: bool = True,
-        validation_errors: Optional[List[str]] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
     ):
         self.als_bytes = als_bytes
         self.mutations_applied = mutations_applied
@@ -238,7 +254,7 @@ class PatchResult:
         self.trust_label = trust_label
         self.warnings = warnings
         self.validation_passed = validation_passed
-        self.validation_errors = validation_errors or []
+        self.diagnostics = diagnostics or {}
 
     def to_summary_dict(self) -> Dict[str, Any]:
         return {
@@ -249,7 +265,7 @@ class PatchResult:
             "skippedDetails": self.mutations_skipped,
             "warnings": self.warnings,
             "validationPassed": self.validation_passed,
-            "validationErrors": self.validation_errors,
+            "diagnostics": self.diagnostics,
         }
 
 
@@ -278,13 +294,18 @@ class ALSPatcher:
                 xml_bytes = gz.read()
             parser = etree.XMLParser(recover=True, resolve_entities=False, no_network=True)
             self.root = etree.fromstring(xml_bytes, parser=parser)
-            self.liveset = self.root.find("LiveSet") or self.root
+            liveset_candidate = self.root.find("LiveSet")
+            self.liveset = liveset_candidate if liveset_candidate is not None else self.root
             # Must initialise ID allocator BEFORE any mutations
             self._ids = IDAllocator(self.root)
             self._build_track_index()
         except Exception as e:
             logger.error(f"ALSPatcher._load failed: {e}")
             self.warnings.append(f"Failed to load ALS for patching: {e}")
+
+    def _next_id(self) -> str:
+        """Delegate to IDAllocator for a globally unique ID string."""
+        return self._ids.allocate()
 
     def _build_track_index(self) -> None:
         if self.liveset is None:
@@ -394,6 +415,88 @@ class ALSPatcher:
         _child("HiddenLoopEnd", str(length))
         return loop_el
 
+    # ── Pre-serialisation validation gate ────────────────────────────────────
+
+    def _validate_tree(self, root: etree._Element) -> Dict[str, Any]:
+        """
+        Run strict pre-serialisation validation checks on the mutated XML tree.
+
+        Checks:
+          (a) No duplicate Id attributes
+          (b) All PointeeId Value references exist as AutomationTarget Id in document
+          (c) All clips have CurrentEnd > Time
+          (d) All MidiNoteEvent Time values are >= 0 and < (CurrentEnd - Time) of parent clip
+
+        Returns a diagnostics dict with keys:
+          'passed': bool
+          'violations': list of violation strings
+        """
+        violations: List[str] = []
+
+        # (a) Duplicate Id attributes
+        id_counts: Dict[str, int] = {}
+        for el in root.iter():
+            el_id = el.get("Id")
+            if el_id is not None:
+                id_counts[el_id] = id_counts.get(el_id, 0) + 1
+        for id_val, count in id_counts.items():
+            if count > 1:
+                violations.append(f"Duplicate Id={id_val} appears {count} times")
+
+        # (b) PointeeId references — collect all AutomationTarget Ids
+        existing_auto_ids = {
+            el.get("Id")
+            for el in root.iter("AutomationTarget")
+            if el.get("Id") is not None
+        }
+        for el in root.iter("PointeeId"):
+            ref = el.get("Value")
+            if ref is not None and ref not in existing_auto_ids:
+                violations.append(f"PointeeId Value={ref} has no matching AutomationTarget Id")
+
+        # (c) Clips must have CurrentEnd > Time
+        for clip_tag in ("MidiClip", "AudioClip"):
+            for clip_el in root.iter(clip_tag):
+                try:
+                    clip_time = float(clip_el.get("Time", 0))
+                    clip_end = float(clip_el.get("CurrentEnd", 0))
+                    if clip_end <= clip_time:
+                        clip_id = clip_el.get("Id", "?")
+                        violations.append(
+                            f"{clip_tag} Id={clip_id}: CurrentEnd ({clip_end}) <= Time ({clip_time})"
+                        )
+                except (TypeError, ValueError):
+                    pass
+
+        # (d) MidiNoteEvent Time must be >= 0 and < clip duration
+        for clip_tag in ("MidiClip",):
+            for clip_el in root.iter(clip_tag):
+                try:
+                    clip_time = float(clip_el.get("Time", 0))
+                    clip_end = float(clip_el.get("CurrentEnd", 0))
+                    clip_duration = clip_end - clip_time
+                    clip_id = clip_el.get("Id", "?")
+                    for ne in clip_el.iter("MidiNoteEvent"):
+                        try:
+                            note_time = float(ne.get("Time", 0))
+                            if note_time < 0:
+                                violations.append(
+                                    f"MidiNoteEvent in clip {clip_id}: Time={note_time} is negative"
+                                )
+                            elif note_time >= clip_duration:
+                                violations.append(
+                                    f"MidiNoteEvent in clip {clip_id}: Time={note_time} >= clip duration {clip_duration}"
+                                )
+                        except (TypeError, ValueError):
+                            pass
+                except (TypeError, ValueError):
+                    pass
+
+        return {
+            "passed": len(violations) == 0,
+            "violations": violations,
+        }
+
     # ── Apply ────────────────────────────────────────────────────────────────
 
     def apply(self, mutation_payloads: List[Dict[str, Any]]) -> PatchResult:
@@ -405,6 +508,7 @@ class ALSPatcher:
                 trust_label=TRUST_MANUAL,
                 warnings=self.warnings,
                 validation_passed=False,
+                diagnostics={"passed": False, "violations": ["ALS failed to load"]},
             )
 
         applied: List[Dict[str, Any]] = []
@@ -475,6 +579,7 @@ class ALSPatcher:
                 trust_label=TRUST_MANUAL,
                 warnings=self.warnings,
                 validation_passed=False,
+                diagnostics={"passed": False, "violations": ["No mutations were applied"]},
             )
 
         # Trust tier
@@ -486,13 +591,21 @@ class ALSPatcher:
         else:
             trust_label = TRUST_STRUCTURAL
 
-        # Pre-export validation
-        pre_valid, pre_errors = validate_pre_export(self.root)
-        hard_errors = [e for e in pre_errors if not e.startswith("WARN:")]
-        if hard_errors:
-            logger.error(f"Pre-export validation failed: {hard_errors}")
-            for e in hard_errors:
-                self.warnings.append(f"Pre-export validation: {e}")
+        # Run strict pre-serialisation validation gate
+        diagnostics = self._validate_tree(self.root)
+        if not diagnostics["passed"]:
+            violation_summary = "; ".join(diagnostics["violations"][:5])
+            self.warnings.append(f"Pre-serialisation validation failed: {violation_summary}")
+            logger.warning(f"ALSPatcher: pre-serialisation validation failed — {diagnostics}")
+            return PatchResult(
+                als_bytes=None,
+                mutations_applied=applied,
+                mutations_skipped=skipped,
+                trust_label=TRUST_MANUAL,
+                warnings=self.warnings,
+                validation_passed=False,
+                diagnostics=diagnostics,
+            )
 
         # Serialise to gzip XML
         als_bytes: Optional[bytes] = None
@@ -509,20 +622,23 @@ class ALSPatcher:
                 gz.write(xml_bytes)
             candidate = buf.getvalue()
 
-            ok, err_msg = validate_als_bytes(candidate)
-            if ok and not hard_errors:
+            # Post-apply validation (full decompression, duplicate Id check)
+            valid, err = validate_als_bytes(candidate)
+            if valid:
                 als_bytes = candidate
                 validation_passed = True
-            elif not ok:
-                self.warnings.append(f"Post-serialisation validation failed: {err_msg}")
-            elif hard_errors:
-                self.warnings.append(
-                    f"Export blocked by pre-export validator: {'; '.join(hard_errors)}"
-                )
+            else:
+                self.warnings.append(f"Post-patch validation failed: {err}. Falling back to no output.")
+                als_bytes = None
+                trust_label = TRUST_MANUAL
+                diagnostics = {"passed": False, "violations": [f"Post-patch validation: {err}"]}
 
         except Exception as e:
             logger.error(f"ALSPatcher: serialisation failed: {e}")
             self.warnings.append(f"Serialisation failed: {e}")
+            als_bytes = None
+            trust_label = TRUST_MANUAL
+            diagnostics = {"passed": False, "violations": [f"Serialisation error: {e}"]}
 
         return PatchResult(
             als_bytes=als_bytes,
@@ -531,7 +647,7 @@ class ALSPatcher:
             trust_label=trust_label if als_bytes else TRUST_MANUAL,
             warnings=self.warnings,
             validation_passed=validation_passed,
-            validation_errors=pre_errors,
+            diagnostics=diagnostics,
         )
 
     # ── Mutation implementations ─────────────────────────────────────────────
@@ -568,7 +684,15 @@ class ALSPatcher:
         """
         Add an automation envelope to the correct track.
 
-        Path: Track > ArrangerAutomation > AutomationEnvelopes > Envelopes > AutomationEnvelope
+        Strategy:
+        1. Find target track element by ID or name
+        2. Build PointeeId map from track's AutomationTarget elements
+        3. Resolve PointeeId for the requested parameter
+        4. Write AutomationEnvelope under ArrangerAutomation/AutomationEnvelopes/Envelopes
+
+        Ableton expects AutomationEnvelopes to appear BEFORE Events within ArrangerAutomation.
+
+        Returns None on success, or an error string if the mutation should be skipped.
         """
         track_id = payload.get("targetTrackId")
         track_name = payload.get("targetTrackName")
@@ -593,13 +717,23 @@ class ALSPatcher:
                 f"'{track_name or track_id}'; using synthetic PointeeId={pointee_id}"
             )
 
+        # Find or create ArrangerAutomation
         arranger_auto = target_el.find("ArrangerAutomation")
         if arranger_auto is None:
             arranger_auto = etree.SubElement(target_el, "ArrangerAutomation")
 
+        # Ableton canonical order: AutomationEnvelopes BEFORE Events
+        # Find or create AutomationEnvelopes, then ensure it is before Events
         auto_envs = arranger_auto.find("AutomationEnvelopes")
+        events_el = arranger_auto.find("Events")
+
         if auto_envs is None:
-            auto_envs = etree.SubElement(arranger_auto, "AutomationEnvelopes")
+            # Insert AutomationEnvelopes at position 0 (before Events)
+            auto_envs = etree.Element("AutomationEnvelopes")
+            if events_el is not None:
+                events_el.addprevious(auto_envs)
+            else:
+                arranger_auto.insert(0, auto_envs)
 
         envelopes = auto_envs.find("Envelopes")
         if envelopes is None:
@@ -613,7 +747,7 @@ class ALSPatcher:
         pointee_el.set("Value", str(pointee_id))
 
         automation_el = etree.SubElement(envelope, "Automation")
-        events_el = etree.SubElement(automation_el, "Events")
+        events_el_inner = etree.SubElement(automation_el, "Events")
 
         points = payload.get("automationPoints") or []
         if not points:
@@ -625,7 +759,7 @@ class ALSPatcher:
             ]
 
         for pt in points:
-            event = etree.SubElement(events_el, "AutomationEvent")
+            event = etree.SubElement(events_el_inner, "AutomationEvent")
             event.set("Time", str(float(pt.get("time", 0.0))))
             event.set("Value", str(float(pt.get("value", 0.0))))
             event.set("CurveControl1X", "0.5")
@@ -693,6 +827,8 @@ class ALSPatcher:
                 p = int(note.get("pitch", 60))
                 by_pitch.setdefault(p, []).append(note)
 
+            # Track the highest NoteId assigned per clip for NextNoteId
+            max_note_id = 0
             for pitch, pitch_notes in sorted(by_pitch.items()):
                 kt = etree.SubElement(key_tracks_el, "KeyTrack")
                 kt.set("Id", self._ids.allocate())
@@ -705,11 +841,19 @@ class ALSPatcher:
                     ne.set("Velocity", str(min(127, max(0, int(n.get("velocity", 100))))))
                     ne.set("OffVelocity", "64")
                     ne.set("IsEnabled", "true")
-                    ne.set("NoteId", self._ids.allocate_note_id())
+                    note_id_str = self._ids.allocate_note_id()
+                    ne.set("NoteId", note_id_str)
+                    try:
+                        nid_int = int(note_id_str)
+                        if nid_int > max_note_id:
+                            max_note_id = nid_int
+                    except ValueError:
+                        pass
 
-            # NextNoteId — Live requires this in Notes
+            # NextNoteId = max(NoteId in this clip) + 1
             nid_el = etree.SubElement(notes_el, "NextNoteId")
-            nid_el.set("Value", str(self._ids._next_note_id))
+            nid_el.set("Value", str(max_note_id + 1))
+            etree.SubElement(notes_el, "Events")
 
         return None
 
@@ -762,10 +906,11 @@ class ALSPatcher:
 
     def _create_midi_track(self, name: str) -> Optional[etree._Element]:
         """
-        Create a minimal valid MidiTrack XML element and append it to <Tracks>.
-
-        Follows the Ableton Live 11 MidiTrack schema with required elements:
-        Name > UserName, Name > EffectiveName, DeviceChain > Mixer, ArrangerAutomation
+        Create a minimal valid MidiTrack XML element and insert it before any
+        return or master tracks (not simply appended to end).
+        Includes all required Live 11/12 siblings: TrackDelay, SendsPre, Freeze,
+        AutomationLanes, LinkedTrack.
+        Returns the new element, or None on failure.
         """
         tracks_el = self.liveset.find("Tracks")
         if tracks_el is None:
@@ -773,7 +918,7 @@ class ALSPatcher:
             return None
 
         track_id = self._ids.allocate()
-        track_el = etree.SubElement(tracks_el, "MidiTrack")
+        track_el = etree.Element("MidiTrack")
         track_el.set("Id", track_id)
 
         # Name wrapper (consistent with Ableton format and parser expectations)
@@ -786,10 +931,16 @@ class ALSPatcher:
         ci = etree.SubElement(track_el, "ColorIndex")
         ci.set("Value", "16")
 
-        # DeviceChain > Mixer > Volume (with AutomationTarget)
-        dc = etree.SubElement(track_el, "DeviceChain")
-        devices = etree.SubElement(dc, "Devices")
+        # TrackDelay (required by Live 11/12)
+        track_delay = etree.SubElement(track_el, "TrackDelay")
+        td_val = etree.SubElement(track_delay, "Value")
+        td_val.set("Value", "0")
+        td_manual = etree.SubElement(track_delay, "Manual")
+        td_manual.set("Value", "0")
 
+        # DeviceChain > Devices + Mixer
+        dc = etree.SubElement(track_el, "DeviceChain")
+        etree.SubElement(dc, "Devices")
         mixer = etree.SubElement(dc, "Mixer")
 
         vol_el = etree.SubElement(mixer, "Volume")
@@ -804,9 +955,35 @@ class ALSPatcher:
         pan_auto = etree.SubElement(pan_el, "AutomationTarget")
         pan_auto.set("Id", self._ids.allocate())
 
+        # SendsPre (required by Live 11/12)
+        sends_pre = etree.SubElement(track_el, "SendsPre")
+        sends_pre.set("Value", "false")
+
+        # Freeze (required by Live 11/12)
+        freeze_el = etree.SubElement(track_el, "Freeze")
+        freeze_el.set("Value", "false")
+
         # ArrangerAutomation > Events (clips land here)
         arr_auto = etree.SubElement(track_el, "ArrangerAutomation")
-        events_el = etree.SubElement(arr_auto, "Events")
+        etree.SubElement(arr_auto, "Events")
+
+        # AutomationLanes (required by Live 11/12)
+        auto_lanes = etree.SubElement(track_el, "AutomationLanes")
+        etree.SubElement(auto_lanes, "AutomationLanes")
+        cl_auto = etree.SubElement(auto_lanes, "IsSendBeforeHear")
+        cl_auto.set("Value", "false")
+
+        # LinkedTrack (required by Live 11/12)
+        linked = etree.SubElement(track_el, "LinkedTrack")
+        linked.set("Value", "-1")
+
+        # Insert before any return or master track elements (not appended to end)
+        insert_idx = len(tracks_el)
+        for i, child in enumerate(tracks_el):
+            if child.tag in ("ReturnTrack", "MasterTrack"):
+                insert_idx = i
+                break
+        tracks_el.insert(insert_idx, track_el)
 
         # Register in index
         self._track_index[track_id] = track_el
@@ -826,7 +1003,7 @@ def patch_als(
     High-level function: load ALS, apply mutations, validate, return patched result.
 
     On validation failure, PatchResult.als_bytes will be None.
-    Warnings and validation_errors always contain diagnostic information.
+    Warnings and diagnostics always contain diagnostic information.
     """
     patcher = ALSPatcher(als_bytes)
     return patcher.apply(mutation_payloads)

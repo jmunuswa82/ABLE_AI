@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Download, Music2, ShieldCheck, ChevronDown, ChevronUp,
   FileJson, FileText, AlertTriangle, CheckCircle2, Clock,
-  Loader2, XCircle, FileCode, Zap,
+  Loader2, XCircle, FileCode, Zap, Package,
 } from "lucide-react";
 import { useListProjectArtifacts } from "@workspace/api-client-react";
 import { formatBytes } from "@/lib/utils";
@@ -97,12 +97,13 @@ export default function ExportView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
 
+  const { data: artifacts = [] } = useListProjectArtifacts(id);
+
   const [statusData, setStatusData] = useState<ExportStatusData | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [diagOpen, setDiagOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
-
-  const { data: artifacts = [] } = useListProjectArtifacts(id);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +112,13 @@ export default function ExportView() {
         const res = await fetch(`${BASE}/api/projects/${id}/export-status`);
         if (!res.ok) throw new Error("Failed to fetch export status");
         const data = await res.json();
-        if (!cancelled) setStatusData(data);
+        if (!cancelled) {
+          setStatusData(data);
+          // Auto-expand diagnostics panel when patch failed and diagnostics exist
+          if (!data.hasPatchedAls) {
+            setDiagOpen(true);
+          }
+        }
       } catch {
         if (!cancelled) setStatusData(null);
       } finally {
@@ -137,6 +144,9 @@ export default function ExportView() {
   const debugArtifacts = artifacts.filter((a: any) =>
     ["project_graph", "completion_plan", "instructions", "original_als", "patch_package"].includes(a.type)
   );
+
+  const patchPackageArt = artifacts.find((a: any) => a.type === "patch_package");
+  const exportDiagnosticsArt = artifacts.find((a: any) => a.type === "export_diagnostics");
 
   const typeIcon = (type: string) => {
     if (type.includes("als")) return <Music2 className="w-4 h-4" />;
@@ -338,9 +348,9 @@ export default function ExportView() {
             <div className="mt-4 flex items-start gap-2 text-[11px] text-[var(--text-muted)]">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#ffb703" }} />
               <span>
-                Upload an .als file and run the full analysis pipeline to generate a modified
-                export. The AI will parse your project, build a completion plan, and apply safe
-                mutations before making the export available here.
+                {exportDiagnosticsArt
+                  ? "The AI patch could not be applied — mutations did not pass pre-serialisation validation. See the Pipeline Diagnostics panel below for details."
+                  : "Upload an .als file and run the full analysis pipeline to generate a modified export. The AI will parse your project, build a completion plan, and apply safe mutations before making the export available here."}
               </span>
             </div>
           )}
@@ -375,6 +385,81 @@ export default function ExportView() {
               ))}
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* Patch Package — secondary download */}
+      {patchPackageArt && (
+        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+          <div
+            className="rounded-xl p-5 flex flex-col md:flex-row items-center gap-5"
+            style={{
+              background: "var(--bg-panel)",
+              border: "1px solid rgba(81,69,50,0.1)",
+            }}
+          >
+            <div className="w-12 h-12 rounded-xl bg-[var(--bg-overlay)] flex items-center justify-center border border-[var(--amber-border)] shrink-0">
+              <Package className="w-5 h-5 text-[var(--text-secondary)]" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-[13px] font-label font-bold text-[var(--text-primary)] mb-1 uppercase tracking-wide">
+                Master Patch Package
+              </h3>
+              <p className="text-[11px] text-[var(--text-muted)] mb-1.5 leading-relaxed">
+                Complete bundle: original .als + analysis files + completion plan + AI patch (if available).
+              </p>
+              <div className="text-[10px] font-mono text-[var(--amber-light)] bg-[var(--bg-overlay)] inline-block px-2.5 py-1 rounded border border-[var(--amber-border)]">
+                {patchPackageArt.fileName} · {formatBytes(patchPackageArt.fileSize)}
+              </div>
+            </div>
+            <a
+              href={`${BASE}/api/projects/${id}/artifacts/${patchPackageArt.id}/download`}
+              download={patchPackageArt.fileName}
+              className="shrink-0 px-5 py-2.5 rounded-lg text-[12px] border border-[var(--amber-border)] text-[var(--amber-light)] hover:bg-primary/10 transition-all font-label font-bold uppercase tracking-wide"
+            >
+              Download
+            </a>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Diagnostics panel — shown when export_diagnostics artifact exists */}
+      {exportDiagnosticsArt && (
+        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+          <button
+            onClick={() => setDiagOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors"
+            style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle
+                className="w-3.5 h-3.5"
+                style={{ color: exportStatus !== "ready" ? "#ffb703" : "var(--text-muted)" }}
+              />
+              <span className="text-[11px] font-label uppercase tracking-widest text-[var(--text-secondary)]">
+                Pipeline Diagnostics — Why did export {exportStatus === "ready" ? "succeed?" : "fail?"}
+              </span>
+            </div>
+            {diagOpen ? (
+              <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
+            )}
+          </button>
+
+          <AnimatePresence>
+            {diagOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <DiagnosticsPanel projectId={id} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
 
@@ -456,5 +541,145 @@ export default function ExportView() {
         </motion.div>
       )}
     </motion.div>
+  );
+}
+
+function DiagnosticsPanel({ projectId }: { projectId: string }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    if (data || loading) return;
+    setLoading(true);
+    try {
+      const resp = await fetch(`${BASE}/api/projects/${projectId}/export-diagnostics`);
+      if (!resp.ok) throw new Error(`${resp.status}: ${await resp.text()}`);
+      setData(await resp.json());
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load diagnostics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!data && !loading && !error) load();
+
+  if (loading) {
+    return (
+      <div
+        className="rounded-b-lg p-6 border-t-0 font-mono text-xs text-[var(--text-muted)]"
+        style={{ background: "var(--bg-card)", border: "1px solid rgba(81,69,50,0.1)" }}
+      >
+        Loading diagnostics…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="rounded-b-lg p-6 border-t-0 font-mono text-xs text-red-400"
+        style={{ background: "var(--bg-card)", border: "1px solid rgba(81,69,50,0.1)" }}
+      >
+        Error: {error}
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const violations: string[] = data?.diagnostics?.violations ?? [];
+  const warnings: string[] = data?.warnings ?? [];
+  const skipped: any[] = data?.skippedDetails ?? [];
+
+  return (
+    <div
+      className="rounded-b-lg p-5 border-t-0 space-y-4"
+      style={{ background: "var(--bg-card)", border: "1px solid rgba(81,69,50,0.1)" }}
+    >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Stat label="Trust Level" value={data.trustLabel ?? "—"} />
+        <Stat label="Applied" value={String(data.mutationsApplied ?? 0)} />
+        <Stat label="Skipped" value={String(data.mutationsSkipped ?? 0)} />
+        <Stat
+          label="Validation"
+          value={data.validationPassed ? "Passed" : "Failed"}
+          valueClass={data.validationPassed ? "text-[#22c55e]" : "text-yellow-400"}
+        />
+      </div>
+
+      {violations.length > 0 && (
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-2">
+            Validation Violations
+          </p>
+          <ul className="space-y-1">
+            {violations.map((v: string, i: number) => (
+              <li
+                key={i}
+                className="text-[11px] font-mono text-red-400 bg-red-500/5 px-3 py-1.5 rounded border border-red-500/20"
+              >
+                {v}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {skipped.length > 0 && (
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-2">
+            Skipped Mutations
+          </p>
+          <ul className="space-y-1">
+            {skipped.map((s: any, i: number) => (
+              <li
+                key={i}
+                className="text-[11px] font-mono text-[var(--text-secondary)] bg-[var(--bg-overlay)] px-3 py-1.5 rounded border border-[var(--amber-border)]"
+              >
+                <span className="text-[var(--amber-light)]">{s.type}</span>: {s.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {warnings.length > 0 && (
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-2">
+            Pipeline Warnings
+          </p>
+          <ul className="space-y-1">
+            {warnings.slice(0, 8).map((w: string, i: number) => (
+              <li
+                key={i}
+                className="text-[11px] font-mono text-yellow-400/80 bg-yellow-500/5 px-3 py-1.5 rounded border border-yellow-500/20"
+              >
+                {w}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {violations.length === 0 && warnings.length === 0 && skipped.length === 0 && (
+        <p className="text-[12px] text-[var(--text-muted)] font-mono">
+          No issues detected in the export pipeline.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+  return (
+    <div
+      className="rounded-lg px-3 py-2.5 border border-[var(--amber-border)]"
+      style={{ background: "var(--bg-overlay)" }}
+    >
+      <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">{label}</p>
+      <p className={`text-[13px] font-mono font-bold truncate ${valueClass ?? "text-white"}`}>{value}</p>
+    </div>
   );
 }

@@ -19,7 +19,18 @@ def build_minimal_als(
 
     tracks: list of dicts with keys: name, type (MidiTrack|AudioTrack), clips, devices
     locators: list of dicts with keys: time, name
+
+    All Id attributes are allocated from a monotonic counter to guarantee uniqueness
+    across the entire document.
     """
+    # Monotonic ID counter — ensures no duplicate Id attributes in the generated file
+    _id_counter = [1000]
+
+    def next_id() -> int:
+        val = _id_counter[0]
+        _id_counter[0] += 1
+        return val
+
     root = etree.Element("Ableton")
     root.set("MajorVersion", "11")
     root.set("MinorVersion", "0")
@@ -30,7 +41,7 @@ def build_minimal_als(
 
     # Master track (needed for tempo)
     master = etree.SubElement(ls, "MasterTrack")
-    master.set("Id", "0")
+    master.set("Id", str(next_id()))
     eff_name = etree.SubElement(master, "EffectiveName")
     eff_name.set("Value", "Master")
     master_dc = etree.SubElement(master, "DeviceChain")
@@ -39,7 +50,7 @@ def build_minimal_als(
     tempo_manual = etree.SubElement(tempo_el, "Manual")
     tempo_manual.set("Value", str(tempo))
     master_arr = etree.SubElement(master, "ArrangerAutomation")
-    master_events = etree.SubElement(master_arr, "Events")
+    etree.SubElement(master_arr, "Events")
 
     # Time signature
     ts = etree.SubElement(ls, "TimeSelection")
@@ -56,9 +67,9 @@ def build_minimal_als(
     if locators:
         locs_el = etree.SubElement(ls, "Locators")
         locs_inner = etree.SubElement(locs_el, "Locators")
-        for i, loc in enumerate(locators):
+        for loc in locators:
             cue = etree.SubElement(locs_inner, "CuePoint")
-            cue.set("Id", str(i + 1))
+            cue.set("Id", str(next_id()))
             cue.set("Time", str(float(loc.get("time", 0))))
             name_el = etree.SubElement(cue, "Name")
             name_el.set("Value", loc.get("name", "Cue"))
@@ -72,8 +83,7 @@ def build_minimal_als(
     for i, t in enumerate(tracks or []):
         tag = t.get("type", "MidiTrack")
         track_el = etree.SubElement(tracks_el, tag)
-        ableton_id = str(100 + i)
-        track_el.set("Id", ableton_id)
+        track_el.set("Id", str(next_id()))
 
         # Track name must be nested under <Name><UserName> for the parser to read it
         name_wrapper = etree.SubElement(track_el, "Name")
@@ -91,7 +101,7 @@ def build_minimal_als(
         for d in t.get("devices", []):
             dev_tag = d.get("class", "AutoFilter")
             dev_el = etree.SubElement(devices_el, dev_tag)
-            dev_el.set("Id", str(200 + i))
+            dev_el.set("Id", str(next_id()))
             on_el = etree.SubElement(dev_el, "On")
             on_el.set("Value", "true")
 
@@ -112,7 +122,7 @@ def build_minimal_als(
         vol_manual = etree.SubElement(vol_el, "Manual")
         vol_manual.set("Value", "1")
         vol_auto = etree.SubElement(vol_el, "AutomationTarget")
-        vol_auto.set("Id", str(300 + i))
+        vol_auto.set("Id", str(next_id()))
 
         # Add clips to ArrangerAutomation
         arr_auto = etree.SubElement(track_el, "ArrangerAutomation")
@@ -120,7 +130,7 @@ def build_minimal_als(
         for j, c in enumerate(t.get("clips", [])):
             clip_tag = "MidiClip" if c.get("type", "midi") == "midi" else "AudioClip"
             clip_el = etree.SubElement(events, clip_tag)
-            clip_el.set("Id", str(400 + i * 10 + j))
+            clip_el.set("Id", str(next_id()))
             clip_el.set("Time", str(float(c.get("start", 0))))
             clip_el.set("CurrentEnd", str(float(c.get("end", 16))))
             clip_el.set("ColorIndex", "16")
@@ -137,9 +147,10 @@ def build_minimal_als(
             if c.get("type", "midi") == "midi" and c.get("notes"):
                 notes_el = etree.SubElement(clip_el, "Notes")
                 key_tracks_el = etree.SubElement(notes_el, "KeyTracks")
+                max_note_id = 0
                 for pitch, note_list in _group_notes_by_pitch(c.get("notes", [])).items():
                     kt = etree.SubElement(key_tracks_el, "KeyTrack")
-                    kt.set("Id", str(500 + pitch))
+                    kt.set("Id", str(next_id()))
                     kt.set("MidiKey", str(pitch))
                     notes_container = etree.SubElement(kt, "Notes")
                     for n in note_list:
@@ -149,20 +160,23 @@ def build_minimal_als(
                         ne.set("Velocity", str(n.get("velocity", 100)))
                         ne.set("OffVelocity", "64")
                         ne.set("IsEnabled", "true")
-                        ne.set("NoteId", str(600 + pitch))
+                        note_id = next_id()
+                        if note_id > max_note_id:
+                            max_note_id = note_id
+                        ne.set("NoteId", str(note_id))
                 nid = etree.SubElement(notes_el, "NextNoteId")
-                nid.set("Value", str(len(c.get("notes", [])) + 1))
+                nid.set("Value", str(max_note_id + 1))
 
-        # Add automation lanes
+        # Add automation lanes (AutomationEnvelopes BEFORE Events for Ableton ordering)
         if t.get("automationLanes"):
             auto_envs = etree.SubElement(arr_auto, "AutomationEnvelopes")
             envs = etree.SubElement(auto_envs, "Envelopes")
             for lane in t.get("automationLanes", []):
                 env = etree.SubElement(envs, "AutomationEnvelope")
-                env.set("Id", str(700 + i))
+                env.set("Id", str(next_id()))
                 env_target = etree.SubElement(env, "EnvelopeTarget")
                 pid = etree.SubElement(env_target, "PointeeId")
-                pid.set("Value", str(lane.get("pointeeId", 300 + i)))
+                pid.set("Value", str(lane.get("pointeeId", next_id())))
                 automation_el = etree.SubElement(env, "Automation")
                 events_auto = etree.SubElement(automation_el, "Events")
                 for pt in lane.get("points", []):

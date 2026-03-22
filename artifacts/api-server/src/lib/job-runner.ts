@@ -180,7 +180,42 @@ export async function runPipelineJob(
       description: "Human-readable completion instructions",
     });
 
-    // 5. Register patched ALS if available
+    // 5a. Write export diagnostics JSON (always — includes patch_summary and diagnostics)
+    try {
+      const exportDiagnostics = {
+        generatedAt: new Date().toISOString(),
+        jobId,
+        projectId,
+        patchSummary: patch_summary ?? null,
+        validationPassed: patch_summary?.validationPassed ?? false,
+        diagnostics: patch_summary?.diagnostics ?? null,
+        warnings: patch_summary?.warnings ?? [],
+        trustLabel: patch_summary?.trustLabel ?? "REQUIRES_MANUAL_REVIEW",
+        mutationsApplied: patch_summary?.mutationsApplied ?? 0,
+        mutationsSkipped: patch_summary?.mutationsSkipped ?? 0,
+        appliedDetails: patch_summary?.appliedDetails ?? [],
+        skippedDetails: patch_summary?.skippedDetails ?? [],
+      };
+      const diagPath = path.join(artifactsDir, "export-diagnostics.json");
+      await fs.writeFile(diagPath, JSON.stringify(exportDiagnostics, null, 2));
+      const diagArtifactId = randomUUID();
+      await db.insert(artifactFilesTable).values({
+        id: diagArtifactId,
+        projectId,
+        jobId,
+        type: "export_diagnostics",
+        fileName: "export-diagnostics.json",
+        filePath: diagPath,
+        fileSize: (await fs.stat(diagPath)).size,
+        mimeType: "application/json",
+        description: `Export pipeline diagnostics — validation ${exportDiagnostics.validationPassed ? "passed" : "failed"}`,
+      });
+      logger.info({ diagPath, validationPassed: exportDiagnostics.validationPassed }, "Saved export diagnostics");
+    } catch (e) {
+      logger.warn({ err: e }, "Could not save export diagnostics");
+    }
+
+    // 5b. Register patched ALS if available
     let registeredPatchedAlsPath: string | null = null;
     if (patched_als_path) {
       try {
