@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, projectsTable, jobsTable, parseResultsTable, completionPlansTable, artifactFilesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -8,7 +8,7 @@ import fs from "fs/promises";
 import { existsSync } from "fs";
 import { randomUUID } from "crypto";
 import { logger } from "../lib/logger";
-import { runPipelineJob } from "../lib/job-runner";
+import { runPipelineJob, runApplyMutationsJob } from "../lib/job-runner";
 
 const router: IRouter = Router();
 
@@ -362,6 +362,15 @@ router.get("/projects/:id/export-status", async (req: Request, res: Response) =>
 
     const latestJob = jobs[0] ?? null;
 
+    // Fetch latest apply job specifically
+    const applyJobs = await db
+      .select()
+      .from(jobsTable)
+      .where(and(eq(jobsTable.projectId, id), eq(jobsTable.type, "apply")))
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+    const latestApplyJob = applyJobs[0] ?? null;
+
     // Count mutations from description field if available
     const mutationsApplied = patchedAls
       ? parseInt((patchedAls.description ?? "0 mutations").match(/(\d+) mutations/)?.[1] ?? "0")
@@ -379,6 +388,9 @@ router.get("/projects/:id/export-status", async (req: Request, res: Response) =>
       trustLabel,
       jobState: latestJob?.state ?? null,
       jobMessage: latestJob?.message ?? null,
+      applyJobState: latestApplyJob?.state ?? null,
+      applyJobMessage: latestApplyJob?.message ?? null,
+      applyJobError: latestApplyJob?.error ?? null,
       originalFileName: project.originalFileName ?? null,
     });
   } catch (err) {
@@ -524,6 +536,98 @@ router.post("/projects/:id/initiate-pipeline", async (req: Request, res: Respons
   } catch (err) {
     req.log.error({ err }, "Failed to initiate pipeline");
     res.status(500).json({ error: "Failed to initiate pipeline" });
+  }
+});
+
+// POST /projects/:id/apply-mutations — apply user-selected completion actions to the ALS
+router.post("/projects/:id/apply-mutations", async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const ApplySchema = z.object({
+    selectedActionIds: z.array(z.string()).min(1, "At least one action must be selected"),
+  });
+
+  const parsed = ApplySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.message });
+    return;
+  }
+
+  const { selectedActionIds } = parsed.data;
+
+  try {
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, id));
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!project.filePath || !existsSync(project.filePath)) {
+      res.status(400).json({ error: "No ALS file found for this project", code: "NO_FILE" });
+      return;
+    }
+
+    // Load the latest completion plan
+    const [planRow] = await db
+      .select()
+      .from(completionPlansTable)
+      .where(eq(completionPlansTable.projectId, id))
+      .orderBy(desc(completionPlansTable.createdAt))
+      .limit(1);
+
+    if (!planRow?.planData) {
+      res.status(404).json({ error: "No completion plan available. Run the analysis pipeline first." });
+      return;
+    }
+
+    const planData = planRow.planData as any;
+    const allActions: any[] = planData.actions ?? [];
+
+    // Filter to selected actions and collect safe mutation payloads
+    const selectedActions = allActions.filter((a: any) => selectedActionIds.includes(a.id));
+    if (selectedActions.length === 0) {
+      res.status(400).json({ error: "None of the provided action IDs matched the current completion plan." });
+      return;
+    }
+
+    const mutationPayloads = selectedActions.flatMap((a: any) =>
+      (a.mutationPayloads ?? []).filter((mp: any) => mp.safe === true)
+    );
+
+    if (mutationPayloads.length === 0) {
+      res.status(400).json({
+        error: "None of the selected actions have auto-exportable mutations. These actions require manual implementation.",
+        code: "NO_SAFE_MUTATIONS",
+      });
+      return;
+    }
+
+    // Create apply job
+    const jobId = randomUUID();
+    await db.insert(jobsTable).values({
+      id: jobId,
+      projectId: id,
+      type: "apply",
+      state: "queued",
+      message: `Applying ${mutationPayloads.length} mutations from ${selectedActions.length} selected action(s)`,
+    });
+
+    runApplyMutationsJob(id, jobId, project.filePath, project.originalFileName ?? "", mutationPayloads).catch((err) => {
+      logger.error({ err, projectId: id }, "Apply-mutations job failed");
+    });
+
+    req.log.info({ projectId: id, jobId, selectedActions: selectedActions.length, mutations: mutationPayloads.length }, "Apply mutations job started");
+
+    res.json({
+      projectId: id,
+      jobId,
+      state: "queued",
+      selectedActions: selectedActions.length,
+      mutationsQueued: mutationPayloads.length,
+      message: "Apply job started. Poll GET /projects/:id/export-status for progress.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to apply mutations");
+    res.status(500).json({ error: "Failed to start apply job" });
   }
 });
 

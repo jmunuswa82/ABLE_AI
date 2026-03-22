@@ -1,0 +1,561 @@
+Treat this as a P0 architecture and implementation correction for the Ableton ALS pipeline.
+
+The current product is still broken in critical ways:
+
+1. Deploy/Export gets stuck in a perpetual “Checking” state
+2. Original uploaded `.als` BPM is not parsed correctly
+3. There is no proper UI to select which AI-suggested improvements / automations should be applied
+4. The app does not yet provide a trustworthy mutation pipeline that converts selected actions into a valid modified Ableton `.als`
+5. Debug artifacts exist, but the real output path is still weak
+
+This must now be rebuilt into a real end-to-end system:
+
+Upload `.als`
+-> parse Ableton structure correctly
+-> extract real tempo and project metadata
+-> generate real AI suggestions
+-> let user select/deselect suggested modifications
+-> convert selected modifications into typed mutations
+-> compile a valid modified `.als`
+-> export only when the file is actually ready
+
+No fake checking state.
+No incorrect BPM.
+No hidden automatic mutation behavior.
+No invalid XML patching.
+No package-first behavior.
+
+==================================================
+NON-NEGOTIABLE PRODUCT OUTCOME
+==================================================
+
+The product must allow the user to:
+
+1. Upload an Ableton `.als`
+2. See correct original project metadata, especially:
+   - BPM
+   - total tracks
+   - total clips
+   - bars
+   - style/profile
+3. Review AI-detected improvement suggestions
+4. Select exactly which improvements to apply
+5. Generate a modified `.als` that applies those selected changes
+6. Download the valid modified `.als` file
+7. Open it directly in Ableton without corruption
+
+==================================================
+PART 1 — FIX THE INFINITE “CHECKING” LOOP
+==================================================
+
+Current bad behavior:
+- pipeline cards show all stages green
+- export card/button remains in “Checking” forever
+- export CTA does not transition to ready/download
+
+This indicates broken export state resolution.
+
+Find and fix all possible causes:
+- export readiness polling wrong endpoint
+- frontend polling different project_id than current active project
+- export artifact expected under wrong filename/path
+- backend marks pipeline complete but never creates export artifact record
+- enum mismatch between backend and frontend
+  example:
+  backend = READY_FOR_EXPORT
+  frontend expects = READY
+- export API waits for mutation plan that was never finalized
+- export state depends on package zip instead of `.als`
+- race condition between “strategy generated” and “artifact compiled”
+- polling loop does not stop on terminal states
+- stale cache keeps status in CHECKING
+
+Required fix:
+- introduce explicit export lifecycle states:
+  NOT_AVAILABLE
+  AWAITING_SELECTION
+  READY_TO_COMPILE
+  COMPILING
+  READY
+  FAILED
+
+- no generic “Checking” forever
+- every polling flow must:
+  1. start with known state
+  2. move deterministically
+  3. stop on READY or FAILED
+  4. expose failure cause if timeout or missing artifact
+
+Add timeout protection:
+- if state is COMPILING too long, surface diagnostics
+- if file artifact missing after backend claims READY, show export artifact mismatch error
+- never spin forever silently
+
+==================================================
+PART 2 — FIX BPM PARSING USING ACTUAL ABLETON STRUCTURE
+==================================================
+
+Current bad behavior:
+- uploaded `.als` BPM is shown incorrectly
+
+This is unacceptable because tempo is foundational.
+
+Implement robust tempo extraction from actual Ableton project structure.
+
+Requirements:
+- inspect Ableton XML structure for the authoritative song tempo source
+- do not infer BPM from heuristics if explicit tempo exists
+- if automation affects tempo, distinguish:
+  - base/default tempo
+  - tempo automation presence
+- preserve decimal precision
+- support Live 10/11/12 project variants where possible
+- do not fallback to hardcoded 120/130 unless explicit parse failure happens
+- if parse failure happens, expose it clearly
+
+Implement:
+1. extract base tempo from the correct ALS location
+2. detect whether tempo automation exists
+3. return:
+   - base_tempo
+   - effective_tempo_mode = FIXED or AUTOMATED
+   - tempo_automation_points_count
+4. display actual BPM in Overview / Strategy / Deploy consistently
+
+Add validation:
+- compare parsed tempo against raw XML source during tests
+- if tempo value is absent or malformed, record diagnostic
+- do not silently replace with default BPM unless marked as fallback with warning
+
+==================================================
+PART 3 — ADD A REAL “SELECT IMPROVEMENTS TO APPLY” WORKFLOW
+==================================================
+
+Right now there is no useful user decision layer.
+
+That is wrong.
+
+AI suggestions must not jump straight into export invisibly.
+The user must be able to choose which changes are applied.
+
+Create a real mutation planning UI and backend contract.
+
+Required UI:
+A page or panel called:
+
+“Apply AI Improvements”
+
+Each suggestion must be rendered as a selectable action card with:
+- checkbox / toggle
+- title
+- category
+- priority
+- confidence
+- reasoning
+- affected tracks
+- target bars
+- estimated impact
+- exportability status
+
+Examples of categories:
+- Structure
+- Automation
+- Sidechain
+- Transition FX
+- Mixing Dynamics
+- Arrangement Density
+- Spatial Depth
+- Outro / Intro
+- Device Adjustment
+- Gain Staging
+- Return Send Automation
+
+Each card must support:
+- select/deselect
+- expand for details
+- preview of what would change
+- whether it is safe for direct ALS mutation
+- whether it is advisory/manual only
+
+Add controls:
+- Select All Safe
+- Deselect All
+- Select by category
+- Select by priority
+- Apply Selected Improvements
+
+==================================================
+PART 4 — MUTATION MODEL MUST BE TYPED, NOT FREEFORM
+==================================================
+
+Do NOT let AI text directly mutate XML.
+
+All selected improvements must be converted into typed mutation objects.
+
+Implement a canonical mutation schema like:
+
+{
+  "mutationId": "mut_001",
+  "type": "ADD_AUTOMATION_ENVELOPE",
+  "category": "automation",
+  "enabled": true,
+  "target": {
+    "trackId": "...",
+    "deviceId": "...",
+    "parameterId": "...",
+    "clipId": "...",
+    "bars": { "start": 97, "end": 105 }
+  },
+  "payload": {
+    "points": [
+      { "bar": 97, "value": 0.15 },
+      { "bar": 101, "value": 0.62 },
+      { "bar": 105, "value": 0.25 }
+    ]
+  },
+  "constraints": {
+    "requiresExistingTrack": true,
+    "requiresValidParameterRef": true
+  },
+  "sourceEvidence": {
+    "reason": "No transition automation found before breakdown",
+    "confidence": 0.92
+  }
+}
+
+Other mutation types:
+- ADD_LOCATOR
+- ADD_MIDI_CLIP
+- EXTEND_ARRANGEMENT
+- ADD_TRACK
+- RENAME_TRACK
+- ADD_RETURN_SEND_AUTOMATION
+- ADD_UTILITY_GAIN_AUTOMATION
+- ADD_FILTER_SWEEP_AUTOMATION
+- INSERT_TRANSITION_GAP
+- ADD_OUTRO_SECTION
+- ADD_SIDECHAIN_ROUTING_METADATA (only if structurally valid)
+- ADD_PLACEHOLDER_AUDIO_CLIP_REFERENCE (if supported safely)
+
+Important:
+Only safe, structurally supported mutations may be directly compiled into `.als`.
+Unsafe or ambiguous suggestions must be marked:
+- manual_only = true
+- not directly exportable
+
+==================================================
+PART 5 — BUILD A REAL “PLAN -> APPLY -> COMPILE” PIPELINE
+==================================================
+
+Implement these distinct phases:
+
+A. ANALYSIS
+- parse uploaded ALS
+- build project graph
+- generate suggestions
+
+B. SELECTION
+- user chooses which suggestions to apply
+
+C. MUTATION PLAN
+- backend converts selected suggestions into typed mutation plan
+- validate targets exist
+- reject impossible mutations early
+
+D. APPLY MUTATIONS
+- mutate ProjectGraph, not raw XML strings
+
+E. COMPILE
+- write back to Ableton-compatible XML AST
+- preserve original structure where unchanged
+- allocate valid new IDs centrally
+- maintain valid references and sibling order
+
+F. VALIDATE
+- XML well-formedness
+- no duplicate IDs
+- no broken references
+- valid tempo/project nodes
+- valid track/clip/device tree
+- mutation effects actually present
+
+G. EXPORT
+- only now create modified `.als`
+- mark export READY only when actual artifact exists
+
+==================================================
+PART 6 — USE CORRECT ABLETON XML / ALS ROUND-TRIP FORMAT
+==================================================
+
+This is mandatory.
+
+The system must not treat `.als` as generic random XML.
+It must respect standard Ableton project structure and preserve compatibility.
+
+Requirements:
+- parse the actual ALS container/encoding/compression format correctly
+- preserve original unknown XML sections for round-trip safety
+- mutate only through validated XML AST + project graph mapping
+- do not do regex replacement
+- do not rebuild unsupported regions from assumptions
+- preserve attribute/value types correctly
+- preserve required ordering of key nodes
+- preserve existing IDs where possible
+- generate new IDs only through centralized allocator
+- update all references consistently
+
+Implement these layers:
+1. ALS decoder/encoder
+2. round-trip-safe XML AST
+3. ProjectGraph mapper
+4. typed mutation engine
+5. ID/reference manager
+6. ALS compiler
+7. pre-export validator
+
+If a mutation cannot be represented safely in standard ALS structure:
+- block it from direct export
+- mark it manual_only
+- show the reason in UI
+
+==================================================
+PART 7 — REDESIGN THE DEPLOY / EXPORT PAGE
+==================================================
+
+The current export page is still weak.
+
+Replace with this flow:
+
+Top section:
+- Original filename
+- Modified filename
+- Parsed BPM
+- Live version
+- tracks
+- clips
+- bars
+- selected improvements count
+- exportable improvements count
+- manual-only recommendations count
+
+Pipeline section:
+- UPLOAD
+- PARSE
+- ANALYZE
+- SELECT
+- APPLY
+- VALIDATE
+- EXPORT
+
+Each stage must use real backend state.
+
+Export card states:
+1. No analysis yet
+2. Suggestions available, waiting for selection
+3. Selected improvements pending apply
+4. Compiling modified ALS
+5. Validation failed
+6. Ready to download
+7. Exported
+
+Primary CTA logic:
+- before selection: “Select Improvements”
+- after selection: “Apply Selected Changes”
+- after successful compile: “Download Modified .als”
+
+No infinite spinner.
+No fake ready state.
+No zip-first emphasis.
+
+Debug artifacts must remain secondary and collapsed.
+
+==================================================
+PART 8 — ADD A SELECTION PAGE / PANEL
+==================================================
+
+Implement a dedicated page or right-side panel, accessible from Strategy and Deploy:
+
+“Mutation Plan”
+
+This page must show:
+- all suggestions
+- filter by category
+- filter by safe/exportable/manual-only
+- filter by selected/unselected
+- estimated modification count
+- summary of actual changes that will be written into `.als`
+
+Show examples like:
+- Add outro section locator from bar 165 to 181
+- Add utility gain fade on master from bar 173 to 181
+- Add LPF automation on atmospheric bus during breakdown
+- Add send automation to reverb on percussion return
+- Add sidechain metadata recommendation for kick/bass relationship
+- Add 8-bar transition riser placeholder section
+
+Add a confirmation summary:
+“You are about to apply 7 exportable changes and 2 manual-only recommendations.”
+
+Manual-only recommendations must not block export, but must not be falsely claimed as applied to the `.als`.
+
+==================================================
+PART 9 — BACKEND API REQUIREMENTS
+==================================================
+
+Implement/refactor endpoints like:
+
+POST /api/projects/upload
+GET  /api/projects/:id
+GET  /api/projects/:id/status
+POST /api/projects/:id/initiate-pipeline
+GET  /api/projects/:id/analysis
+GET  /api/projects/:id/suggestions
+
+POST /api/projects/:id/selection
+  body:
+  {
+    "selectedSuggestionIds": ["..."]
+  }
+
+GET  /api/projects/:id/mutation-plan
+
+POST /api/projects/:id/apply-selected-mutations
+  -> converts selected suggestions into actual graph mutations
+  -> compiles modified ALS
+  -> validates output
+  -> stores export artifact
+
+GET  /api/projects/:id/export-status
+GET  /api/projects/:id/export-artifact
+POST /api/projects/:id/export-als
+
+The export-status response must contain:
+- state
+- selectedCount
+- exportableCount
+- manualOnlyCount
+- compiledArtifactExists
+- compiledArtifactPath
+- lastError
+- validationSummary
+
+==================================================
+PART 10 — TESTS YOU MUST ADD
+==================================================
+
+Add integration and e2e tests for these failures:
+
+1. BPM Accuracy Test
+- upload fixture ALS with known BPM
+- verify parsed BPM matches expected source
+
+2. Infinite Checking Test
+- simulate successful pipeline
+- ensure export state transitions to READY when artifact exists
+- ensure no infinite CHECKING loop remains
+
+3. Selection Flow Test
+- analysis returns 10 suggestions
+- user selects 4
+- apply selected mutations
+- mutation plan contains only those 4 selected exportable items
+
+4. Manual-only Safety Test
+- suggestions containing unsupported mutation types must be flagged manual_only
+- export must not falsely claim they were written into ALS
+
+5. Modified ALS Generation Test
+- apply selected safe changes
+- compile ALS
+- verify artifact exists
+- reparse output
+- confirm mutations are present
+- confirm no duplicate IDs or broken refs
+
+6. Cross-Page State Test
+- Strategy selectedCount and Deploy selectedCount must match for same project_id
+
+7. File Replacement Invalidation Test
+- upload project A
+- select suggestions
+- upload project B
+- old selection and export status must be invalidated
+
+==================================================
+PART 11 — DIAGNOSTICS
+==================================================
+
+Add deep diagnostics for debugging export readiness and BPM issues.
+
+Expose hidden debug panel with:
+- activeProjectId
+- artifactId
+- source file hash
+- parsed BPM source node/path
+- live version
+- analysis result id
+- selected suggestion ids
+- mutation plan id
+- compile state
+- export artifact path
+- validation status
+- last error
+
+For checking loop debugging, log:
+- frontend poll request timestamps
+- backend export status responses
+- terminal state detection
+- artifact existence verification
+
+==================================================
+PART 12 — AI SUGGESTION QUALITY
+==================================================
+
+Improve suggestion generation quality.
+
+Do not produce vague fluff.
+Suggestions must be grounded in actual ALS analysis.
+
+Each suggestion must include:
+- suggestionId
+- category
+- title
+- explanation
+- evidence
+- confidence
+- affectedTracks
+- targetBars
+- safeToExport boolean
+- manualOnly boolean
+- mutationType if exportable
+
+Examples:
+- “Add outro / exit section”
+- “Introduce filter sweep automation before breakdown”
+- “Add gain fade on master in final 8 bars”
+- “Increase transition contrast with send automation”
+- “Add arrangement locator for build section”
+- “Recommend sidechain compression on bass bus due to kick overlap”
+- “Add DJ-friendly stripped intro section”
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+This work is complete only if all are true:
+
+1. Export page no longer gets stuck in endless “Checking”
+2. Original uploaded `.als` BPM is parsed correctly from real Ableton data
+3. User can explicitly select which AI improvements to apply
+4. Selected improvements become typed mutations
+5. Only safe/exportable mutations are written into the modified `.als`
+6. Manual-only recommendations are clearly separated
+7. Modified `.als` is compiled in correct Ableton-compatible structure
+8. Export becomes READY only when artifact truly exists
+9. Downloaded modified `.als` opens successfully in Ableton
+10. Debug artifacts remain secondary to the actual `.als` output
+
+Implement the real fix across frontend, backend, parser, mutation engine, compiler, validation, and tests.
+Do not leave placeholders.
+Do not leave fake state transitions.
+Ship the working system.

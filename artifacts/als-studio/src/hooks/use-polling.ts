@@ -6,9 +6,11 @@ export function useProjectPolling(id: string | null) {
       enabled: !!id,
       refetchInterval: (query) => {
         const state = query.state.data?.status;
-        if (["parsing", "analyzing", "generating", "exporting", "queued"].includes(state ?? "")) {
+        const POLLING_STATUSES = ["parsing", "analyzing", "generating", "exporting", "queued", "applying", "uploaded"];
+        if (POLLING_STATUSES.includes(state ?? "")) {
           return 2000;
         }
+        // Terminal states: "exported", "failed" — stop polling
         return false;
       }
     }

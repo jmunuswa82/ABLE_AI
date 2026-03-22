@@ -1,23 +1,25 @@
 /**
  * CompletionPlanView — "Neural Completion Strategy" page.
  *
- * Displays ONLY real data derived from the active project analysis.
- * No demo content, no hardcoded metrics, no placeholder scores.
+ * Displays real data from backend analysis.
+ * Users select which AI actions to apply and click "Apply Selected"
+ * to kick off the compile job (POST /apply-mutations).
  *
  * Lifecycle cases:
- *   A: No project in DB       → empty / not-found state
+ *   A: No project in DB       → not-found state
  *   B: Project has no file    → "Upload ALS first" CTA
- *   C: Analysis running       → live progress display (polls every 2s)
- *   D: Plan exists            → real action cards from backend
+ *   C: Analysis running       → live progress display
+ *   D: Plan exists            → real action cards with selection UI
  *   E: Pipeline failed        → failure reason + retry CTA
- *   F: File uploaded but not yet analysed → "Run Pipeline" CTA
+ *   F: File uploaded, not analysed → "Run Pipeline" CTA
  */
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, AlertTriangle, Loader2, RefreshCw, UploadCloud,
-  Brain, ChevronRight, Play,
+  Brain, ChevronRight, Play, CheckSquare, Square, Zap,
+  XCircle, ListChecks,
 } from "lucide-react";
 import {
   useGetCompletionPlan,
@@ -41,7 +43,7 @@ const PRIORITY_CONFIG: Record<string, { color: string; label: string }> = {
 };
 
 const ANALYZING_STATUSES = new Set([
-  "uploaded", "parsing", "analyzing", "generating", "exporting", "queued",
+  "uploaded", "parsing", "analyzing", "generating", "exporting", "queued", "applying",
 ]);
 
 export default function CompletionPlanView() {
@@ -51,16 +53,18 @@ export default function CompletionPlanView() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string | null>(null);
   const [initiating, setInitiating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
-  // Poll project status so progress is live even when analysis is running
   const { projectDetail: project, isLoading: projectLoading } = useProjectPolling(id);
 
-  // Only fetch plan when project has finished analyzing (avoids caching 404)
-  const shouldFetchPlan = project?.status === "exported" || project?.status === "analyzed" || project?.status === "generating" || project?.status === "exporting";
+  const shouldFetchPlan = project?.status === "exported" || project?.status === "analyzed"
+    || project?.status === "generating" || project?.status === "exporting"
+    || project?.status === "applying";
   const { data: plan, isLoading: planLoading } = useGetCompletionPlan(id, {
     query: {
       enabled: !!id && shouldFetchPlan,
-      // Refetch plan once analysis finishes
       refetchOnMount: true,
     },
   });
@@ -69,14 +73,39 @@ export default function CompletionPlanView() {
   const isFailed = project?.status === "failed";
   const hasFile = !!project?.originalFileName;
 
-  // ── Initiate Pipeline ─────────────────────────────────────────────────────
+  const actions: any[] = plan?.actions ?? [];
+  const safeActions = actions.filter((a: any) => !a.manualOnly);
+  const selectedSafeCount = [...selectedIds].filter(
+    (sid) => safeActions.find((a) => a.id === sid)
+  ).length;
+
+  // Toggle single action
+  const toggleAction = useCallback((actionId: string, isSafe: boolean) => {
+    if (!isSafe) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(actionId)) next.delete(actionId);
+      else next.add(actionId);
+      return next;
+    });
+  }, []);
+
+  // Select / deselect all safe actions
+  const toggleAllSafe = useCallback(() => {
+    if (selectedSafeCount === safeActions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(safeActions.map((a) => a.id)));
+    }
+  }, [safeActions, selectedSafeCount]);
+
+  // Initiate Pipeline
   const initiatePipeline = async () => {
     if (!id || initiating) return;
     setInitiating(true);
     try {
       const res = await fetch(`${BASE}/api/projects/${id}/initiate-pipeline`, { method: "POST" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // Invalidate so the polling hook picks up the fresh status immediately
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(id) }),
         queryClient.invalidateQueries({ queryKey: getGetCompletionPlanQueryKey(id) }),
@@ -85,6 +114,31 @@ export default function CompletionPlanView() {
       console.error("initiate-pipeline failed:", err);
     } finally {
       setInitiating(false);
+    }
+  };
+
+  // Apply selected mutations
+  const applySelected = async () => {
+    if (!id || applying || selectedIds.size === 0) return;
+    setApplying(true);
+    setApplyError(null);
+    try {
+      const res = await fetch(`${BASE}/api/projects/${id}/apply-mutations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedActionIds: [...selectedIds] }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setApplyError(data.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      // Navigate to export view to show compilation progress
+      navigate(`/projects/${id}/export`);
+    } catch (err: any) {
+      setApplyError(err.message ?? "Apply failed");
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -124,7 +178,7 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case B: No file uploaded yet ─────────────────────────────────────────
+  // ── Case B: No file ───────────────────────────────────────────────────────
   if (!hasFile) {
     return (
       <EmptyState
@@ -160,17 +214,17 @@ export default function CompletionPlanView() {
             Analysis in Progress
           </h1>
           <p className="text-[var(--text-secondary)] text-[14px]">
-            The AI engine is parsing <span className="text-[var(--amber)] font-mono">{project.originalFileName}</span> and building your completion strategy.
+            The AI engine is parsing{" "}
+            <span className="text-[var(--amber)] font-mono">{project.originalFileName}</span> and
+            building your completion strategy.
           </p>
         </div>
-
         <div
           className="rounded-xl p-6"
           style={{ background: "var(--bg-panel)", border: "1px solid rgba(255,183,3,0.15)" }}
         >
           <PipelineStatus status={project.status} jobs={project.jobs ?? []} />
         </div>
-
         <p className="text-[10px] text-[var(--text-muted)] font-label uppercase tracking-widest text-center">
           This page will update automatically when analysis completes
         </p>
@@ -198,10 +252,7 @@ export default function CompletionPlanView() {
         </div>
         <div
           className="rounded-xl p-6 space-y-4"
-          style={{
-            background: "rgba(239,68,68,0.05)",
-            border: "1px solid rgba(239,68,68,0.2)",
-          }}
+          style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)" }}
         >
           <PipelineStatus status={project.status} jobs={project.jobs ?? []} />
           {latestError && (
@@ -249,7 +300,7 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Loading plan data ─────────────────────────────────────────────────────
+  // ── Loading plan ──────────────────────────────────────────────────────────
   if (planLoading) {
     return (
       <div className="p-8 flex items-center gap-3 text-[var(--text-muted)]">
@@ -259,13 +310,13 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── No plan after analysis — shouldn't normally happen ────────────────────
+  // ── No plan ───────────────────────────────────────────────────────────────
   if (!plan) {
     return (
       <EmptyState
         icon={<Brain className="w-8 h-8 mx-auto mb-4 text-[var(--text-muted)]" />}
         title="No Strategy Available"
-        body="The analysis completed but no completion strategy was generated. This may happen for very simple projects. Try re-running the pipeline."
+        body="The analysis completed but no completion strategy was generated. Try re-running the pipeline."
         action={
           <button
             onClick={initiatePipeline}
@@ -279,8 +330,7 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case D: Plan exists — real data only ──────────────────────────────────
-  const actions = plan.actions ?? [];
+  // ── Case D: Plan exists ───────────────────────────────────────────────────
   const categories = [...new Set(actions.map((a: any) => a.category))] as string[];
   const filteredActions = filter ? actions.filter((a: any) => a.category === filter) : actions;
 
@@ -305,7 +355,6 @@ export default function CompletionPlanView() {
           {plan.summary}
         </p>
 
-        {/* Real metrics from backend */}
         <div className="flex flex-wrap gap-4 mt-8">
           {plan.completionScore != null && (
             <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
@@ -335,13 +384,94 @@ export default function CompletionPlanView() {
               {actions.length}
             </span>
           </div>
+          <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
+            <span className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] block mb-1">
+              Auto-Exportable
+            </span>
+            <span className="text-2xl font-display font-bold text-primary">
+              {safeActions.length}
+            </span>
+          </div>
         </div>
 
-        {/* Pipeline status strip */}
         <div className="mt-6 pt-6 border-t border-[var(--amber-border)]">
           <PipelineStatus status={project.status} jobs={project.jobs ?? []} compact />
         </div>
       </motion.div>
+
+      {/* Selection toolbar */}
+      {safeActions.length > 0 && (
+        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+          <div
+            className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap"
+            style={{
+              background: "var(--bg-panel)",
+              border: selectedIds.size > 0
+                ? "1px solid rgba(255,183,3,0.3)"
+                : "1px solid rgba(81,69,50,0.15)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleAllSafe}
+                className="flex items-center gap-2 text-[11px] font-label uppercase tracking-widest transition-colors"
+                style={{ color: selectedSafeCount === safeActions.length ? "var(--amber)" : "var(--text-muted)" }}
+              >
+                {selectedSafeCount === safeActions.length ? (
+                  <CheckSquare className="w-4 h-4" />
+                ) : (
+                  <Square className="w-4 h-4" />
+                )}
+                {selectedSafeCount === safeActions.length ? "Deselect All" : "Select All Exportable"}
+              </button>
+              {selectedIds.size > 0 && (
+                <span
+                  className="text-[10px] font-mono px-2 py-0.5 rounded"
+                  style={{
+                    background: "rgba(255,183,3,0.12)",
+                    color: "var(--amber)",
+                    border: "1px solid rgba(255,183,3,0.2)",
+                  }}
+                >
+                  {selectedIds.size} selected
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {applyError && (
+                <span className="text-[11px] text-red-400 flex items-center gap-1">
+                  <XCircle className="w-3.5 h-3.5" /> {applyError}
+                </span>
+              )}
+              <button
+                onClick={applySelected}
+                disabled={selectedIds.size === 0 || applying}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-display font-bold text-[12px] uppercase tracking-wider transition-all"
+                style={
+                  selectedIds.size > 0 && !applying
+                    ? {
+                        background: "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
+                        color: "#271900",
+                        cursor: "pointer",
+                      }
+                    : {
+                        background: "var(--bg-overlay)",
+                        color: "var(--text-muted)",
+                        cursor: "not-allowed",
+                      }
+                }
+              >
+                {applying ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying…</>
+                ) : (
+                  <><Zap className="w-3.5 h-3.5" /> Apply Selected ({selectedIds.size})</>
+                )}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Category filter */}
       {categories.length > 0 && (
@@ -381,7 +511,13 @@ export default function CompletionPlanView() {
             </p>
           ) : (
             filteredActions.map((action: any) => (
-              <ActionCard key={action.id} action={action} projectId={id} />
+              <ActionCard
+                key={action.id}
+                action={action}
+                projectId={id}
+                selected={selectedIds.has(action.id)}
+                onToggle={toggleAction}
+              />
             ))
           )}
         </AnimatePresence>
@@ -390,7 +526,7 @@ export default function CompletionPlanView() {
   );
 }
 
-// ─── Empty State Helper ────────────────────────────────────────────────────
+// ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyState({ icon, title, body, action }: {
   icon: React.ReactNode;
@@ -413,13 +549,24 @@ function EmptyState({ icon, title, body, action }: {
   );
 }
 
-// ─── Action Card ───────────────────────────────────────────────────────────
+// ─── Action Card ──────────────────────────────────────────────────────────────
 
-function ActionCard({ action, projectId }: any) {
+function ActionCard({
+  action,
+  projectId,
+  selected,
+  onToggle,
+}: {
+  action: any;
+  projectId: string;
+  selected: boolean;
+  onToggle: (id: string, safe: boolean) => void;
+}) {
   const { setLocateAtBeat } = useStudioStore();
   const [, navigate] = useLocation();
   const prio = PRIORITY_CONFIG[action.priority] || PRIORITY_CONFIG.medium;
   const locatable = action.mutationPayloads?.[0]?.startBeat ?? action.startBeat;
+  const isSafe = !action.manualOnly;
 
   return (
     <motion.div
@@ -428,32 +575,79 @@ function ActionCard({ action, projectId }: any) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       className={cn(
-        "glass-panel rounded-xl p-6 border-l-[3px] transition-all hover:translate-x-1",
-        action.priority === "critical" || action.priority === "high"
+        "glass-panel rounded-xl p-6 border-l-[3px] transition-all",
+        selected && isSafe
+          ? "border-l-primary shadow-[0_0_0_1px_rgba(255,183,3,0.25)]"
+          : action.priority === "critical" || action.priority === "high"
           ? "border-l-primary"
           : "border-l-[var(--amber-border-strong)]"
       )}
     >
       <div className="flex justify-between items-start gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-3">
-            <span className={cn("px-2 py-0.5 rounded text-[9px] font-bold font-label uppercase tracking-widest border", prio.color)}>
-              {action.priority}
-            </span>
-            <span className="text-[10px] font-mono text-[var(--text-code)] uppercase bg-[var(--bg-overlay)] px-2 py-0.5 rounded-sm">
-              {action.category}
-            </span>
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {/* Checkbox */}
+          <button
+            onClick={() => onToggle(action.id, isSafe)}
+            className={cn(
+              "shrink-0 mt-1 w-5 h-5 rounded flex items-center justify-center transition-all",
+              isSafe
+                ? selected
+                  ? "bg-primary border-primary text-[#271900]"
+                  : "border border-[var(--amber-border)] hover:border-primary"
+                : "border border-[rgba(81,69,50,0.2)] cursor-not-allowed opacity-40"
+            )}
+            disabled={!isSafe}
+            title={isSafe ? (selected ? "Deselect action" : "Select action") : "Manual-only — cannot auto-export"}
+          >
+            {selected && isSafe && <CheckSquare className="w-3.5 h-3.5" />}
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <span className={cn("px-2 py-0.5 rounded text-[9px] font-bold font-label uppercase tracking-widest border", prio.color)}>
+                {action.priority}
+              </span>
+              <span className="text-[10px] font-mono text-[var(--text-code)] uppercase bg-[var(--bg-overlay)] px-2 py-0.5 rounded-sm">
+                {action.category}
+              </span>
+              {isSafe ? (
+                <span
+                  className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded font-bold"
+                  style={{
+                    color: "#22c55e",
+                    background: "rgba(34,197,94,0.08)",
+                    border: "1px solid rgba(34,197,94,0.2)",
+                  }}
+                >
+                  Auto-Export
+                </span>
+              ) : (
+                <span
+                  className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded font-bold"
+                  style={{
+                    color: "#94a3b8",
+                    background: "rgba(148,163,184,0.08)",
+                    border: "1px solid rgba(148,163,184,0.2)",
+                  }}
+                >
+                  Manual Only
+                </span>
+              )}
+            </div>
+            <h3 className="text-xl font-display font-bold text-white mb-2">{action.title}</h3>
+            <p className="text-sm text-[var(--text-secondary)] leading-[24px] max-w-3xl">{action.description}</p>
           </div>
-          <h3 className="text-xl font-display font-bold text-white mb-2">{action.title}</h3>
-          <p className="text-sm text-[var(--text-secondary)] leading-[24px] max-w-3xl">{action.description}</p>
         </div>
 
         {locatable != null && (
           <button
-            onClick={() => { setLocateAtBeat(locatable, action.id); navigate(`/projects/${projectId}/timeline`); }}
-            className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-[#271900] transition-all group shadow-[0_0_15px_rgba(255,183,3,0.1)] hover:shadow-[0_0_20px_rgba(255,183,3,0.4)]"
+            onClick={() => {
+              setLocateAtBeat(locatable, action.id);
+              navigate(`/projects/${projectId}/timeline`);
+            }}
+            className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-[#271900] transition-all group shadow-[0_0_15px_rgba(255,183,3,0.1)] hover:shadow-[0_0_20px_rgba(255,183,3,0.4)]"
           >
-            <MapPin className="w-5 h-5 mb-1 group-hover:scale-110 transition-transform" />
+            <MapPin className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
             <span className="text-[8px] font-bold font-label uppercase tracking-widest">Locate</span>
           </button>
         )}
@@ -476,14 +670,6 @@ function ActionCard({ action, projectId }: any) {
                     {t}
                   </span>
                 ))}
-              </div>
-            </div>
-          )}
-          {action.exportable != null && (
-            <div>
-              <div className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Auto-Exportable</div>
-              <div className={cn("text-[11px] font-mono", action.exportable ? "text-[#22c55e]" : "text-[var(--text-muted)]")}>
-                {action.exportable ? "YES" : "MANUAL"}
               </div>
             </div>
           )}

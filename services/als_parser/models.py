@@ -326,6 +326,16 @@ class CompletionAction:
     adds_sidechain: bool = False
     mutation_payloads: List[MutationPayload] = field(default_factory=list)
     section_label: Optional[str] = None
+    safe_to_export: bool = True
+    manual_only: bool = False
+
+    def __post_init__(self) -> None:
+        if self.mutation_payloads:
+            self.safe_to_export = all(mp.safe for mp in self.mutation_payloads)
+            self.manual_only = not self.safe_to_export
+        else:
+            self.safe_to_export = False
+            self.manual_only = True
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -347,6 +357,8 @@ class CompletionAction:
             "addsSidechain": self.adds_sidechain,
             "mutationPayloads": [m.to_dict() for m in self.mutation_payloads],
             "sectionLabel": self.section_label,
+            "safeToExport": self.safe_to_export,
+            "manualOnly": self.manual_only,
         }
 
 

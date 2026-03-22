@@ -10,12 +10,13 @@ import { createWriteStream } from "fs";
 import { randomUUID, createHash } from "crypto";
 import archiver from "archiver";
 import { db, jobsTable, projectsTable, parseResultsTable, completionPlansTable, artifactFilesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { logger } from "./logger";
 
 const ARTIFACT_DIR = path.resolve(process.cwd(), "../../storage/artifacts");
 const SERVICES_DIR = path.resolve(process.cwd(), "../../services");
 const PYTHON_RUNNER = path.join(SERVICES_DIR, "run_pipeline.py");
+const PYTHON_APPLY_RUNNER = path.join(SERVICES_DIR, "apply_mutations.py");
 
 function sanitizeFileName(name: string): string {
   return path.basename(name).replace(/[^\w.\-() ]/g, "_").substring(0, 200);
@@ -302,9 +303,80 @@ export async function runPipelineJob(
   }
 }
 
-function runPython(payload: Record<string, any>): Promise<any> {
+export async function runApplyMutationsJob(
+  projectId: string,
+  jobId: string,
+  filePath: string,
+  originalFileName: string,
+  mutationPayloads: any[],
+): Promise<void> {
+  logger.info({ projectId, jobId, mutations: mutationPayloads.length }, "Starting apply-mutations job");
+
+  try {
+    await updateJob(jobId, "applying", 10, `Applying ${mutationPayloads.length} selected mutations...`);
+    await updateProjectStatus(projectId, "applying");
+
+    const result = await runPythonScript(PYTHON_APPLY_RUNNER, {
+      project_id: projectId,
+      file_path: filePath,
+      mutation_payloads: mutationPayloads,
+    });
+
+    if (!result.success) {
+      await updateJob(jobId, "failed", undefined, undefined, result.error || "Apply mutations failed");
+      await updateProjectStatus(projectId, "exported");
+      return;
+    }
+
+    const { patched_als_path, patch_summary } = result;
+
+    await updateJob(jobId, "applying", 60, "Registering patched ALS...");
+
+    // Remove any previous patched_als artifacts for this project to avoid stale entries
+    const existing = await db
+      .select()
+      .from(artifactFilesTable)
+      .where(and(eq(artifactFilesTable.projectId, projectId), eq(artifactFilesTable.type, "patched_als")));
+    for (const old of existing) {
+      await db.delete(artifactFilesTable).where(eq(artifactFilesTable.id, old.id));
+    }
+
+    if (patched_als_path) {
+      try {
+        const patchedStats = await fs.stat(patched_als_path);
+        const patchedAlsId = randomUUID();
+        const patchedFileName = path.basename(patched_als_path);
+        await db.insert(artifactFilesTable).values({
+          id: patchedAlsId,
+          projectId,
+          jobId,
+          type: "patched_als",
+          fileName: patchedFileName,
+          filePath: patched_als_path,
+          fileSize: patchedStats.size,
+          mimeType: "application/x-ableton-live-set",
+          description: `AI-patched .als — ${patch_summary?.trustLabel ?? "unknown trust"} · ${patch_summary?.mutationsApplied ?? 0} mutations applied`,
+        });
+        logger.info({ patchedFileName, trustLabel: patch_summary?.trustLabel }, "Registered patched ALS from apply-mutations job");
+      } catch (e) {
+        logger.warn({ err: e }, "Could not register patched ALS artifact from apply-mutations");
+      }
+    }
+
+    await updateProjectStatus(projectId, "exported");
+    await updateJob(jobId, "completed", 100, `Done — ${patch_summary?.mutationsApplied ?? 0} mutations applied`);
+    logger.info({ projectId, jobId }, "Apply-mutations job complete");
+
+  } catch (err: any) {
+    logger.error({ err, projectId, jobId }, "Apply-mutations job error");
+    await updateJob(jobId, "failed", undefined, undefined, err?.message ?? "Unknown error");
+    await updateProjectStatus(projectId, "exported");
+  }
+}
+
+function runPythonScript(scriptPath: string, payload: Record<string, any>): Promise<any> {
   return new Promise((resolve) => {
-    const python = spawn("python3", [PYTHON_RUNNER, JSON.stringify(payload)], {
+    const python = spawn("python3", [scriptPath, JSON.stringify(payload)], {
       cwd: SERVICES_DIR,
     });
 
@@ -321,7 +393,7 @@ function runPython(payload: Record<string, any>): Promise<any> {
 
     python.on("close", (code) => {
       if (code !== 0) {
-        logger.error({ code, stderr }, "Python pipeline exited with error");
+        logger.error({ code, stderr, script: path.basename(scriptPath) }, "Python script exited with error");
         resolve({ success: false, error: stderr || `Python exited with code ${code}` });
         return;
       }
@@ -331,7 +403,7 @@ function runPython(payload: Record<string, any>): Promise<any> {
         resolve(result);
       } catch (e) {
         logger.error({ stdout, stderr }, "Failed to parse Python output");
-        resolve({ success: false, error: `Failed to parse pipeline output: ${stdout.slice(0, 200)}` });
+        resolve({ success: false, error: `Failed to parse script output: ${stdout.slice(0, 200)}` });
       }
     });
 
@@ -340,6 +412,10 @@ function runPython(payload: Record<string, any>): Promise<any> {
       resolve({ success: false, error: `Failed to start Python: ${err.message}` });
     });
   });
+}
+
+function runPython(payload: Record<string, any>): Promise<any> {
+  return runPythonScript(PYTHON_RUNNER, payload);
 }
 
 function buildInstructions(plan: any, graph: any, fileName: string): string {

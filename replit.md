@@ -110,8 +110,8 @@ React + Vite frontend. Dark DAW-inspired UI with violet/purple accent.
   - **Dashboard**: Upload form with cleanly separated drop zone (clickable) and "Initiate Pipeline" submit button (outside drop zone so clicking it never re-opens file picker). Project grid with live polling for in-flight jobs. Invalidates project/graph/plan caches on upload.
   - **ProjectDetail**: Stat cards, track list, job history. Context-aware CTAs: "Initiate Pipeline" for uploaded/failed projects, "Retry Pipeline" for failed, "Arrangement Matrix"+"Neural Strategy" for exported. PipelineStatus component always visible when pipeline is running or failed.
   - **TimelineView**: DAW-style clip timeline with 5 view modes (Arrangement, Automation, Sidechain, AI Proposed, Diff), zoom controls, automation lane visualization (SVG), sidechain relationship map, track inspector panel, mutation overlay rendering (dashed green/blue overlays), locateAtBeat scrolling
-  - **CompletionPlanView**: Lifecycle-aware states (6 cases): A=not found, B=no file, C=analyzing (live progress), D=plan exists (real action cards), E=failed+retry, F=uploaded-not-started. Zero hardcoded demo content. Polls project status every 2s when analyzing.
-  - **ExportView**: Derives readiness entirely from project.status===`exported` via same useProjectPolling hook as other pages. PipelineStatus always shown. Download enabled only when both `isExported` AND `hasPatchedAls` from export-status endpoint.
+  - **CompletionPlanView**: Lifecycle-aware states (6 cases): A=not found, B=no file, C=analyzing (live progress), D=plan exists with selection UI, E=failed+retry, F=uploaded-not-started. Selection UI: checkboxes on each action card, "Select All Exportable" toggle, "Apply Selected (N)" amber CTA that POSTs to /apply-mutations and navigates to ExportView. Each action shows safeToExport (Auto-Export badge, green) or manualOnly (Manual Only badge, grey). Zero hardcoded demo content.
+  - **ExportView**: 6 lifecycle states driven by export-status polling — LOADING, PIPELINE_PENDING, AWAITING_SELECTION (navigate to plan), COMPILING (amber progress bar + apply job message), READY (download card with trust badge, file size, mutations count), FAILED (error + retry CTA). Polls every 2s when COMPILING, 5s otherwise. Download triggers /api/projects/:id/export-als stream.
 - Components: Layout.tsx (sidebar nav with project sub-nav), PipelineStatus.tsx (shared 5-stage pipeline indicator: upload→parse→analyze→plan→export, compact and full modes, progress bar, error display)
 - Hooks: use-polling.ts (polls project status every 2s when jobs are running)
 - Store: lib/store.ts (Zustand: selectedTrackId, selectedSectionId, locateAtBeat, locateActionId)
@@ -150,6 +150,22 @@ The job runner produces these artifact types:
 - `completion_plan` — JSON: AI completion plan with ranked actions
 - `instructions` — Markdown: human-readable completion guide
 - `patch_package` — ZIP: complete bundle with original .als + all analysis artifacts + manifest + README
+- `patched_als` — AI-patched .als file (produced by apply-mutations job, written to `{uploadBase}_ai_patch.als`)
+
+**Apply-Mutations Pipeline** (user-triggered):
+1. User selects actions in CompletionPlanView → POST /api/projects/:id/apply-mutations with `{ selectedActionIds: string[] }`
+2. Node.js job runner spawns `services/apply_mutations.py` with the filtered mutation payloads
+3. Python patcher applies mutations (locators, automation, clips) to original ALS bytes
+4. Patcher validates with baseline-diff strategy: pre-existing violations in source ALS are ignored; only newly-introduced violations block the export
+5. Synthetic `AutomationTarget` elements are inserted when resolving PointeeIds for unmapped parameters
+6. Patched bytes written to `{uploadBase}_ai_patch.als`; artifact registered as `patched_als` in DB
+7. Project status → `exported`; ExportView shows READY with download button
+
+**Trust Labels**:
+- `SAFE_LOCATOR_ONLY` — only locators added
+- `SAFE_AUTOMATION_ADDED` — only automation envelopes added  
+- `STRUCTURALLY_VALID_ALS` — clips/tracks modified, validated
+- `REQUIRES_MANUAL_REVIEW` — complex changes present
 
 Storage: `/storage/uploads` (ALS files), `/storage/artifacts/{projectId}/` (JSON outputs, ZIP)
 
