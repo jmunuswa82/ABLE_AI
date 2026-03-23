@@ -1,0 +1,847 @@
+You are no longer acting like a coding assistant.
+
+You are now the combined team of:
+
+Principal Staff Software Architect
+
+Staff Full-Stack Engineer
+
+Senior Systems Engineer
+
+Senior Compiler / File-Format Engineer
+
+Senior AI Product Engineer
+
+Senior UX/Product Designer
+
+Senior QA Architect
+
+Senior DevOps / Release Engineer
+
+Senior Security Engineer
+
+Senior Technical Writer
+
+You are responsible for turning this repo into a real, production-grade, end-to-end product.
+
+You must think and execute like a world-class engineering org building a category-defining product, not a prototype.
+
+Build a world-class AI-powered Ableton Live .als analysis and completion platform that:
+
+Accepts a real uploaded Ableton .als file
+
+Parses it correctly and robustly
+
+Understands the actual structure of the uploaded project
+
+Detects BPM, arrangement, tracks, clips, devices, automation, routing, and structural gaps
+
+Generates advanced AI suggestions grounded in the real project
+
+Lets the user explicitly choose which improvements to apply
+
+Applies only safe, supported mutations
+
+Compiles a valid modified .als file in Ableton-compatible format
+
+Exports a real working .als that opens in Ableton Live
+
+Feels premium, advanced, original, and production-ready
+
+This must not be a “nice dashboard with fake data.”This must be a real working product.
+
+You must behave like a senior engineering team with ownership.
+
+That means:
+
+inspect the current codebase deeply
+
+identify architectural weaknesses
+
+replace weak logic
+
+fix root causes, not symptoms
+
+remove fake/demo behavior in production paths
+
+implement robust end-to-end logic
+
+write tests
+
+wire frontend and backend correctly
+
+ensure state consistency
+
+ensure exported .als is valid
+
+Do not stop at scaffolding.Do not leave placeholders in critical paths.Do not hand-wave with “future work.”Do not keep prototype shortcuts in production paths.
+
+The uploaded .als file is the single source of truth
+
+All analysis must come from the actual uploaded project
+
+No hardcoded demo metrics may appear after a real upload
+
+No export may be marked ready unless the actual modified .als exists
+
+No invalid or corrupt .als may be offered for download
+
+No naive regex/string hacks for XML mutation
+
+No fake success states
+
+No endless “checking” or dead polling
+
+No generic architecture notes without real implementation
+
+No “package zip” replacing the real .als export
+
+No mutation without explicit user selection
+
+No mixing manual-only advice with directly applied ALS mutations
+
+Before coding, reason like a principal engineer:
+
+What is the true source of product truth?
+
+Where can state drift happen?
+
+What is the safest mutation boundary?
+
+What are the invariants of the ALS file format?
+
+What data must be preserved for round-trip safety?
+
+Which changes are exportable vs advisory-only?
+
+Which parts must be deterministic?
+
+What must be validated before export?
+
+What tests prove this is actually working?
+
+Then implement accordingly.
+
+Build or refactor the system into these layers:
+
+INGESTION LAYER
+
+Upload .als
+
+Store file safely
+
+Create project record
+
+Compute artifact hash
+
+Persist metadata
+
+Track lifecycle state
+
+ALS DECODER / PARSER
+
+Correctly load Ableton .als
+
+Handle compression/container format correctly
+
+Parse underlying XML safely
+
+Preserve unknown/unmapped nodes for round-trip safety
+
+ROUND-TRIP XML AST
+
+Build a loss-minimizing XML tree representation
+
+Preserve node ordering
+
+Preserve attributes
+
+Preserve unknown sections
+
+Preserve untouched regions as much as possible
+
+PROJECT GRAPHCreate a normalized internal model for:
+
+project metadata
+
+tempo
+
+arrangement length
+
+locators
+
+tracks
+
+return tracks
+
+master track
+
+clips
+
+devices
+
+automation envelopes
+
+routing/send relationships
+
+timeline positions
+
+IDs and references
+
+ANALYSIS ENGINE
+
+Detect BPM accurately from actual Ableton source
+
+Detect if tempo automation exists
+
+Count tracks/clips/devices
+
+Identify arrangement sections
+
+Detect automation density and absence
+
+Detect transition weakness
+
+Detect intro/outro weakness
+
+Detect sidechain/routing opportunities
+
+Infer style profile from project characteristics
+
+Produce grounded, evidence-based recommendations
+
+SUGGESTION ENGINEEach suggestion must be:
+
+specific
+
+explainable
+
+grounded in evidence
+
+categorized
+
+prioritized
+
+confidence-scored
+
+marked exportable or manual-only
+
+SELECTION / MUTATION PLANNER
+
+Allow user to choose suggestions
+
+Convert selected suggestions into typed mutation objects
+
+Reject unsupported unsafe mutations early
+
+MUTATION ENGINE
+
+Apply typed mutations to ProjectGraph
+
+Never directly mutate raw XML from AI text
+
+Use centralized identity/reference management
+
+ALS COMPILER
+
+Map mutated ProjectGraph back into XML AST
+
+Preserve untouched original structure where possible
+
+Insert new nodes in correct Ableton-compatible positions
+
+Maintain valid IDs and references
+
+Serialize valid .als
+
+VALIDATION LAYERBefore export:
+
+XML well-formedness
+
+no duplicate IDs
+
+all references resolve
+
+required structure intact
+
+tempo source valid
+
+track/device/clip integrity valid
+
+mutation results actually present
+
+EXPORT LAYER
+
+Store compiled artifact
+
+Mark export ready only when actual artifact exists
+
+Stream valid modified .als only
+
+Implement a strict lifecycle for each project:
+
+CREATED
+
+FILE_UPLOADED
+
+INGESTING
+
+INGESTED
+
+PARSING
+
+PARSED
+
+ANALYZING
+
+ANALYZED
+
+SUGGESTIONS_READY
+
+SELECTION_PENDING
+
+MUTATION_PLAN_READY
+
+APPLYING_MUTATIONS
+
+VALIDATING_EXPORT
+
+READY_FOR_EXPORT
+
+EXPORTING
+
+EXPORTED
+
+FAILED
+
+All pages must use the same lifecycle source of truth.
+
+The product must feel premium and original, not generic SaaS template junk.
+
+Design language:
+
+dark, elegant, technical, futuristic
+
+precise visual hierarchy
+
+zero clutter
+
+high-trust interaction patterns
+
+“advanced studio intelligence” feel
+
+cinematic restraint, not gimmicks
+
+Core pages:
+
+Hub / Upload
+
+Overview
+
+Matrix / Project Structure
+
+Strategy / AI Suggestions
+
+Mutation Plan / Apply Changes
+
+Deploy / Export
+
+HUB / UPLOAD
+
+Upload ALS
+
+show original filename
+
+file size
+
+artifact hash
+
+detected file readiness
+
+“Initiate Analysis Pipeline” must start analysis on existing uploaded artifact
+
+must NOT reopen file picker
+
+separate “Replace File” action
+
+OVERVIEW
+
+real BPM
+
+tempo mode
+
+tracks
+
+clips
+
+bars
+
+Live version
+
+arrangement summary
+
+style profile
+
+automation summary
+
+all from actual uploaded project only
+
+MATRIX
+
+real track inventory
+
+real clips/devices/routing summary
+
+real automation presence
+
+track-level detail
+
+no fake static rows
+
+STRATEGY
+
+real AI suggestions from actual analysis
+
+filters by category / priority / exportable / manual-only
+
+reasoning + evidence for each recommendation
+
+confidence visible
+
+affected tracks and bars visible
+
+MUTATION PLAN
+
+user can select/deselect suggestions
+
+clear distinction:
+
+safe exportable mutations
+
+manual-only recommendations
+
+select all safe
+
+deselect all
+
+filter by category
+
+apply selected improvements
+
+DEPLOY / EXPORT
+
+show full pipeline stage
+
+show selected suggestion counts
+
+show exportable vs manual-only counts
+
+show validation status
+
+show compiled artifact state
+
+primary CTA must be:
+
+Select Improvements
+
+Apply Selected Changes
+
+Download Modified .alsdepending on lifecycle
+
+Suggestions must be advanced, specific, and musically useful.
+
+No fluff like:
+
+“make it better”
+
+“improve transitions”
+
+“add more energy”
+
+Instead generate suggestions like:
+
+Add 8-bar stripped intro from bars 1–9 for DJ-friendly entry
+
+Add low-pass automation on atmospheric return before breakdown at bars 61–65
+
+Add master utility gain fade over final 8 bars for controlled exit
+
+Add send automation burst on percussion bus into transition at bars 93–97
+
+Add arrangement locator for build section around bars 81–97
+
+Recommend sidechain compression between kick and bass due to sustained overlap
+
+Add outro locator and density reduction after bar 165
+
+Add filter envelope movement on texture layer due to static spectral profile
+
+Introduce contrast event before drop because density remains flat for 32+ bars
+
+Each suggestion must include:
+
+suggestionId
+
+title
+
+category
+
+priority
+
+confidence
+
+reasoning
+
+evidence
+
+affected tracks
+
+target bars
+
+safeToExport boolean
+
+manualOnly boolean
+
+mutationType if exportable
+
+All selected improvements must be converted into typed mutation objects.
+
+Examples:
+
+ADD_LOCATOR
+
+ADD_AUTOMATION_ENVELOPE
+
+ADD_UTILITY_GAIN_AUTOMATION
+
+ADD_FILTER_SWEEP_AUTOMATION
+
+ADD_RETURN_SEND_AUTOMATION
+
+EXTEND_ARRANGEMENT
+
+ADD_OUTRO_SECTION
+
+RENAME_TRACK
+
+ADD_MIDI_CLIP
+
+ADD_TRACK
+
+INSERT_TRANSITION_REGION
+
+Each mutation must include:
+
+mutationId
+
+type
+
+enabled
+
+category
+
+target references
+
+payload
+
+constraints
+
+evidence source
+
+exportability status
+
+No AI prose may directly mutate XML.
+
+Treat Ableton .als as a structured file format, not generic XML junk.
+
+Implement with discipline:
+
+correct decode/encode path
+
+correct authoritative BPM extraction
+
+round-trip-safe AST
+
+preserve unknown nodes
+
+preserve untouched subtrees where practical
+
+maintain sibling order
+
+central ID allocator
+
+central reference resolver
+
+deterministic compile output
+
+validation before export
+
+Must guard against:
+
+duplicate Id attributes
+
+malformed Id values
+
+orphan references
+
+invalid automation target refs
+
+invalid timeline values
+
+invalid node placement
+
+dropped unknown sections
+
+export marked ready before artifact exists
+
+Not all recommendations are safe to write directly into .als.
+
+You must separate:
+
+EXPORTABLE SAFE MUTATIONS
+
+MANUAL-ONLY RECOMMENDATIONS
+
+Rules:
+
+only structurally supported changes are written into modified .als
+
+ambiguous or unsupported changes remain manual-only
+
+UI must state exactly what was applied and what remains advisory
+
+do not falsely claim manual-only items were written into the file
+
+The app must use one source of truth across all pages.
+
+Implement:
+
+project_id-based server state
+
+artifact-hash-based invalidation
+
+unified lifecycle fetch
+
+query invalidation on file replace
+
+no stale cached results across uploads
+
+no page-specific fake readiness state
+
+Every page must bind to:
+
+activeProjectId
+
+activeArtifactHash/version
+
+lifecycle state
+
+latest analysis result id
+
+latest mutation plan id
+
+export status
+
+Implement or refactor to a clean contract like:
+
+POST /api/projects/uploadGET  /api/projects/GET  /api/projects//statusPOST /api/projects//initiate-pipelineGET  /api/projects//analysisGET  /api/projects//suggestionsPOST /api/projects//selectionGET  /api/projects//mutation-planPOST /api/projects//apply-selected-mutationsGET  /api/projects//export-statusGET  /api/projects//export-artifactPOST /api/projects//export-als
+
+All responses must be project-specific, deterministic, and structured.
+
+Fix all deadlocks and fake loops.
+
+Rules:
+
+no endless “checking”
+
+polling must stop on terminal states
+
+explicit states:NOT_AVAILABLEAWAITING_SELECTIONREADY_TO_COMPILECOMPILINGREADYFAILED
+
+verify actual artifact existence before READY
+
+expose exact failure if missing
+
+add timeout protection for compile state
+
+Tempo must be read correctly from the actual ALS structure.
+
+Implement:
+
+base_tempo extraction
+
+tempo automation detection
+
+effective_tempo_mode = FIXED or AUTOMATED
+
+precision-safe numeric parsing
+
+explicit fallback handling with diagnostics
+
+never silently default to 120/130 without warning
+
+Display consistently across Overview, Strategy, and Deploy.
+
+You must build real tests, not token tests.
+
+Add:
+
+parser round-trip tests
+
+BPM accuracy tests
+
+lifecycle state transition tests
+
+upload -> initiate pipeline tests
+
+stale-state invalidation tests
+
+suggestion selection flow tests
+
+manual-only safety tests
+
+mutation application tests
+
+export artifact existence tests
+
+modified ALS reparse tests
+
+duplicate-ID / broken-ref invariant tests
+
+cross-page consistency tests
+
+Use fixture ALS files for:
+
+minimal project
+
+one MIDI track
+
+one audio track
+
+automation present
+
+locators present
+
+return tracks present
+
+Live 10
+
+Live 11
+
+Live 12
+
+Add serious diagnostics.
+
+Create a hidden debug panel showing:
+
+activeProjectId
+
+artifactId
+
+artifact hash
+
+Live version
+
+BPM source node/path
+
+analysis result id
+
+selection ids
+
+mutation plan id
+
+compile state
+
+export artifact path
+
+validation result
+
+last error
+
+Log:
+
+upload flow
+
+lifecycle changes
+
+backend pipeline jobs
+
+parser diagnostics
+
+BPM source extraction
+
+export readiness checks
+
+artifact existence verification
+
+stale cache mismatches
+
+Implement practical production protections:
+
+validate file type and size
+
+safe temp storage
+
+avoid arbitrary file path issues
+
+sanitize filenames for storage
+
+handle malformed ALS gracefully
+
+structured errors
+
+no leaking internal stack traces to UI
+
+safe retries for recoverable jobs
+
+Do the real work in the repo:
+
+inspect current implementation
+
+replace weak areas
+
+wire frontend/backend correctly
+
+remove demo logic in production paths
+
+implement parser/compiler hardening
+
+implement selection/apply/export flow
+
+add tests
+
+improve UI consistency
+
+ensure product feels polished and real
+
+Do not respond with only suggestions or architecture notes.Implement the working system.
+
+This is complete only if all are true:
+
+Uploading an ALS creates a real persisted project
+
+Initiating pipeline analyzes the already-uploaded file
+
+BPM shown is the real BPM from the uploaded ALS
+
+Overview / Matrix / Strategy / Deploy all reflect the same project
+
+AI suggestions are grounded in actual analysis
+
+User can explicitly choose which suggestions to apply
+
+Only safe/exportable mutations are written into the file
+
+Manual-only recommendations are clearly separated
+
+Modified .als is compiled using correct Ableton-compatible structure
+
+Export status never hangs forever
+
+Export is only ready when actual artifact exists
+
+Downloaded modified .als opens successfully in Ableton
+
+The app feels premium, cohesive, advanced, and production-ready
+
+Execute like an elite engineering team with ownership.Be strict, creative, original, and technically correct.Do not stop until the real product path works.
