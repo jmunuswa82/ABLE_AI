@@ -79,7 +79,6 @@ export default function CompletionPlanView() {
     (sid) => safeActions.find((a) => a.id === sid)
   ).length;
 
-  // Toggle single action
   const toggleAction = useCallback((actionId: string, isSafe: boolean) => {
     if (!isSafe) return;
     setSelectedIds((prev) => {
@@ -90,7 +89,6 @@ export default function CompletionPlanView() {
     });
   }, []);
 
-  // Select / deselect all safe actions
   const toggleAllSafe = useCallback(() => {
     if (selectedSafeCount === safeActions.length) {
       setSelectedIds(new Set());
@@ -99,7 +97,6 @@ export default function CompletionPlanView() {
     }
   }, [safeActions, selectedSafeCount]);
 
-  // Initiate Pipeline
   const initiatePipeline = async () => {
     if (!id || initiating) return;
     setInitiating(true);
@@ -117,7 +114,6 @@ export default function CompletionPlanView() {
     }
   };
 
-  // Apply selected mutations
   const applySelected = async () => {
     if (!id || applying || selectedIds.size === 0) return;
     setApplying(true);
@@ -133,7 +129,6 @@ export default function CompletionPlanView() {
         setApplyError(data.error ?? `HTTP ${res.status}`);
         return;
       }
-      // Navigate to export view to show compilation progress
       navigate(`/projects/${id}/export`);
     } catch (err: any) {
       setApplyError(err.message ?? "Apply failed");
@@ -142,7 +137,6 @@ export default function CompletionPlanView() {
     }
   };
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (projectLoading) {
     return (
       <div className="p-4 md:p-8 flex items-center gap-3 text-[var(--text-muted)]">
@@ -152,7 +146,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case A: Project not found ─────────────────────────────────────────────
   if (!project) {
     return (
       <div className="p-4 md:p-8 max-w-xl mx-auto mt-12 text-center">
@@ -169,7 +162,7 @@ export default function CompletionPlanView() {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="mt-6 btn-ghost px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider"
+            className="mt-6 btn-ghost px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider min-h-[44px]"
           >
             Back to Hub
           </button>
@@ -178,7 +171,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case B: No file ───────────────────────────────────────────────────────
   if (!hasFile) {
     return (
       <EmptyState
@@ -188,7 +180,7 @@ export default function CompletionPlanView() {
         action={
           <button
             onClick={() => navigate("/")}
-            className="btn-primary px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider flex items-center gap-2"
+            className="btn-primary px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider flex items-center gap-2 min-h-[44px]"
           >
             <UploadCloud className="w-3.5 h-3.5" /> Go to Upload Hub
           </button>
@@ -197,7 +189,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case C: Analysis in progress ─────────────────────────────────────────
   if (isAnalyzing && !plan) {
     return (
       <motion.div
@@ -210,7 +201,7 @@ export default function CompletionPlanView() {
           <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
             Neural Completion Strategy
           </p>
-          <h1 className="text-[22px] md:text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
+          <h1 className="text-[24px] md:text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
             Analysis in Progress
           </h1>
           <p className="text-[var(--text-secondary)] text-[14px]">
@@ -220,7 +211,7 @@ export default function CompletionPlanView() {
           </p>
         </div>
         <div
-          className="rounded-xl p-6"
+          className="rounded-xl p-4 md:p-6"
           style={{ background: "var(--bg-panel)", border: "1px solid rgba(255,183,3,0.15)" }}
         >
           <PipelineStatus status={project.status} jobs={project.jobs ?? []} />
@@ -232,7 +223,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case E: Pipeline failed ───────────────────────────────────────────────
   if (isFailed) {
     const latestError = (project.jobs ?? []).find((j: any) => j.error)?.error;
     return (
@@ -246,25 +236,25 @@ export default function CompletionPlanView() {
           <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
             Neural Completion Strategy
           </p>
-          <h1 className="text-[22px] md:text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
+          <h1 className="text-[24px] md:text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
             Pipeline Failed
           </h1>
         </div>
         <div
-          className="rounded-xl p-6 space-y-4"
+          className="rounded-xl p-4 md:p-6 space-y-4"
           style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)" }}
         >
           <PipelineStatus status={project.status} jobs={project.jobs ?? []} />
           {latestError && (
             <div className="p-3 rounded bg-[rgba(239,68,68,0.08)]">
-              <p className="text-[11px] font-mono text-red-400 leading-relaxed">{latestError}</p>
+              <p className="text-[11px] font-mono text-red-400 leading-relaxed break-words">{latestError}</p>
             </div>
           )}
         </div>
         <button
           onClick={initiatePipeline}
           disabled={initiating}
-          className="btn-primary px-6 py-3 rounded-lg flex items-center gap-2 text-[13px] font-label uppercase tracking-wider"
+          className="btn-primary px-6 py-3 rounded-lg flex items-center gap-2 text-[13px] font-label uppercase tracking-wider min-h-[44px] w-full md:w-auto justify-center"
         >
           {initiating ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
@@ -276,7 +266,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case F: File uploaded but pipeline not started ────────────────────────
   if (!plan && !isAnalyzing && !planLoading && project.status === "uploaded") {
     return (
       <EmptyState
@@ -287,7 +276,7 @@ export default function CompletionPlanView() {
           <button
             onClick={initiatePipeline}
             disabled={initiating}
-            className="btn-primary px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider flex items-center gap-2"
+            className="btn-primary px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider flex items-center gap-2 min-h-[44px]"
           >
             {initiating ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Starting…</>
@@ -300,7 +289,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Loading plan ──────────────────────────────────────────────────────────
   if (planLoading) {
     return (
       <div className="p-4 md:p-8 flex items-center gap-3 text-[var(--text-muted)]">
@@ -310,7 +298,6 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── No plan ───────────────────────────────────────────────────────────────
   if (!plan) {
     return (
       <EmptyState
@@ -321,7 +308,7 @@ export default function CompletionPlanView() {
           <button
             onClick={initiatePipeline}
             disabled={initiating}
-            className="btn-ghost px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider flex items-center gap-2"
+            className="btn-ghost px-5 py-2.5 rounded-lg text-[12px] font-label uppercase tracking-wider flex items-center gap-2 min-h-[44px]"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Re-run Pipeline
           </button>
@@ -330,19 +317,17 @@ export default function CompletionPlanView() {
     );
   }
 
-  // ── Case D: Plan exists ───────────────────────────────────────────────────
   const categories = [...new Set(actions.map((a: any) => a.category))] as string[];
   const filteredActions = filter ? actions.filter((a: any) => a.category === filter) : actions;
 
   return (
     <motion.div
-      className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 md:space-y-8 mb-12 pb-20 md:pb-12"
+      className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 md:space-y-8 mb-12 pb-24 md:pb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
     >
-      {/* Header panel */}
-      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel p-4 md:p-8 rounded-2xl md:rounded-3xl relative overflow-hidden bg-[var(--bg-panel)]">
+      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel p-5 md:p-8 rounded-2xl md:rounded-3xl relative overflow-hidden bg-[var(--bg-panel)]">
         <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/20 blur-[80px] rounded-full pointer-events-none" />
 
         <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
@@ -351,44 +336,44 @@ export default function CompletionPlanView() {
         <h1 className="text-[24px] md:text-[32px] font-display font-bold mb-3 tracking-[-1px] text-white">
           {project.name}
         </h1>
-        <p className="text-[var(--text-secondary)] text-[14px] max-w-2xl leading-relaxed">
+        <p className="text-[var(--text-secondary)] text-[13px] md:text-[14px] max-w-2xl leading-relaxed">
           {plan.summary}
         </p>
 
         <div className="flex flex-wrap gap-3 md:gap-4 mt-6 md:mt-8">
           {plan.completionScore != null && (
-            <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
+            <div className="px-4 md:px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
               <span className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] block mb-1">
                 Completion Score
               </span>
-              <span className="text-2xl font-display font-bold text-[#22c55e]">
+              <span className="text-xl md:text-2xl font-display font-bold text-[#22c55e]">
                 {formatScore(plan.completionScore)}
               </span>
             </div>
           )}
           {plan.confidence != null && (
-            <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
+            <div className="px-4 md:px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
               <span className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] block mb-1">
                 AI Confidence
               </span>
-              <span className="text-2xl font-display font-bold text-primary">
+              <span className="text-xl md:text-2xl font-display font-bold text-primary">
                 {formatScore(plan.confidence)}
               </span>
             </div>
           )}
-          <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
+          <div className="px-4 md:px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
             <span className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] block mb-1">
               Actions Generated
             </span>
-            <span className="text-2xl font-display font-bold text-white">
+            <span className="text-xl md:text-2xl font-display font-bold text-white">
               {actions.length}
             </span>
           </div>
-          <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
+          <div className="px-4 md:px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
             <span className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] block mb-1">
               Auto-Exportable
             </span>
-            <span className="text-2xl font-display font-bold text-primary">
+            <span className="text-xl md:text-2xl font-display font-bold text-primary">
               {safeActions.length}
             </span>
           </div>
@@ -400,7 +385,7 @@ export default function CompletionPlanView() {
       </motion.div>
 
       {safeActions.length > 0 && (
-        <motion.div variants={ANIMATION_VARIANTS.slideUp}>
+        <motion.div variants={ANIMATION_VARIANTS.slideUp} className="hidden md:block">
           <div
             className="rounded-xl p-4 hidden md:flex items-center justify-between gap-4 flex-wrap"
             style={{
@@ -498,33 +483,13 @@ export default function CompletionPlanView() {
         </motion.div>
       )}
 
-      {safeActions.length > 0 && selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-[var(--bg-card)] border-t border-[var(--amber-border-strong)] md:hidden">
-          <button
-            onClick={applySelected}
-            disabled={selectedIds.size === 0 || applying}
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-display font-bold text-[13px] uppercase tracking-wider min-h-[48px]"
-            style={{
-              background: "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
-              color: "#271900",
-            }}
-          >
-            {applying ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Applying…</>
-            ) : (
-              <><Zap className="w-4 h-4" /> Apply Selected ({selectedIds.size})</>
-            )}
-          </button>
-        </div>
-      )}
-
       {categories.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap scrollbar-none">
           <button
             onClick={() => setFilter(null)}
             className={cn(
-              "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap shrink-0 min-h-[36px]",
-              !filter ? "bg-white text-black" : "bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white"
+              "px-4 py-2.5 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap shrink-0 min-h-[44px] flex items-center",
+              !filter ? "bg-white text-black" : "bg-[var(--bg-overlay)] text-[var(--text-muted)] active:text-white md:hover:text-white"
             )}
           >
             All Actions
@@ -534,10 +499,10 @@ export default function CompletionPlanView() {
               key={c}
               onClick={() => setFilter(c)}
               className={cn(
-                "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap shrink-0 min-h-[36px]",
+                "px-4 py-2.5 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap shrink-0 min-h-[44px] flex items-center",
                 filter === c
                   ? "bg-primary text-[#271900] shadow-[0_0_15px_rgba(255,183,3,0.4)]"
-                  : "bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white"
+                  : "bg-[var(--bg-overlay)] text-[var(--text-muted)] active:text-white md:hover:text-white"
               )}
             >
               {c}
@@ -546,7 +511,6 @@ export default function CompletionPlanView() {
         </div>
       )}
 
-      {/* Action cards */}
       <motion.div layout className="grid gap-4">
         <AnimatePresence>
           {filteredActions.length === 0 ? (
@@ -566,11 +530,55 @@ export default function CompletionPlanView() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {safeActions.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 md:hidden z-40 bg-[var(--bg-card)] border-t border-[var(--amber-border-strong)] px-4 py-3 safe-area-bottom">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleAllSafe}
+              className="flex items-center gap-1.5 text-[10px] font-label uppercase tracking-widest shrink-0 min-h-[44px]"
+              style={{ color: selectedSafeCount === safeActions.length ? "var(--amber)" : "var(--text-muted)" }}
+            >
+              {selectedSafeCount === safeActions.length ? (
+                <CheckSquare className="w-4 h-4" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+              All
+            </button>
+            {applyError && (
+              <span className="text-[10px] text-red-400 flex items-center gap-1 truncate">
+                <XCircle className="w-3 h-3 shrink-0" /> {applyError}
+              </span>
+            )}
+            <button
+              onClick={applySelected}
+              disabled={selectedIds.size === 0 || applying}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-display font-bold text-[12px] uppercase tracking-wider transition-all min-h-[48px]"
+              style={
+                selectedIds.size > 0 && !applying
+                  ? {
+                      background: "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
+                      color: "#271900",
+                    }
+                  : {
+                      background: "var(--bg-overlay)",
+                      color: "var(--text-muted)",
+                    }
+              }
+            >
+              {applying ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying…</>
+              ) : (
+                <><Zap className="w-3.5 h-3.5" /> Apply Selected ({selectedIds.size})</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyState({ icon, title, body, action }: {
   icon: React.ReactNode;
@@ -579,9 +587,9 @@ function EmptyState({ icon, title, body, action }: {
   action?: React.ReactNode;
 }) {
   return (
-    <div className="p-4 md:p-8 max-w-xl mx-auto mt-8 md:mt-12 text-center">
+    <div className="p-4 md:p-8 max-w-xl mx-auto mt-12 text-center">
       <div
-        className="rounded-xl p-6 md:p-10"
+        className="rounded-xl p-8 md:p-10"
         style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
       >
         {icon}
@@ -592,8 +600,6 @@ function EmptyState({ icon, title, body, action }: {
     </div>
   );
 }
-
-// ─── Action Card ──────────────────────────────────────────────────────────────
 
 function ActionCard({
   action,
@@ -627,17 +633,16 @@ function ActionCard({
           : "border-l-[var(--amber-border-strong)]"
       )}
     >
-      <div className="flex justify-between items-start gap-4">
+      <div className="flex justify-between items-start gap-3 md:gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          {/* Checkbox */}
           <button
             onClick={() => onToggle(action.id, isSafe)}
             className={cn(
-              "shrink-0 mt-1 w-5 h-5 rounded flex items-center justify-center transition-all",
+              "shrink-0 mt-1 w-6 h-6 md:w-5 md:h-5 rounded flex items-center justify-center transition-all",
               isSafe
                 ? selected
                   ? "bg-primary border-primary text-[#271900]"
-                  : "border border-[var(--amber-border)] hover:border-primary"
+                  : "border border-[var(--amber-border)] active:border-primary md:hover:border-primary"
                 : "border border-[rgba(81,69,50,0.2)] cursor-not-allowed opacity-40"
             )}
             disabled={!isSafe}
@@ -678,7 +683,7 @@ function ActionCard({
                 </span>
               )}
             </div>
-            <h3 className="text-base md:text-xl font-display font-bold text-white mb-2">{action.title}</h3>
+            <h3 className="text-lg md:text-xl font-display font-bold text-white mb-2">{action.title}</h3>
             <p className="text-sm text-[var(--text-secondary)] leading-[24px] max-w-3xl">{action.description}</p>
           </div>
         </div>
@@ -689,7 +694,7 @@ function ActionCard({
               setLocateAtBeat(locatable, action.id);
               navigate(`/projects/${projectId}/timeline`);
             }}
-            className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-[#271900] transition-all group shadow-[0_0_15px_rgba(255,183,3,0.1)] hover:shadow-[0_0_20px_rgba(255,183,3,0.4)]"
+            className="shrink-0 flex flex-col items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-xl bg-primary/10 text-primary border border-primary/20 active:bg-primary active:text-[#271900] md:hover:bg-primary md:hover:text-[#271900] transition-all group shadow-[0_0_15px_rgba(255,183,3,0.1)]"
           >
             <MapPin className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
             <span className="text-[8px] font-bold font-label uppercase tracking-widest">Locate</span>
@@ -698,7 +703,7 @@ function ActionCard({
       </div>
 
       {(action.affectedBars || action.affectedTracks?.length > 0) && (
-        <div className="mt-6 pt-4 border-t border-[var(--amber-border)] grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="mt-4 md:mt-6 pt-4 border-t border-[var(--amber-border)] grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
           {action.affectedBars && (
             <div>
               <div className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Target Area</div>
@@ -706,7 +711,7 @@ function ActionCard({
             </div>
           )}
           {action.affectedTracks?.length > 0 && (
-            <div className="col-span-2">
+            <div className="col-span-1 md:col-span-2">
               <div className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Affected Tracks</div>
               <div className="flex flex-wrap gap-1.5">
                 {action.affectedTracks.map((t: string) => (

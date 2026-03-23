@@ -88,7 +88,6 @@ function deriveLifecycle(
   if (applyState === "queued" || applyState === "applying") return "COMPILING";
   if (applyState === "failed") return "FAILED";
 
-  // project is "exported" but no patched ALS and no apply job — await selection
   return "AWAITING_SELECTION";
 }
 
@@ -108,7 +107,6 @@ export default function ExportView() {
 
   const lifecycle = deriveLifecycle(project?.status, exportStatus);
 
-  // Poll export-status — more frequently when compiling
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -194,25 +192,23 @@ export default function ExportView() {
       initial="initial"
       animate="animate"
     >
-      {/* Header */}
       <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-2">
         <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
           Deploy Stage
         </p>
-        <h1 className="text-[22px] md:text-[30px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-3">
+        <h1 className="text-[24px] md:text-[30px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-3">
           Export Modified{" "}
           <span style={{ color: "var(--amber)" }}>.als</span> File
         </h1>
-        <p className="text-[var(--text-secondary)] text-[15px] leading-relaxed">
+        <p className="text-[var(--text-secondary)] text-[14px] md:text-[15px] leading-relaxed">
           Select AI completion actions, apply them to your session, then download the
           patched Ableton Live Set.
         </p>
       </motion.div>
 
-      {/* Pipeline status strip */}
       <motion.div variants={ANIMATION_VARIANTS.slideUp}>
         <div
-          className="rounded-xl p-5"
+          className="rounded-xl p-4 md:p-5"
           style={{
             background: "var(--bg-panel)",
             border: lifecycle === "READY"
@@ -231,11 +227,10 @@ export default function ExportView() {
         </div>
       </motion.div>
 
-      {/* ── PIPELINE_PENDING ─────────────────────────────────────────────── */}
       {lifecycle === "PIPELINE_PENDING" && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
-            className="rounded-xl p-5 flex items-start gap-3"
+            className="rounded-xl p-4 md:p-5 flex items-start gap-3"
             style={{
               background: "rgba(255,183,3,0.05)",
               border: "1px solid rgba(255,183,3,0.15)",
@@ -255,11 +250,10 @@ export default function ExportView() {
         </motion.div>
       )}
 
-      {/* ── AWAITING_SELECTION ───────────────────────────────────────────── */}
       {lifecycle === "AWAITING_SELECTION" && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
-            className="rounded-xl p-6 space-y-4"
+            className="rounded-xl p-5 md:p-6 space-y-4"
             style={{
               background: "var(--bg-panel)",
               border: "1px solid rgba(255,183,3,0.2)",
@@ -285,7 +279,7 @@ export default function ExportView() {
             </div>
             <button
               onClick={() => navigate(`/projects/${id}/plan`)}
-              className="w-full flex items-center justify-center gap-2.5 py-3 rounded-lg font-display font-bold text-[13px] uppercase tracking-wider transition-all"
+              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-display font-bold text-[13px] uppercase tracking-wider transition-all min-h-[48px]"
               style={{
                 background: "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
                 color: "#271900",
@@ -298,11 +292,10 @@ export default function ExportView() {
         </motion.div>
       )}
 
-      {/* ── COMPILING ────────────────────────────────────────────────────── */}
       {lifecycle === "COMPILING" && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
-            className="rounded-xl p-6 space-y-3"
+            className="rounded-xl p-5 md:p-6 space-y-3"
             style={{
               background: "rgba(255,183,3,0.05)",
               border: "1px solid rgba(255,183,3,0.25)",
@@ -334,11 +327,10 @@ export default function ExportView() {
         </motion.div>
       )}
 
-      {/* ── FAILED ──────────────────────────────────────────────────────── */}
       {lifecycle === "FAILED" && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
-            className="rounded-xl p-5 space-y-3"
+            className="rounded-xl p-4 md:p-5 space-y-3"
             style={{
               background: "rgba(239,68,68,0.05)",
               border: "1px solid rgba(239,68,68,0.2)",
@@ -350,14 +342,14 @@ export default function ExportView() {
                 <p className="text-[13px] font-display font-bold text-red-400 mb-1">
                   Compilation Failed
                 </p>
-                <p className="text-[11px] text-[var(--text-muted)]">
+                <p className="text-[11px] text-[var(--text-muted)] break-words">
                   {exportStatus?.applyJobError ?? "The apply job encountered an error."}
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate(`/projects/${id}/plan`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-label uppercase tracking-wider transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[11px] font-label uppercase tracking-wider transition-colors min-h-[44px] w-full md:w-auto justify-center"
               style={{
                 background: "rgba(239,68,68,0.1)",
                 color: "#ef4444",
@@ -370,31 +362,29 @@ export default function ExportView() {
         </motion.div>
       )}
 
-      {/* ── READY ────────────────────────────────────────────────────────── */}
       {lifecycle === "READY" && (
         <>
           <motion.div variants={ANIMATION_VARIANTS.slideUp}>
             <div
-              className="rounded-xl p-6"
+              className="rounded-xl p-5 md:p-6"
               style={{
                 background: "var(--bg-panel)",
                 border: "1px solid rgba(255,183,3,0.25)",
               }}
             >
-              {/* Card header */}
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div className="flex items-center gap-3">
+              <div className="flex items-start justify-between gap-3 md:gap-4 mb-5">
+                <div className="flex items-center gap-3 min-w-0">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: "rgba(255,183,3,0.12)" }}
                   >
                     <Music2 className="w-5 h-5" style={{ color: "var(--amber)" }} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-[15px] font-display font-bold text-[var(--text-primary)]">
                       Patched .als Ready
                     </h2>
-                    <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                    <p className="text-[12px] text-[var(--text-muted)] mt-0.5 truncate">
                       {exportStatus?.patchedAlsFileName ?? "patched.als"}
                     </p>
                   </div>
@@ -413,22 +403,22 @@ export default function ExportView() {
 
               {exportStatus && (
                 <div
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 p-3 md:p-4 rounded-lg"
+                  className="grid grid-cols-2 gap-3 mb-5 p-3 md:p-4 rounded-lg"
                   style={{ background: "var(--bg-card)" }}
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
                       Source File
                     </p>
-                    <p className="text-[12px] font-mono text-[var(--amber-light)] truncate">
+                    <p className="text-[11px] md:text-[12px] font-mono text-[var(--amber-light)] truncate">
                       {project.originalFileName ?? "—"}
                     </p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-1">
                       Modified File
                     </p>
-                    <p className="text-[12px] font-mono text-[var(--amber-light)] truncate">
+                    <p className="text-[11px] md:text-[12px] font-mono text-[var(--amber-light)] truncate">
                       {exportStatus.patchedAlsFileName ?? "—"}
                     </p>
                   </div>
@@ -455,7 +445,6 @@ export default function ExportView() {
                 </div>
               )}
 
-              {/* Trust badge */}
               {trustInfo && (
                 <div
                   className="flex items-start gap-2.5 p-3 rounded-lg mb-5"
@@ -465,7 +454,7 @@ export default function ExportView() {
                   }}
                 >
                   <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: trustInfo.color }} />
-                  <div>
+                  <div className="min-w-0">
                     <p
                       className="text-[10px] font-label uppercase tracking-widest font-bold mb-0.5"
                       style={{ color: trustInfo.color }}
@@ -477,11 +466,10 @@ export default function ExportView() {
                 </div>
               )}
 
-              {/* Download button */}
               <button
                 onClick={handleExport}
                 disabled={downloading}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-display font-bold text-[14px] uppercase tracking-wider transition-all min-h-[48px] sticky bottom-4 z-10 md:static md:bottom-auto md:z-auto shadow-lg md:shadow-none"
+                className="w-full flex items-center justify-center gap-2.5 py-4 rounded-lg font-display font-bold text-[14px] uppercase tracking-wider transition-all min-h-[52px]"
                 style={
                   downloading
                     ? { background: "rgba(255,183,3,0.5)", color: "#271900", cursor: "default" }
@@ -499,20 +487,18 @@ export default function ExportView() {
                 )}
               </button>
 
-              {/* Re-select link */}
               <button
                 onClick={() => navigate(`/projects/${id}/plan`)}
-                className="w-full mt-3 text-center text-[11px] text-[var(--text-muted)] hover:text-[var(--amber)] transition-colors font-label uppercase tracking-wider"
+                className="w-full mt-3 text-center text-[11px] text-[var(--text-muted)] active:text-[var(--amber)] md:hover:text-[var(--amber)] transition-colors font-label uppercase tracking-wider min-h-[44px] flex items-center justify-center"
               >
                 Select Different Mutations
               </button>
             </div>
           </motion.div>
 
-          {/* Validation summary */}
           <motion.div variants={ANIMATION_VARIANTS.slideUp}>
             <div
-              className="rounded-xl p-5"
+              className="rounded-xl p-4 md:p-5"
               style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
             >
               <p className="text-[9px] font-label uppercase tracking-widest text-[var(--text-muted)] mb-3">
@@ -526,8 +512,8 @@ export default function ExportView() {
                   "Required LiveSet structure intact",
                   "All new IDs allocated above existing maximum",
                 ].map((check) => (
-                  <div key={check} className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: "#22c55e" }} />
+                  <div key={check} className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#22c55e" }} />
                     <span className="text-[12px] text-[var(--text-secondary)]">{check}</span>
                   </div>
                 ))}
@@ -537,12 +523,11 @@ export default function ExportView() {
         </>
       )}
 
-      {/* Debug artifacts — always shown at bottom */}
       {debugArtifacts.length > 0 && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <button
             onClick={() => setDebugOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors min-h-[44px]"
             style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
           >
             <div className="flex items-center gap-2">
@@ -583,7 +568,7 @@ export default function ExportView() {
                       key={art.id}
                       href={`${BASE}/api/projects/${id}/artifacts/${art.id}/download`}
                       download={art.fileName}
-                      className="flex items-center gap-3 p-3 rounded-lg transition-colors group"
+                      className="flex items-center gap-3 p-3 rounded-lg transition-colors group min-h-[48px]"
                       style={{
                         background: "var(--bg-card)",
                         border: "1px solid rgba(81,69,50,0.1)",
@@ -601,11 +586,11 @@ export default function ExportView() {
                         <p className="text-[12px] font-label text-[var(--text-primary)] truncate">
                           {typeLabel[art.type] ?? art.type.replace(/_/g, " ")}
                         </p>
-                        <p className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
+                        <p className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5 truncate">
                           {art.fileName} · {formatBytes(art.fileSize)}
                         </p>
                       </div>
-                      <Download className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--amber)] transition-colors shrink-0" />
+                      <Download className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--amber)] transition-colors shrink-0" />
                     </a>
                   ))}
                 </div>

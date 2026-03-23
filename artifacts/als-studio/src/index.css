@@ -149,11 +149,23 @@
   .btn-primary {
     background: linear-gradient(135deg, var(--amber-light) 0%, var(--amber) 100%);
     color: #271900;
-    @apply font-display font-bold uppercase tracking-wide hover:shadow-[0_0_20px_rgba(255,183,3,0.3)] hover:scale-[1.01] transition-all;
+    @apply font-display font-bold uppercase tracking-wide hover:shadow-[0_0_20px_rgba(255,183,3,0.3)] hover:scale-[1.01] active:scale-[0.98] active:shadow-[0_0_15px_rgba(255,183,3,0.2)] transition-all;
   }
 
   .btn-ghost {
-    @apply bg-transparent border border-primary text-primary hover:bg-primary/10 transition-all font-display font-bold uppercase tracking-wide;
+    @apply bg-transparent border border-primary text-primary hover:bg-primary/10 active:bg-primary/20 transition-all font-display font-bold uppercase tracking-wide;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 
   .no-scrollbar::-webkit-scrollbar {

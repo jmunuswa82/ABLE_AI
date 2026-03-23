@@ -1,17 +1,18 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useParams } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useGetProjectGraph, useGetCompletionPlan } from "@workspace/api-client-react";
 import { getRoleColor, getTrackColor, getAbletonColor, formatBars, cn } from "@/lib/utils";
 import { useStudioStore } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { X, ChevronDown } from "lucide-react";
 
 type ViewMode = "arrangement" | "automation" | "sidechain" | "proposed" | "diff";
 
 const TRACK_HEIGHT = 56;
 const AUTO_LANE_HEIGHT = 48;
 const LABEL_WIDTH_DESKTOP = 220;
-const LABEL_WIDTH_MOBILE = 120;
+const LABEL_WIDTH_MOBILE = 100;
 const RULER_HEIGHT = 32;
 const LOCATOR_HEIGHT = 24;
 const SECTION_HEIGHT = 24;
@@ -35,11 +36,11 @@ class TimeMapper {
 export default function TimelineView() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const isMobile = useIsMobile();
   const { data: graph, isLoading } = useGetProjectGraph(id);
   const { data: plan } = useGetCompletionPlan(id);
   const { selectedTrackId, setSelectedTrack, locateAtBeat, locateActionId, setLocateAtBeat } = useStudioStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
   const LABEL_WIDTH = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH_DESKTOP;
 
   const [viewMode, setViewMode] = useState<ViewMode>("arrangement");
@@ -128,12 +129,11 @@ export default function TimelineView() {
         {viewMode === "sidechain" ? (
           <SidechainView graph={graph} />
         ) : (
-          <div className="flex-1 overflow-auto bg-[var(--bg-base)] relative" ref={scrollContainerRef}>
+          <div className="flex-1 overflow-auto bg-[var(--bg-base)] relative" ref={scrollContainerRef} style={{ WebkitOverflowScrolling: "touch" }}>
             <div className="inline-block min-w-full">
               
-              {/* Ruler */}
               <div className="flex sticky top-0 z-30 bg-[var(--bg-card)]/90 backdrop-blur-md border-b border-[var(--amber-border-strong)]" style={{ height: RULER_HEIGHT }}>
-                <div className="shrink-0 sticky left-0 z-40 bg-[var(--bg-card)] flex items-center px-4 border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
+                <div className="shrink-0 sticky left-0 z-40 bg-[var(--bg-card)] flex items-center px-2 md:px-4 border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
                   <span className="text-[10px] text-[var(--text-code)] font-mono uppercase tracking-widest">{timeMapper.pixelsPerBar.toFixed(0)}px/bar</span>
                 </div>
                 <div className="relative overflow-hidden" style={{ width: timelineWidth, height: RULER_HEIGHT }}>
@@ -141,10 +141,9 @@ export default function TimelineView() {
                 </div>
               </div>
 
-              {/* Locators */}
               {graph.locators?.length > 0 && (
                 <div className="flex sticky top-[32px] z-20 bg-[var(--bg-base)]/80 backdrop-blur-sm border-b border-[var(--amber-border)]" style={{ height: LOCATOR_HEIGHT }}>
-                  <div className="shrink-0 sticky left-0 z-30 flex items-center px-4 bg-[var(--bg-base)] border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
+                  <div className="shrink-0 sticky left-0 z-30 flex items-center px-2 md:px-4 bg-[var(--bg-base)] border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
                     <span className="text-[9px] text-primary uppercase font-label tracking-[1.8px]">Cues</span>
                   </div>
                   <div className="relative overflow-hidden" style={{ width: timelineWidth }}>
@@ -153,10 +152,9 @@ export default function TimelineView() {
                 </div>
               )}
 
-              {/* Sections */}
               {graph.sections?.length > 0 && (
                 <div className="flex sticky top-[56px] z-20 bg-[var(--bg-base)]/50 backdrop-blur-sm border-b border-[var(--amber-border)]" style={{ height: SECTION_HEIGHT }}>
-                  <div className="shrink-0 sticky left-0 z-30 flex items-center px-4 bg-[var(--bg-base)] border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
+                  <div className="shrink-0 sticky left-0 z-30 flex items-center px-2 md:px-4 bg-[var(--bg-base)] border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
                     <span className="text-[9px] text-[var(--amber-light)] uppercase font-label tracking-[1.8px]">Sections</span>
                   </div>
                   <div className="relative overflow-hidden" style={{ width: timelineWidth }}>
@@ -165,7 +163,6 @@ export default function TimelineView() {
                 </div>
               )}
 
-              {/* Tracks */}
               <div className="relative z-0 pt-2 pb-16">
                 {allTracks.map((track: any) => {
                   const hasAutoLanes = (track.automationLanes?.length ?? 0) > 0;
@@ -182,13 +179,12 @@ export default function TimelineView() {
                         style={{ height: TRACK_HEIGHT }}
                         onClick={() => setSelectedTrack(isSelected ? null : track.id)}
                       >
-                        {/* Track Label */}
                         <div className="shrink-0 flex items-stretch sticky left-0 z-10 bg-[var(--bg-card)] border-r border-[var(--amber-border-strong)] group" style={{ width: LABEL_WIDTH }}>
                           <div className="w-1.5 shrink-0 transition-all duration-300" style={{ backgroundColor: trackColor, opacity: track.muted ? 0.3 : 1, boxShadow: isSelected ? `0 0 15px ${trackColor}` : 'none' }} />
-                          <div className="flex items-center gap-3 px-3 flex-1 min-w-0 border-y border-transparent group-hover:border-[var(--amber-border)] transition-colors">
+                          <div className="flex items-center gap-1 md:gap-3 px-1.5 md:px-3 flex-1 min-w-0 border-y border-transparent group-hover:border-[var(--amber-border)] transition-colors">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-display font-semibold text-white truncate tracking-wide">{isGroup ? "▾ " : ""}{track.name}</p>
-                              {!isGroup && (
+                              <p className="text-[11px] md:text-[13px] font-display font-semibold text-white truncate tracking-wide">{isGroup ? "▾ " : ""}{track.name}</p>
+                              {!isGroup && !isMobile && (
                                 <p className="text-[9px] font-mono text-[var(--text-muted)] uppercase tracking-wider truncate mt-0.5">
                                   {track.inferredRole !== "unknown" ? track.inferredRole : track.type}
                                 </p>
@@ -205,7 +201,6 @@ export default function TimelineView() {
                           </div>
                         </div>
 
-                        {/* Canvas */}
                         <div className="relative border-b border-[var(--amber-border)]" style={{ width: timelineWidth }}>
                           <GridLines totalBars={totalBars} timeMapper={timeMapper} barInterval={barInterval} majorInterval={majorInterval} />
                           {track.clips?.map((clip: any) => (
@@ -221,7 +216,7 @@ export default function TimelineView() {
                       </div>
 
                       {showAutoLanes && track.automationLanes?.map((lane: any, idx: number) => (
-                        <AutomationLaneRow key={`auto-${idx}`} lane={lane} trackColor={trackColor} timeMapper={timeMapper} timelineWidth={timelineWidth} totalBars={totalBars} barInterval={barInterval} majorInterval={majorInterval} />
+                        <AutomationLaneRow key={`auto-${idx}`} lane={lane} trackColor={trackColor} timeMapper={timeMapper} timelineWidth={timelineWidth} totalBars={totalBars} barInterval={barInterval} majorInterval={majorInterval} labelWidth={LABEL_WIDTH} />
                       ))}
                     </div>
                   );
@@ -249,6 +244,68 @@ const VIEW_MODE_CONFIG: Record<ViewMode, { label: string; color?: string }> = {
 
 function Toolbar({ viewMode, setViewMode, graph, plan, totalBeats, zoomIn, zoomOut, isMobile }: any) {
   const hasPlan = plan?.actions?.length > 0;
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  if (isMobile) {
+    const activeConfig = VIEW_MODE_CONFIG[viewMode as ViewMode];
+    return (
+      <div className="flex flex-col bg-[var(--bg-card)] border-b border-[var(--amber-border-strong)] relative z-40 shadow-xl">
+        <div className="flex items-center justify-between px-3 py-2.5 gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-elevated)] rounded-md border border-[var(--amber-border)] text-[11px] font-label uppercase tracking-widest font-semibold text-primary min-h-[44px]"
+            >
+              {activeConfig.label}
+              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", dropdownOpen && "rotate-180")} />
+            </button>
+            <AnimatePresence>
+              {dropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute top-full left-0 mt-1 bg-[var(--bg-card)] border border-[var(--amber-border-strong)] rounded-lg shadow-2xl z-50 overflow-hidden min-w-[160px]"
+                >
+                  {(Object.keys(VIEW_MODE_CONFIG) as ViewMode[]).map((tab) => {
+                    const config = VIEW_MODE_CONFIG[tab];
+                    const isActive = viewMode === tab;
+                    const isSpecial = tab === "proposed" || tab === "diff";
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => { setViewMode(tab); setDropdownOpen(false); }}
+                        disabled={!hasPlan && isSpecial}
+                        className={cn(
+                          "w-full text-left px-4 py-3 text-[11px] font-label uppercase tracking-widest font-semibold transition-colors min-h-[44px]",
+                          isActive ? "text-primary bg-primary/10" : "text-[var(--text-muted)] active:text-white active:bg-[var(--bg-elevated)]",
+                          !hasPlan && isSpecial && "opacity-30 cursor-not-allowed"
+                        )}
+                      >
+                        {config.label}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider font-semibold bg-[var(--bg-elevated)] px-2.5 py-1.5 rounded-md border border-[var(--amber-border)]">
+              <span className="text-[var(--amber-light)]">{graph.tempo}</span>
+              <span className="text-white">{graph.timeSignatureNumerator ?? 4}/{graph.timeSignatureDenominator ?? 4}</span>
+            </div>
+            <div className="flex items-center gap-0.5 bg-[var(--bg-elevated)] rounded-md border border-[var(--amber-border)] p-0.5">
+              <button onClick={zoomOut} className="w-11 h-11 flex items-center justify-center rounded active:bg-[var(--bg-overlay)] text-[var(--text-muted)] active:text-white transition-colors text-lg font-bold">−</button>
+              <button onClick={zoomIn} className="w-11 h-11 flex items-center justify-center rounded active:bg-[var(--bg-overlay)] text-[var(--text-muted)] active:text-white transition-colors text-lg font-bold">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "bg-[var(--bg-card)] border-b border-[var(--amber-border-strong)] relative z-40 shadow-xl",
@@ -443,7 +500,7 @@ function MutationOverlay({ mutation, timeMapper }: any) {
   );
 }
 
-function AutomationLaneRow({ lane, trackColor, timeMapper, timelineWidth, totalBars, barInterval, majorInterval }: any) {
+function AutomationLaneRow({ lane, trackColor, timeMapper, timelineWidth, totalBars, barInterval, majorInterval, labelWidth }: any) {
   const points = lane.points ?? [];
   if (points.length === 0) return null;
   const vals = points.map((p: any) => p.value);
@@ -463,7 +520,7 @@ function AutomationLaneRow({ lane, trackColor, timeMapper, timelineWidth, totalB
 
   return (
     <div className="flex h-12 border-b border-[var(--amber-border)] bg-[var(--bg-elevated)]/30">
-      <div className="shrink-0 flex items-center px-4 gap-2 sticky left-0 z-10 bg-[var(--bg-card)] border-r border-[var(--amber-border-strong)]" style={{ width: LABEL_WIDTH }}>
+      <div className="shrink-0 flex items-center px-2 md:px-4 gap-2 sticky left-0 z-10 bg-[var(--bg-card)] border-r border-[var(--amber-border-strong)]" style={{ width: labelWidth }}>
         <div className="min-w-0 flex-1">
           <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase truncate block">{lane.parameterName}</span>
         </div>
@@ -484,16 +541,16 @@ function SidechainView({ graph }: any) {
   const links = graph.sidechainLinks ?? [];
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto w-full mt-4 md:mt-8">
-      <h2 className="text-xl md:text-2xl font-display font-bold mb-4 md:mb-8 text-white">Sidechain Routing Graph</h2>
+      <h2 className="text-xl md:text-2xl font-display font-bold mb-6 md:mb-8 text-white">Sidechain Routing Graph</h2>
       {links.length === 0 ? (
         <div className="glass-panel p-6 md:p-8 rounded-2xl text-center text-[var(--text-muted)] font-sans">No dynamic routing detected in this dataset.</div>
       ) : (
         <div className="space-y-3 md:space-y-4">
           {links.map((link:any, i:number) => (
             <div key={i} className="glass-panel p-4 md:p-6 rounded-xl flex flex-col md:flex-row items-center gap-3 md:gap-8 border-l-[3px] border-primary">
-              <div className="flex-1 text-center md:text-right font-display font-bold text-base md:text-lg text-white w-full truncate">{link.sourceTrackName}</div>
+              <div className="md:flex-1 md:text-right font-display font-bold text-base md:text-lg text-white w-full truncate">{link.sourceTrackName}</div>
               <div className="shrink-0 px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-[9px] font-label font-bold uppercase tracking-[1.8px] shadow-[0_0_15px_rgba(255,183,3,0.15)]">Controls</div>
-              <div className="flex-1 text-center md:text-left font-display font-bold text-base md:text-lg text-[var(--text-secondary)] w-full truncate">{link.targetTrackName}</div>
+              <div className="md:flex-1 md:text-left font-display font-bold text-base md:text-lg text-[var(--text-secondary)] w-full truncate">{link.targetTrackName}</div>
             </div>
           ))}
         </div>
@@ -585,5 +642,56 @@ function TrackInspector({ track, onClose, isMobile }: any) {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function TrackInspectorBottomSheet({ track, onClose }: any) {
+  const trackColor = track.color != null ? getTrackColor(track.color) : getRoleColor(track.inferredRole);
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 bg-black/50 z-40"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 400, damping: 35 }}
+        className="fixed bottom-0 left-0 right-0 bg-[var(--bg-panel)] border-t border-[var(--amber-border-strong)] shadow-2xl z-50 rounded-t-2xl max-h-[70vh] flex flex-col"
+      >
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="w-10 h-1 bg-[var(--text-muted)] rounded-full opacity-40" />
+        </div>
+        <div className="px-5 py-3 border-b border-[var(--amber-border)] flex justify-between items-center">
+          <h3 className="font-display font-bold text-lg truncate flex items-center gap-3 text-white">
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: trackColor, boxShadow: `0 0 10px ${trackColor}80` }}/>
+            {track.name}
+          </h3>
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-[var(--bg-overlay)] flex items-center justify-center active:bg-white/10 transition-colors text-[var(--text-muted)]">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-5 space-y-5 overflow-y-auto">
+          <div>
+            <label className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] mb-2 block">Inferred Role</label>
+            <div className="bg-[var(--bg-overlay)] p-3 rounded-lg border border-[var(--amber-border)] font-mono text-sm uppercase font-bold text-[var(--amber-light)] flex items-center justify-between">
+              {track.inferredRole} <span className="text-[var(--text-muted)] text-[10px] font-label tracking-wider">{Math.round(track.inferredConfidence*100)}% Match</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[var(--bg-overlay)] p-4 rounded-xl border border-[var(--amber-border)] text-center">
+              <div className="text-[24px] font-display font-bold text-white">{track.clipCount}</div>
+              <div className="text-[9px] font-label uppercase tracking-[1.8px] text-[var(--text-muted)] mt-1">Clips</div>
+            </div>
+            <div className="bg-[var(--bg-overlay)] p-4 rounded-xl border border-[var(--amber-border)] text-center">
+              <div className="text-[24px] font-display font-bold text-white">{track.deviceCount}</div>
+              <div className="text-[9px] font-label uppercase tracking-[1.8px] text-[var(--text-muted)] mt-1">Devices</div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }

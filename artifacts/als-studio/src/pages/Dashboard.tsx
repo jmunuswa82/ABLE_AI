@@ -58,7 +58,6 @@ export default function Dashboard() {
         data: { file },
       });
 
-      // Invalidate all queries for this project so downstream pages get fresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(project.id) }),
@@ -70,7 +69,6 @@ export default function Dashboard() {
       setFile(null);
       navigate(`/projects/${project.id}`);
     } catch {
-      // errors shown by mutation state
     }
   };
 
@@ -98,18 +96,17 @@ export default function Dashboard() {
       initial="initial"
       animate="animate"
     >
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 mb-8 md:mb-12 relative z-10">
         <div className="max-w-xl">
           <motion.h1
-            className="text-[24px] md:text-[36px] font-display font-bold text-[var(--text-primary)] mb-3 md:mb-4 tracking-[-1.8px]"
+            className="text-[28px] md:text-[36px] font-display font-bold text-[var(--text-primary)] mb-3 md:mb-4 tracking-[-1.8px]"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
             Neural <span className="text-primary">Ingestion</span> Hub
           </motion.h1>
           <motion.p
-            className="text-[var(--text-secondary)] text-[16px] leading-[26px]"
+            className="text-[var(--text-secondary)] text-[14px] md:text-[16px] leading-[24px] md:leading-[26px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
@@ -120,12 +117,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Upload Bento Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 relative z-10">
 
-        {/* Central Drop Zone */}
         <div className="lg:col-span-8 bg-[var(--bg-panel)] border-2 border-dashed border-[var(--amber-border)] rounded-xl relative flex flex-col">
-          {/* Waveform BG */}
           <div className="absolute inset-0 flex items-end justify-center gap-1 opacity-[0.15] pointer-events-none pb-[96px] overflow-hidden">
             {Array.from({ length: 42 }).map((_, i) => (
               <motion.div
@@ -143,10 +137,9 @@ export default function Dashboard() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col relative z-10">
-            {/* ── Drop Zone (clicking here opens picker ONLY when no file staged) ── */}
             <div
               className={cn(
-                "flex-1 flex flex-col items-center justify-center p-8 rounded-xl transition-all duration-300",
+                "flex-1 flex flex-col items-center justify-center p-6 md:p-8 rounded-xl transition-all duration-300 min-h-[200px]",
                 !file ? "cursor-pointer" : "cursor-default",
                 dragOver && "scale-[1.02]"
               )}
@@ -166,15 +159,14 @@ export default function Dashboard() {
                     setFile(f);
                     if (!projectName) setProjectName(f.name.replace(".als", ""));
                   }
-                  // Reset so onChange fires again if same file selected
                   e.target.value = "";
                 }}
               />
 
               <div
                 className={cn(
-                  "p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] mb-8 transition-transform",
-                  !file && "hover:scale-110"
+                  "p-5 md:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] mb-6 md:mb-8 transition-transform",
+                  !file && "active:scale-95 md:hover:scale-110"
                 )}
                 style={{ background: "var(--bg-overlay)" }}
               >
@@ -186,33 +178,30 @@ export default function Dashboard() {
               </div>
 
               {file ? (
-                /* File staged — show file info and replace link */
                 <div className="text-center w-full max-w-sm">
-                  <h3 className="text-2xl font-display font-bold text-white mb-1 truncate">
+                  <h3 className="text-xl md:text-2xl font-display font-bold text-white mb-1 truncate">
                     {file.name}
                   </h3>
                   <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-2">
                     {(file.size / 1024 / 1024).toFixed(2)} MB · Ready for ingestion
                   </p>
-                  {/* Replace / Clear — these clicks do NOT submit the form */}
                   <div className="flex items-center justify-center gap-4 mb-6">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); openPicker(); }}
-                      className="text-[11px] font-label uppercase tracking-wider text-[var(--amber)] underline underline-offset-2 hover:text-[var(--amber-light)] transition-colors"
+                      className="text-[11px] font-label uppercase tracking-wider text-[var(--amber)] underline underline-offset-2 active:text-[var(--amber-light)] md:hover:text-[var(--amber-light)] transition-colors min-h-[44px] flex items-center"
                     >
                       Replace File
                     </button>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); clearFile(); }}
-                      className="text-[11px] font-label uppercase tracking-wider text-[var(--text-muted)] hover:text-white flex items-center gap-1 transition-colors"
+                      className="text-[11px] font-label uppercase tracking-wider text-[var(--text-muted)] active:text-white md:hover:text-white flex items-center gap-1 transition-colors min-h-[44px]"
                     >
                       <X className="w-3 h-3" /> Clear
                     </button>
                   </div>
 
-                  {/* Project Name Input */}
                   <input
                     type="text"
                     value={projectName}
@@ -224,9 +213,8 @@ export default function Dashboard() {
                   />
                 </div>
               ) : (
-                /* No file — pure drop/click zone */
                 <div className="text-center">
-                  <h3 className="text-2xl font-display font-bold text-white mb-2">
+                  <h3 className="text-xl md:text-2xl font-display font-bold text-white mb-2">
                     Drop Ableton Live Set
                   </h3>
                   <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
@@ -239,12 +227,8 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* ── Action Row — OUTSIDE the clickable drop zone ── */}
             {file && (
-              <div className="px-8 pb-8">
-                {/* The button uses type="submit" but stopPropagation prevents the
-                    drop-zone's onClick from also firing. However, since the button is
-                    OUTSIDE the drop zone div this is naturally safe. */}
+              <div className="px-4 pb-4 md:px-8 md:pb-8">
                 <button
                   type="submit"
                   disabled={isPending || !projectName.trim()}
@@ -265,7 +249,6 @@ export default function Dashboard() {
             )}
           </form>
 
-          {/* Flow line */}
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#33343a] rounded-b-xl overflow-hidden pointer-events-none">
             <motion.div
               className="absolute top-0 bottom-0 left-0 bg-primary shadow-[0_0_10px_0_var(--amber)]"
@@ -276,7 +259,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Pipeline Stage Cards */}
         <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
           <StageCard step="01" name="Upload" desc="Bit-perfect data ingestion with integrity verification for .als binary headers." active={true} />
           <StageCard step="02" name="Parsing" desc="Decompressing XML project structure and mapping track routing topology." active={activeProjectCount > 0} />
@@ -284,7 +266,6 @@ export default function Dashboard() {
           <StageCard step="04" name="Automation" desc="Extracting filter envelopes, gain riding, and VST parameter curves." active={false} />
         </div>
 
-        {/* Bottom Info Cards */}
         <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-2">
           <InfoCard
             icon={<Lock className="w-6 h-6 text-primary" />}
@@ -295,7 +276,7 @@ export default function Dashboard() {
             metaRight="Cloud Sync"
             valRight="LOCAL STORAGE"
           />
-          <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-6 flex flex-col justify-between">
+          <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-5 md:p-6 flex flex-col justify-between">
             <div className="flex gap-4 items-center mb-6">
               <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20">
                 <Database className="w-5 h-5 text-primary" />
@@ -327,7 +308,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Existing Projects */}
       <div className="mt-8 md:mt-12 relative z-10">
         <h2 className="font-display font-bold text-xl md:text-2xl text-white mb-4 md:mb-6">Active Databanks</h2>
         {isLoading ? (
@@ -367,7 +347,7 @@ export default function Dashboard() {
 function StageCard({ step, name, desc, active }: any) {
   return (
     <div className={cn(
-      "bg-[var(--bg-panel)] rounded-lg p-4 md:p-5 flex flex-col gap-3 transition-all relative overflow-hidden min-w-[200px] lg:min-w-0 snap-start",
+      "bg-[var(--bg-panel)] rounded-lg p-4 md:p-5 flex flex-col gap-2 md:gap-3 transition-all relative overflow-hidden",
       active
         ? "border-l-[3px] border-primary opacity-100"
         : "border-l-[3px] border-[var(--amber-border-strong)] opacity-60"
@@ -397,7 +377,7 @@ function StageCard({ step, name, desc, active }: any) {
 
 function InfoCard({ icon, title, subtitle, metaLeft, valLeft, metaRight, valRight, tags, activeTag }: any) {
   return (
-    <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-6 flex flex-col justify-between gap-6">
+    <div className="bg-[var(--bg-card)] border border-[var(--amber-border)] rounded-lg p-5 md:p-6 flex flex-col justify-between gap-6">
       <div className="flex gap-4 items-center">
         <div className="w-10 h-10 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20">
           {icon}
@@ -452,10 +432,10 @@ function ProjectCard({ project, onClick }: { project: any; onClick: () => void }
       variants={ANIMATION_VARIANTS.staggerItem}
       onClick={onClick}
       className={cn(
-        "bg-[var(--bg-panel)] rounded-lg p-6 cursor-pointer group relative overflow-hidden flex flex-col h-full border-y border-r transition-all",
+        "bg-[var(--bg-panel)] rounded-lg p-5 md:p-6 cursor-pointer group relative overflow-hidden flex flex-col h-full border-y border-r transition-all min-h-[100px]",
         isActive
-          ? "border-l-[3px] border-l-primary border-y-[var(--amber-border)] border-r-[var(--amber-border)] hover:border-r-primary/50 hover:border-y-primary/50"
-          : "border-l-[3px] border-[var(--amber-border)] hover:border-[var(--amber-border-strong)]"
+          ? "border-l-[3px] border-l-primary border-y-[var(--amber-border)] border-r-[var(--amber-border)] active:border-r-primary/50 active:border-y-primary/50 md:hover:border-r-primary/50 md:hover:border-y-primary/50"
+          : "border-l-[3px] border-[var(--amber-border)] active:border-[var(--amber-border-strong)] md:hover:border-[var(--amber-border-strong)]"
       )}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none transition-opacity group-hover:bg-primary/10" />
