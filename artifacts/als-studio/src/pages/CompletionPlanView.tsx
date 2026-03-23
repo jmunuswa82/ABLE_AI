@@ -336,7 +336,7 @@ export default function CompletionPlanView() {
 
   return (
     <motion.div
-      className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 md:space-y-8 mb-12"
+      className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 md:space-y-8 mb-12 pb-20 md:pb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
@@ -348,14 +348,14 @@ export default function CompletionPlanView() {
         <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
           Neural Completion Strategy
         </p>
-        <h1 className="text-[22px] md:text-[32px] font-display font-bold mb-3 tracking-[-1px] text-white">
+        <h1 className="text-[24px] md:text-[32px] font-display font-bold mb-3 tracking-[-1px] text-white">
           {project.name}
         </h1>
         <p className="text-[var(--text-secondary)] text-[14px] max-w-2xl leading-relaxed">
           {plan.summary}
         </p>
 
-        <div className="flex flex-wrap gap-4 mt-8">
+        <div className="flex flex-wrap gap-3 md:gap-4 mt-6 md:mt-8">
           {plan.completionScore != null && (
             <div className="px-5 py-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--amber-border)]">
               <span className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] block mb-1">
@@ -399,11 +399,10 @@ export default function CompletionPlanView() {
         </div>
       </motion.div>
 
-      {/* Selection toolbar */}
       {safeActions.length > 0 && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
-            className="rounded-xl p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4"
+            className="rounded-xl p-4 hidden md:flex items-center justify-between gap-4 flex-wrap"
             style={{
               background: "var(--bg-panel)",
               border: selectedIds.size > 0
@@ -414,7 +413,7 @@ export default function CompletionPlanView() {
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleAllSafe}
-                className="flex items-center gap-2 text-[11px] font-label uppercase tracking-widest transition-colors"
+                className="flex items-center gap-2 text-[11px] font-label uppercase tracking-widest transition-colors min-h-[44px]"
                 style={{ color: selectedSafeCount === safeActions.length ? "var(--amber)" : "var(--text-muted)" }}
               >
                 {selectedSafeCount === safeActions.length ? (
@@ -447,7 +446,7 @@ export default function CompletionPlanView() {
               <button
                 onClick={applySelected}
                 disabled={selectedIds.size === 0 || applying}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-display font-bold text-[12px] uppercase tracking-wider transition-all"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-display font-bold text-[12px] uppercase tracking-wider transition-all min-h-[44px]"
                 style={
                   selectedIds.size > 0 && !applying
                     ? {
@@ -470,16 +469,61 @@ export default function CompletionPlanView() {
               </button>
             </div>
           </div>
+
+          <div className="flex md:hidden flex-col gap-3 rounded-xl p-3" style={{
+            background: "var(--bg-panel)",
+            border: selectedIds.size > 0 ? "1px solid rgba(255,183,3,0.3)" : "1px solid rgba(81,69,50,0.15)",
+          }}>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={toggleAllSafe}
+                className="flex items-center gap-2 text-[11px] font-label uppercase tracking-widest transition-colors min-h-[44px]"
+                style={{ color: selectedSafeCount === safeActions.length ? "var(--amber)" : "var(--text-muted)" }}
+              >
+                {selectedSafeCount === safeActions.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                {selectedSafeCount === safeActions.length ? "Deselect All" : "Select All"}
+              </button>
+              {selectedIds.size > 0 && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: "rgba(255,183,3,0.12)", color: "var(--amber)", border: "1px solid rgba(255,183,3,0.2)" }}>
+                  {selectedIds.size} selected
+                </span>
+              )}
+            </div>
+            {applyError && (
+              <span className="text-[11px] text-red-400 flex items-center gap-1">
+                <XCircle className="w-3.5 h-3.5" /> {applyError}
+              </span>
+            )}
+          </div>
         </motion.div>
       )}
 
-      {/* Category filter */}
+      {safeActions.length > 0 && selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-[var(--bg-card)] border-t border-[var(--amber-border-strong)] md:hidden">
+          <button
+            onClick={applySelected}
+            disabled={selectedIds.size === 0 || applying}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-display font-bold text-[13px] uppercase tracking-wider min-h-[48px]"
+            style={{
+              background: "linear-gradient(135deg, #ffdba0 0%, #ffb703 100%)",
+              color: "#271900",
+            }}
+          >
+            {applying ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Applying…</>
+            ) : (
+              <><Zap className="w-4 h-4" /> Apply Selected ({selectedIds.size})</>
+            )}
+          </button>
+        </div>
+      )}
+
       {categories.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory md:flex-wrap md:overflow-visible md:pb-0">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap">
           <button
             onClick={() => setFilter(null)}
             className={cn(
-              "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap snap-start shrink-0 md:shrink",
+              "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap shrink-0 min-h-[36px]",
               !filter ? "bg-white text-black" : "bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white"
             )}
           >
@@ -490,7 +534,7 @@ export default function CompletionPlanView() {
               key={c}
               onClick={() => setFilter(c)}
               className={cn(
-                "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap snap-start shrink-0 md:shrink",
+                "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap shrink-0 min-h-[36px]",
                 filter === c
                   ? "bg-primary text-[#271900] shadow-[0_0_15px_rgba(255,183,3,0.4)]"
                   : "bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white"
@@ -634,7 +678,7 @@ function ActionCard({
                 </span>
               )}
             </div>
-            <h3 className="text-xl font-display font-bold text-white mb-2">{action.title}</h3>
+            <h3 className="text-base md:text-xl font-display font-bold text-white mb-2">{action.title}</h3>
             <p className="text-sm text-[var(--text-secondary)] leading-[24px] max-w-3xl">{action.description}</p>
           </div>
         </div>

@@ -4,12 +4,14 @@ import { motion } from "framer-motion";
 import { useGetProjectGraph, useGetCompletionPlan } from "@workspace/api-client-react";
 import { getRoleColor, getTrackColor, getAbletonColor, formatBars, cn } from "@/lib/utils";
 import { useStudioStore } from "@/lib/store";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ViewMode = "arrangement" | "automation" | "sidechain" | "proposed" | "diff";
 
 const TRACK_HEIGHT = 56;
 const AUTO_LANE_HEIGHT = 48;
-const LABEL_WIDTH = 220;
+const LABEL_WIDTH_DESKTOP = 220;
+const LABEL_WIDTH_MOBILE = 120;
 const RULER_HEIGHT = 32;
 const LOCATOR_HEIGHT = 24;
 const SECTION_HEIGHT = 24;
@@ -37,6 +39,8 @@ export default function TimelineView() {
   const { data: plan } = useGetCompletionPlan(id);
   const { selectedTrackId, setSelectedTrack, locateAtBeat, locateActionId, setLocateAtBeat } = useStudioStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const LABEL_WIDTH = isMobile ? LABEL_WIDTH_MOBILE : LABEL_WIDTH_DESKTOP;
 
   const [viewMode, setViewMode] = useState<ViewMode>("arrangement");
   const [pixelsPerBar, setPixelsPerBar] = useState(12);
@@ -119,7 +123,7 @@ export default function TimelineView() {
   return (
     <div className="flex h-full overflow-hidden bg-[var(--bg-base)]">
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <Toolbar viewMode={viewMode} setViewMode={setViewMode} graph={graph} plan={plan} totalBeats={totalBeats} zoomIn={zoomIn} zoomOut={zoomOut} />
+        <Toolbar viewMode={viewMode} setViewMode={setViewMode} graph={graph} plan={plan} totalBeats={totalBeats} zoomIn={zoomIn} zoomOut={zoomOut} isMobile={isMobile} />
 
         {viewMode === "sidechain" ? (
           <SidechainView graph={graph} />
@@ -229,7 +233,7 @@ export default function TimelineView() {
       </div>
 
       {selectedTrack && viewMode !== "sidechain" && (
-        <TrackInspector track={selectedTrack} onClose={() => setSelectedTrack(null)} />
+        <TrackInspector track={selectedTrack} onClose={() => setSelectedTrack(null)} isMobile={isMobile} />
       )}
     </div>
   );
@@ -243,11 +247,17 @@ const VIEW_MODE_CONFIG: Record<ViewMode, { label: string; color?: string }> = {
   diff: { label: "Diff View", color: "#ffdba0" },
 };
 
-function Toolbar({ viewMode, setViewMode, graph, plan, totalBeats, zoomIn, zoomOut }: any) {
+function Toolbar({ viewMode, setViewMode, graph, plan, totalBeats, zoomIn, zoomOut, isMobile }: any) {
   const hasPlan = plan?.actions?.length > 0;
   return (
-    <div className="flex items-center justify-between px-6 py-3 bg-[var(--bg-card)] border-b border-[var(--amber-border-strong)] relative z-40 shadow-xl">
-      <div className="flex items-center gap-1 p-1 bg-[var(--bg-elevated)] rounded-md border border-[var(--amber-border)]">
+    <div className={cn(
+      "bg-[var(--bg-card)] border-b border-[var(--amber-border-strong)] relative z-40 shadow-xl",
+      isMobile ? "px-3 py-2 space-y-2" : "flex items-center justify-between px-6 py-3"
+    )}>
+      <div className={cn(
+        "flex items-center gap-1 p-1 bg-[var(--bg-elevated)] rounded-md border border-[var(--amber-border)]",
+        isMobile && "overflow-x-auto no-scrollbar"
+      )}>
         {(Object.keys(VIEW_MODE_CONFIG) as ViewMode[]).map((tab) => {
           const config = VIEW_MODE_CONFIG[tab];
           const isActive = viewMode === tab;
@@ -258,7 +268,7 @@ function Toolbar({ viewMode, setViewMode, graph, plan, totalBeats, zoomIn, zoomO
               onClick={() => setViewMode(tab)}
               disabled={!hasPlan && isSpecial}
               className={cn(
-                "relative px-4 py-1.5 text-[11px] font-label uppercase tracking-widest font-semibold rounded transition-all",
+                "relative px-3 md:px-4 py-1.5 text-[10px] md:text-[11px] font-label uppercase tracking-widest font-semibold rounded transition-all whitespace-nowrap min-h-[36px]",
                 isActive ? "text-[#271900]" : "text-[var(--text-muted)] hover:text-white",
                 !hasPlan && isSpecial && "opacity-30 cursor-not-allowed"
               )}
@@ -275,15 +285,18 @@ function Toolbar({ viewMode, setViewMode, graph, plan, totalBeats, zoomIn, zoomO
         })}
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className="flex gap-4 text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-widest font-semibold bg-[var(--bg-elevated)] px-4 py-1.5 rounded-md border border-[var(--amber-border)]">
+      <div className="flex items-center gap-3 md:gap-6">
+        <div className={cn(
+          "flex gap-2 md:gap-4 text-[10px] md:text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-widest font-semibold bg-[var(--bg-elevated)] px-3 md:px-4 py-1.5 rounded-md border border-[var(--amber-border)]",
+          isMobile && "flex-1"
+        )}>
           <span className="text-[var(--amber-light)]">{graph.tempo} BPM</span>
-          <span className="text-white">{graph.timeSignatureNumerator ?? 4}/{graph.timeSignatureDenominator ?? 4}</span>
-          <span className="text-[var(--text-code)]">{formatBars(totalBeats)}</span>
+          <span className="text-white hidden sm:inline">{graph.timeSignatureNumerator ?? 4}/{graph.timeSignatureDenominator ?? 4}</span>
+          <span className="text-[var(--text-code)] hidden sm:inline">{formatBars(totalBeats)}</span>
         </div>
         <div className="flex items-center gap-1 bg-[var(--bg-elevated)] rounded-md border border-[var(--amber-border)] p-1">
-          <button onClick={zoomOut} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white transition-colors">−</button>
-          <button onClick={zoomIn} className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white transition-colors">+</button>
+          <button onClick={zoomOut} className="w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded hover:bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white transition-colors">−</button>
+          <button onClick={zoomIn} className="w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded hover:bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white transition-colors">+</button>
         </div>
       </div>
     </div>
@@ -470,17 +483,17 @@ function AutomationLaneRow({ lane, trackColor, timeMapper, timelineWidth, totalB
 function SidechainView({ graph }: any) {
   const links = graph.sidechainLinks ?? [];
   return (
-    <div className="p-8 max-w-4xl mx-auto w-full mt-8">
-      <h2 className="text-2xl font-display font-bold mb-8 text-white">Sidechain Routing Graph</h2>
+    <div className="p-4 md:p-8 max-w-4xl mx-auto w-full mt-4 md:mt-8">
+      <h2 className="text-xl md:text-2xl font-display font-bold mb-4 md:mb-8 text-white">Sidechain Routing Graph</h2>
       {links.length === 0 ? (
-        <div className="glass-panel p-8 rounded-2xl text-center text-[var(--text-muted)] font-sans">No dynamic routing detected in this dataset.</div>
+        <div className="glass-panel p-6 md:p-8 rounded-2xl text-center text-[var(--text-muted)] font-sans">No dynamic routing detected in this dataset.</div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           {links.map((link:any, i:number) => (
-            <div key={i} className="glass-panel p-6 rounded-xl flex items-center gap-8 border-l-[3px] border-primary">
-              <div className="flex-1 text-right font-display font-bold text-lg text-white">{link.sourceTrackName}</div>
+            <div key={i} className="glass-panel p-4 md:p-6 rounded-xl flex flex-col md:flex-row items-center gap-3 md:gap-8 border-l-[3px] border-primary">
+              <div className="flex-1 text-center md:text-right font-display font-bold text-base md:text-lg text-white w-full truncate">{link.sourceTrackName}</div>
               <div className="shrink-0 px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-[9px] font-label font-bold uppercase tracking-[1.8px] shadow-[0_0_15px_rgba(255,183,3,0.15)]">Controls</div>
-              <div className="flex-1 font-display font-bold text-lg text-[var(--text-secondary)]">{link.targetTrackName}</div>
+              <div className="flex-1 text-center md:text-left font-display font-bold text-base md:text-lg text-[var(--text-secondary)] w-full truncate">{link.targetTrackName}</div>
             </div>
           ))}
         </div>
@@ -489,8 +502,57 @@ function SidechainView({ graph }: any) {
   );
 }
 
-function TrackInspector({ track, onClose }: any) {
+function TrackInspector({ track, onClose, isMobile }: any) {
   const trackColor = track.color != null ? getTrackColor(track.color) : getRoleColor(track.inferredRole);
+
+  if (isMobile) {
+    return (
+      <>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={onClose}
+        />
+        <motion.div
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          transition={{ type: "spring", damping: 30, stiffness: 300 }}
+          className="fixed left-0 right-0 bottom-0 max-h-[70vh] bg-[var(--bg-panel)] border-t border-[var(--amber-border-strong)] shadow-2xl flex flex-col z-50 rounded-t-2xl"
+        >
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-[var(--text-muted)]/30" />
+          </div>
+          <div className="p-4 border-b border-[var(--amber-border)] flex justify-between items-center bg-[var(--bg-card)]">
+            <h3 className="font-display font-bold text-lg truncate flex items-center gap-3 text-white">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: trackColor, boxShadow: `0 0 10px ${trackColor}80` }}/>
+              {track.name}
+            </h3>
+            <button onClick={onClose} className="w-11 h-11 rounded-full bg-[var(--bg-overlay)] flex items-center justify-center hover:bg-white/10 transition-colors text-[var(--text-muted)] hover:text-white">×</button>
+          </div>
+          <div className="p-4 space-y-4 overflow-y-auto">
+            <div>
+              <label className="text-[9px] font-label text-[var(--text-muted)] uppercase tracking-[1.8px] mb-2 block">Inferred Role</label>
+              <div className="bg-[var(--bg-overlay)] p-3 rounded-lg border border-[var(--amber-border)] font-mono text-sm uppercase font-bold text-[var(--amber-light)] flex items-center justify-between">
+                {track.inferredRole} <span className="text-[var(--text-muted)] text-[10px] font-label tracking-wider">{Math.round(track.inferredConfidence*100)}% Match</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[var(--bg-overlay)] p-4 rounded-xl border border-[var(--amber-border)] text-center">
+                <div className="text-[24px] font-display font-bold text-white">{track.clipCount}</div>
+                <div className="text-[9px] font-label uppercase tracking-[1.8px] text-[var(--text-muted)] mt-1">Clips</div>
+              </div>
+              <div className="bg-[var(--bg-overlay)] p-4 rounded-xl border border-[var(--amber-border)] text-center">
+                <div className="text-[24px] font-display font-bold text-white">{track.deviceCount}</div>
+                <div className="text-[9px] font-label uppercase tracking-[1.8px] text-[var(--text-muted)] mt-1">Devices</div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </>
+    );
+  }
+
   return (
     <motion.div 
       initial={{ x: 320, opacity: 0 }} 

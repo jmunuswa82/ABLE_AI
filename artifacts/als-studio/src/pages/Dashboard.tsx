@@ -99,10 +99,10 @@ export default function Dashboard() {
       animate="animate"
     >
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 relative z-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 mb-8 md:mb-12 relative z-10">
         <div className="max-w-xl">
           <motion.h1
-            className="text-[24px] md:text-[36px] font-display font-bold text-[var(--text-primary)] mb-4 tracking-[-1.8px]"
+            className="text-[24px] md:text-[36px] font-display font-bold text-[var(--text-primary)] mb-3 md:mb-4 tracking-[-1.8px]"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
@@ -121,7 +121,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Upload Bento Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 relative z-10">
 
         {/* Central Drop Zone */}
         <div className="lg:col-span-8 bg-[var(--bg-panel)] border-2 border-dashed border-[var(--amber-border)] rounded-xl relative flex flex-col">
@@ -232,7 +232,7 @@ export default function Dashboard() {
                   <p className="text-sm font-label tracking-[0.35px] text-[var(--text-muted)] uppercase mb-6">
                     Maximum 500 MB · .als only
                   </p>
-                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md border border-[var(--amber-border)] text-[var(--amber)] text-[12px] font-label uppercase tracking-wider">
+                  <div className="inline-flex items-center gap-2 px-5 py-3 md:py-2.5 rounded-md border border-[var(--amber-border)] text-[var(--amber)] text-[12px] font-label uppercase tracking-wider min-h-[44px]">
                     <UploadCloud className="w-3.5 h-3.5" /> Select from Browser
                   </div>
                 </div>
@@ -248,7 +248,7 @@ export default function Dashboard() {
                 <button
                   type="submit"
                   disabled={isPending || !projectName.trim()}
-                  className="btn-primary w-full py-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 font-display font-bold uppercase tracking-wider text-[14px]"
+                  className="btn-primary w-full py-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 font-display font-bold uppercase tracking-wider text-[14px] min-h-[48px]"
                 >
                   {isPending ? (
                     <><Activity className="w-4 h-4 animate-spin" /> Ingesting…</>
@@ -277,7 +277,7 @@ export default function Dashboard() {
         </div>
 
         {/* Pipeline Stage Cards */}
-        <div className="lg:col-span-4 flex flex-row lg:flex-col gap-4 overflow-x-auto pb-2 lg:pb-0 snap-x snap-mandatory">
+        <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
           <StageCard step="01" name="Upload" desc="Bit-perfect data ingestion with integrity verification for .als binary headers." active={true} />
           <StageCard step="02" name="Parsing" desc="Decompressing XML project structure and mapping track routing topology." active={activeProjectCount > 0} />
           <StageCard step="03" name="Structure" desc="Identifying intro, verse, chorus, and bridge markers via structural pattern detection." active={false} />
@@ -285,7 +285,7 @@ export default function Dashboard() {
         </div>
 
         {/* Bottom Info Cards */}
-        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-2">
           <InfoCard
             icon={<Lock className="w-6 h-6 text-primary" />}
             title="Secure Vault"
@@ -328,8 +328,8 @@ export default function Dashboard() {
       </div>
 
       {/* Existing Projects */}
-      <div className="mt-12 relative z-10">
-        <h2 className="font-display font-bold text-2xl text-white mb-6">Active Databanks</h2>
+      <div className="mt-8 md:mt-12 relative z-10">
+        <h2 className="font-display font-bold text-xl md:text-2xl text-white mb-4 md:mb-6">Active Databanks</h2>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-4 glass-panel">
             <Activity className="w-8 h-8 text-primary animate-pulse" />
@@ -348,7 +348,7 @@ export default function Dashboard() {
             variants={ANIMATION_VARIANTS.staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6"
           >
             {projects.map((project: any) => (
               <ProjectCard

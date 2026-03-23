@@ -189,7 +189,7 @@ export default function ExportView() {
 
   return (
     <motion.div
-      className="p-4 md:p-8 max-w-3xl mx-auto w-full space-y-6 mb-12"
+      className="p-4 md:p-8 max-w-3xl mx-auto w-full space-y-5 md:space-y-6 mb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
@@ -411,7 +411,6 @@ export default function ExportView() {
                 </span>
               </div>
 
-              {/* Stats */}
               {exportStatus && (
                 <div
                   className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 p-3 md:p-4 rounded-lg"
@@ -482,7 +481,7 @@ export default function ExportView() {
               <button
                 onClick={handleExport}
                 disabled={downloading}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-display font-bold text-[14px] uppercase tracking-wider transition-all"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-lg font-display font-bold text-[14px] uppercase tracking-wider transition-all min-h-[48px] sticky bottom-4 z-10 md:static md:bottom-auto md:z-auto shadow-lg md:shadow-none"
                 style={
                   downloading
                     ? { background: "rgba(255,183,3,0.5)", color: "#271900", cursor: "default" }

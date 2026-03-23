@@ -160,47 +160,45 @@ export function PipelineStatus({ status, jobs = [], compact = false, className }
 
   return (
     <div className={cn("space-y-3", className)}>
-      {isMobile ? (
-        <div className="space-y-2">
-          {STAGES.map((stage, i) => {
-            const state = getStageState(stage, status);
-            return (
-              <div key={stage.key} className="flex items-center gap-3">
-                <div className={cn("w-8 h-8 rounded-lg border flex items-center justify-center shrink-0", STATE_COLORS[state], STATE_BG[state])}>
-                  <StageIcon state={state} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={cn("text-[10px] font-label uppercase tracking-widest font-bold", STATE_COLORS[state].split(" ")[0])}>
-                    {stage.label}
-                  </p>
-                  <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{stage.sublabel}</p>
-                </div>
-                {state === "done" && (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#22c55e] shrink-0" />
+      {/* Stage row */}
+      <div className="grid grid-cols-5 gap-1 md:gap-1.5">
+        {STAGES.map((stage) => {
+          const state = getStageState(stage, status);
+          return (
+            <div
+              key={stage.key}
+              className={cn(
+                "rounded-lg p-1.5 md:p-2.5 border text-center transition-all min-w-0",
+                STATE_COLORS[state],
+                STATE_BG[state]
+              )}
+            >
+              <div className="flex items-center justify-center mb-1 md:mb-1.5">
+                {state === "active" ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Loader2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  </motion.div>
+                ) : state === "done" ? (
+                  <CheckCircle2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                ) : state === "failed" ? (
+                  <XCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                ) : (
+                  <span className="opacity-40">{stage.icon}</span>
                 )}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="grid grid-cols-5 gap-1.5">
-          {STAGES.map((stage) => {
-            const state = getStageState(stage, status);
-            return (
-              <div
-                key={stage.key}
-                className={cn("rounded-lg p-2.5 border text-center transition-all", STATE_COLORS[state], STATE_BG[state])}
-              >
-                <div className="flex items-center justify-center mb-1.5">
-                  <StageIcon state={state} />
-                </div>
-                <p className="text-[9px] font-label uppercase tracking-widest font-bold leading-none">{stage.label}</p>
-                <p className="text-[8px] opacity-60 mt-0.5 leading-none">{stage.sublabel}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              <p className="text-[8px] md:text-[9px] font-label uppercase tracking-wider md:tracking-widest font-bold leading-none truncate">
+                {stage.label}
+              </p>
+              <p className="text-[7px] md:text-[8px] opacity-60 mt-0.5 leading-none hidden sm:block truncate">
+                {stage.sublabel}
+              </p>
+            </div>
+          );
+        })}
+      </div>
 
       {activeJob && activeJob.progress != null && (
         <div className="space-y-1">

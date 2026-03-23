@@ -91,7 +91,7 @@ export default function ProjectDetail() {
               Structural Overview
             </div>
             <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-[22px] md:text-[32px] font-display font-bold text-white tracking-[-1px]">
+              <h1 className="text-[24px] md:text-[32px] font-display font-bold text-white tracking-[-1px]">
                 {project.name}
               </h1>
               <div
@@ -113,13 +113,12 @@ export default function ProjectDetail() {
           </div>
 
           {/* Action buttons — context-aware per project lifecycle */}
-          <div className="flex gap-3 flex-wrap shrink-0">
-            {/* Pipeline not yet started — show Initiate button */}
+          <div className="flex gap-3 flex-wrap shrink-0 w-full md:w-auto">
             {canInitiate && !running && (
               <button
                 onClick={initiatePipeline}
                 disabled={initiating}
-                className="btn-primary px-6 py-3 rounded-md flex items-center gap-2 text-[13px] font-label uppercase tracking-wider"
+                className="btn-primary px-6 py-3 rounded-md flex items-center gap-2 text-[13px] font-label uppercase tracking-wider min-h-[44px] w-full md:w-auto justify-center"
               >
                 {initiating ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
@@ -134,7 +133,7 @@ export default function ProjectDetail() {
               <button
                 onClick={initiatePipeline}
                 disabled={initiating}
-                className="btn-ghost px-6 py-3 rounded-md flex items-center gap-2 text-[13px] font-label uppercase tracking-wider"
+                className="btn-ghost px-6 py-3 rounded-md flex items-center gap-2 text-[13px] font-label uppercase tracking-wider min-h-[44px] w-full md:w-auto justify-center"
               >
                 {initiating ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
@@ -149,13 +148,13 @@ export default function ProjectDetail() {
               <>
                 <button
                   onClick={() => navigate(`/projects/${id}/timeline`)}
-                  className="btn-ghost px-6 py-3 rounded-md flex items-center gap-2"
+                  className="btn-ghost px-6 py-3 rounded-md flex items-center gap-2 min-h-[44px] flex-1 md:flex-initial justify-center"
                 >
                   <Waves className="w-4 h-4" /> Arrangement Matrix
                 </button>
                 <button
                   onClick={() => navigate(`/projects/${id}/plan`)}
-                  className="btn-primary px-6 py-3 rounded-md flex items-center gap-2"
+                  className="btn-primary px-6 py-3 rounded-md flex items-center gap-2 min-h-[44px] flex-1 md:flex-initial justify-center"
                 >
                   Neural Strategy <ArrowRight className="w-4 h-4" />
                 </button>
@@ -165,7 +164,7 @@ export default function ProjectDetail() {
         </div>
 
         {/* Stats Strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-[var(--amber-border)]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-6 md:mt-8 pt-6 md:pt-8 border-t border-[var(--amber-border)]">
           <StatBox
             label="Target Index"
             value={formatScore(project.completionScore)}
@@ -324,7 +323,7 @@ function StatBox({ label, value, valueClass = "text-white", icon }: any) {
         {icon}
         <span className="text-[9px] font-label uppercase tracking-[1.8px]">{label}</span>
       </div>
-      <p className={cn("text-[20px] md:text-[28px] font-display font-bold", valueClass)}>{value}</p>
+      <p className={cn("text-[22px] md:text-[28px] font-display font-bold", valueClass)}>{value}</p>
     </div>
   );
 }
@@ -332,29 +331,53 @@ function StatBox({ label, value, valueClass = "text-white", icon }: any) {
 function TrackRow({ track }: { track: any }) {
   const roleColor = getRoleColor(track.inferredRole);
   return (
-    <div className="px-4 md:px-6 py-3 md:py-4 flex flex-wrap md:flex-nowrap items-center gap-2 md:gap-4 text-sm hover:bg-[var(--bg-elevated)] transition-colors group">
-      <div
-        className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-lg"
-        style={{ backgroundColor: roleColor, boxShadow: `0 0 10px ${roleColor}80` }}
-      />
-      <span className="text-white font-display font-medium flex-1 md:w-48 md:flex-none truncate group-hover:text-primary transition-colors">
-        {track.name}
-      </span>
-      <div className="hidden md:block w-32 shrink-0">
-        <span className="text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded bg-[var(--bg-card)] border border-[var(--amber-border)] text-[var(--text-secondary)]">
-          {track.inferredRole}
+    <>
+      <div className="hidden md:flex px-6 py-4 items-center gap-4 text-sm hover:bg-[var(--bg-elevated)] transition-colors group">
+        <div
+          className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-lg"
+          style={{ backgroundColor: roleColor, boxShadow: `0 0 10px ${roleColor}80` }}
+        />
+        <span className="text-white font-display font-medium w-48 truncate group-hover:text-primary transition-colors">
+          {track.name}
         </span>
+        <div className="w-32 shrink-0">
+          <span className="text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded bg-[var(--bg-card)] border border-[var(--amber-border)] text-[var(--text-secondary)]">
+            {track.inferredRole}
+          </span>
+        </div>
+        <span className="text-[var(--text-code)] text-[11px] font-mono w-16 uppercase">{track.type}</span>
+        <div className="flex gap-4 ml-auto text-[11px] text-[var(--amber-light)] font-mono">
+          <span className="bg-[var(--bg-overlay)] px-2 py-1 rounded border border-[var(--amber-border)]">
+            {track.clipCount} clips
+          </span>
+          <span className="bg-[var(--bg-overlay)] px-2 py-1 rounded border border-[var(--amber-border)]">
+            {track.deviceCount} fx
+          </span>
+        </div>
       </div>
-      <span className="hidden md:inline text-[var(--text-code)] text-[11px] font-mono w-16 uppercase">{track.type}</span>
-      <div className="flex gap-2 md:gap-4 ml-auto text-[10px] md:text-[11px] text-[var(--amber-light)] font-mono">
-        <span className="bg-[var(--bg-overlay)] px-1.5 md:px-2 py-0.5 md:py-1 rounded border border-[var(--amber-border)]">
-          {track.clipCount} clips
-        </span>
-        <span className="bg-[var(--bg-overlay)] px-1.5 md:px-2 py-0.5 md:py-1 rounded border border-[var(--amber-border)]">
-          {track.deviceCount} fx
-        </span>
+      <div className="flex md:hidden px-4 py-3 gap-3 hover:bg-[var(--bg-elevated)] transition-colors">
+        <div
+          className="w-2 h-full min-h-[40px] rounded-sm shrink-0 shadow-lg"
+          style={{ backgroundColor: roleColor, boxShadow: `0 0 10px ${roleColor}80` }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-white font-display font-medium text-sm truncate">
+              {track.name}
+            </span>
+            <span className="text-[var(--text-code)] text-[10px] font-mono uppercase shrink-0">{track.type}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--amber-border)] text-[var(--text-secondary)]">
+              {track.inferredRole}
+            </span>
+            <span className="text-[10px] text-[var(--amber-light)] font-mono">
+              {track.clipCount} clips · {track.deviceCount} fx
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -362,7 +385,7 @@ function PageSkeleton() {
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 w-full">
       <div className="h-48 glass-panel animate-pulse rounded-2xl" />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-2 h-96 glass-panel animate-pulse rounded-2xl" />
         <div className="h-96 glass-panel animate-pulse rounded-2xl" />
       </div>
