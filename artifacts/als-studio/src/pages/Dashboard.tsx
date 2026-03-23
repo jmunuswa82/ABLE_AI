@@ -93,7 +93,7 @@ export default function Dashboard() {
 
   return (
     <motion.div
-      className="p-8 max-w-7xl mx-auto w-full mb-12"
+      className="p-4 md:p-8 max-w-7xl mx-auto w-full mb-12"
       variants={ANIMATION_VARIANTS.fadeIn}
       initial="initial"
       animate="animate"
@@ -102,7 +102,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 relative z-10">
         <div className="max-w-xl">
           <motion.h1
-            className="text-[36px] font-display font-bold text-[var(--text-primary)] mb-4 tracking-[-1.8px]"
+            className="text-[24px] md:text-[36px] font-display font-bold text-[var(--text-primary)] mb-4 tracking-[-1.8px]"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
@@ -277,7 +277,7 @@ export default function Dashboard() {
         </div>
 
         {/* Pipeline Stage Cards */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
+        <div className="lg:col-span-4 flex flex-row lg:flex-col gap-4 overflow-x-auto pb-2 lg:pb-0 snap-x snap-mandatory">
           <StageCard step="01" name="Upload" desc="Bit-perfect data ingestion with integrity verification for .als binary headers." active={true} />
           <StageCard step="02" name="Parsing" desc="Decompressing XML project structure and mapping track routing topology." active={activeProjectCount > 0} />
           <StageCard step="03" name="Structure" desc="Identifying intro, verse, chorus, and bridge markers via structural pattern detection." active={false} />
@@ -367,7 +367,7 @@ export default function Dashboard() {
 function StageCard({ step, name, desc, active }: any) {
   return (
     <div className={cn(
-      "bg-[var(--bg-panel)] rounded-lg p-5 flex flex-col gap-3 transition-all relative overflow-hidden",
+      "bg-[var(--bg-panel)] rounded-lg p-4 md:p-5 flex flex-col gap-3 transition-all relative overflow-hidden min-w-[200px] lg:min-w-0 snap-start",
       active
         ? "border-l-[3px] border-primary opacity-100"
         : "border-l-[3px] border-[var(--amber-border-strong)] opacity-60"

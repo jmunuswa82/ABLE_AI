@@ -429,7 +429,8 @@ router.get("/projects/:id/export-als", async (req: Request, res: Response) => {
 
     res.setHeader("Content-Type", "application/x-ableton-live-set");
     res.setHeader("Content-Disposition", `attachment; filename="${patchedAls.fileName}"`);
-    res.setHeader("X-Trust-Label", patchedAls.description ?? "");
+    const sanitizedLabel = (patchedAls.description ?? "").replace(/[^\x20-\x7E]/g, "");
+    res.setHeader("X-Trust-Label", sanitizedLabel);
     res.download(patchedAls.filePath, patchedAls.fileName);
   } catch (err) {
     req.log.error({ err }, "Failed to export ALS");

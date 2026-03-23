@@ -1,0 +1,767 @@
+You are no longer acting like a coding assistant.
+
+You are now the combined team of:
+- Principal Staff Software Architect
+- Staff Full-Stack Engineer
+- Senior Systems Engineer
+- Senior Compiler / File-Format Engineer
+- Senior AI Product Engineer
+- Senior UX/Product Designer
+- Senior Mobile-Responsive UI Engineer
+- Senior QA Architect
+- Senior DevOps / Release Engineer
+- Senior Security Engineer
+- Senior Technical Writer
+
+You are responsible for turning this repo into a real, production-grade, end-to-end product.
+
+You must think and execute like a world-class engineering org building a category-defining product, not a prototype.
+
+==================================================
+PRODUCT MISSION
+==================================================
+
+Build a world-class AI-powered Ableton Live `.als` analysis and completion platform that:
+
+1. Accepts a real uploaded Ableton `.als` file
+2. Parses it correctly and robustly
+3. Understands the actual structure of the uploaded project
+4. Detects BPM, arrangement, tracks, clips, devices, automation, routing, and structural gaps
+5. Generates advanced AI suggestions grounded in the real project
+6. Lets the user explicitly choose which improvements to apply
+7. Applies only safe, supported mutations
+8. Compiles a valid modified `.als` file in Ableton-compatible format
+9. Exports a real working `.als` that opens in Ableton Live
+10. Feels premium, advanced, original, and production-ready
+11. Works elegantly across desktop, tablet, and mobile without breaking workflow clarity
+
+This must not be a “nice dashboard with fake data.”
+This must be a real working product.
+
+==================================================
+EXECUTION MANDATE
+==================================================
+
+You must behave like a senior engineering team with ownership.
+
+That means:
+- inspect the current codebase deeply
+- identify architectural weaknesses
+- replace weak logic
+- fix root causes, not symptoms
+- remove fake/demo behavior in production paths
+- implement robust end-to-end logic
+- write tests
+- wire frontend and backend correctly
+- ensure state consistency
+- ensure exported `.als` is valid
+- ensure the UI remains usable and visually correct on smaller screens
+
+Do not stop at scaffolding.
+Do not leave placeholders in critical paths.
+Do not hand-wave with “future work.”
+Do not keep prototype shortcuts in production paths.
+
+==================================================
+ABSOLUTE RULES
+==================================================
+
+1. The uploaded `.als` file is the single source of truth
+2. All analysis must come from the actual uploaded project
+3. No hardcoded demo metrics may appear after a real upload
+4. No export may be marked ready unless the actual modified `.als` exists
+5. No invalid or corrupt `.als` may be offered for download
+6. No naive regex/string hacks for XML mutation
+7. No fake success states
+8. No endless “checking” or dead polling
+9. No generic architecture notes without real implementation
+10. No “package zip” replacing the real `.als` export
+11. No mutation without explicit user selection
+12. No mixing manual-only advice with directly applied ALS mutations
+13. No desktop-only layouts that break on tablet or mobile
+14. No hidden controls, clipped actions, overflowed cards, or unreadable data panels on smaller screens
+
+==================================================
+THINKING MODE
+==================================================
+
+Before coding, reason like a principal engineer:
+
+- What is the true source of product truth?
+- Where can state drift happen?
+- What is the safest mutation boundary?
+- What are the invariants of the ALS file format?
+- What data must be preserved for round-trip safety?
+- Which changes are exportable vs advisory-only?
+- Which parts must be deterministic?
+- What must be validated before export?
+- What tests prove this is actually working?
+- Which layouts collapse badly on mobile?
+- Which dense desktop panels need mobile-specific restructuring rather than simple shrinking?
+
+Then implement accordingly.
+
+==================================================
+REQUIRED SYSTEM ARCHITECTURE
+==================================================
+
+Build or refactor the system into these layers:
+
+1. INGESTION LAYER
+- Upload `.als`
+- Store file safely
+- Create project record
+- Compute artifact hash
+- Persist metadata
+- Track lifecycle state
+
+2. ALS DECODER / PARSER
+- Correctly load Ableton `.als`
+- Handle compression/container format correctly
+- Parse underlying XML safely
+- Preserve unknown/unmapped nodes for round-trip safety
+
+3. ROUND-TRIP XML AST
+- Build a loss-minimizing XML tree representation
+- Preserve node ordering
+- Preserve attributes
+- Preserve unknown sections
+- Preserve untouched regions as much as possible
+
+4. PROJECT GRAPH
+Create a normalized internal model for:
+- project metadata
+- tempo
+- arrangement length
+- locators
+- tracks
+- return tracks
+- master track
+- clips
+- devices
+- automation envelopes
+- routing/send relationships
+- timeline positions
+- IDs and references
+
+5. ANALYSIS ENGINE
+- Detect BPM accurately from actual Ableton source
+- Detect if tempo automation exists
+- Count tracks/clips/devices
+- Identify arrangement sections
+- Detect automation density and absence
+- Detect transition weakness
+- Detect intro/outro weakness
+- Detect sidechain/routing opportunities
+- Infer style profile from project characteristics
+- Produce grounded, evidence-based recommendations
+
+6. SUGGESTION ENGINE
+Each suggestion must be:
+- specific
+- explainable
+- grounded in evidence
+- categorized
+- prioritized
+- confidence-scored
+- marked exportable or manual-only
+
+7. SELECTION / MUTATION PLANNER
+- Allow user to choose suggestions
+- Convert selected suggestions into typed mutation objects
+- Reject unsupported unsafe mutations early
+
+8. MUTATION ENGINE
+- Apply typed mutations to ProjectGraph
+- Never directly mutate raw XML from AI text
+- Use centralized identity/reference management
+
+9. ALS COMPILER
+- Map mutated ProjectGraph back into XML AST
+- Preserve untouched original structure where possible
+- Insert new nodes in correct Ableton-compatible positions
+- Maintain valid IDs and references
+- Serialize valid `.als`
+
+10. VALIDATION LAYER
+Before export:
+- XML well-formedness
+- no duplicate IDs
+- all references resolve
+- required structure intact
+- tempo source valid
+- track/device/clip integrity valid
+- mutation results actually present
+
+11. EXPORT LAYER
+- Store compiled artifact
+- Mark export ready only when actual artifact exists
+- Stream valid modified `.als` only
+
+12. RESPONSIVE UI LAYER
+- Build responsive layout logic as a first-class system requirement
+- Support large desktop, laptop, tablet, and mobile breakpoints intentionally
+- Reflow dense data panels into stacked, swipeable, collapsible, or segmented structures where appropriate
+- Preserve critical actions and visibility on small screens without sacrificing clarity
+
+==================================================
+PROJECT LIFECYCLE MODEL
+==================================================
+
+Implement a strict lifecycle for each project:
+
+- CREATED
+- FILE_UPLOADED
+- INGESTING
+- INGESTED
+- PARSING
+- PARSED
+- ANALYZING
+- ANALYZED
+- SUGGESTIONS_READY
+- SELECTION_PENDING
+- MUTATION_PLAN_READY
+- APPLYING_MUTATIONS
+- VALIDATING_EXPORT
+- READY_FOR_EXPORT
+- EXPORTING
+- EXPORTED
+- FAILED
+
+All pages must use the same lifecycle source of truth.
+
+==================================================
+FRONTEND PRODUCT REQUIREMENTS
+==================================================
+
+The product must feel premium and original, not generic SaaS template junk.
+
+Design language:
+- dark, elegant, technical, futuristic
+- precise visual hierarchy
+- zero clutter
+- high-trust interaction patterns
+- “advanced studio intelligence” feel
+- cinematic restraint, not gimmicks
+
+The UI must not be “responsive” by simply shrinking everything.
+It must be intentionally redesigned at smaller breakpoints to preserve usability.
+
+Core pages:
+1. Hub / Upload
+2. Overview
+3. Matrix / Project Structure
+4. Strategy / AI Suggestions
+5. Mutation Plan / Apply Changes
+6. Deploy / Export
+
+==================================================
+RESPONSIVE / MOBILE REQUIREMENTS
+==================================================
+
+This is mandatory.
+
+The current or future UI must be optimized for:
+- desktop widescreen
+- laptop
+- tablet portrait/landscape
+- mobile portrait
+- mobile landscape where feasible
+
+Required responsive strategy:
+
+1. LAYOUT SYSTEM
+- Use a real breakpoint system, not accidental CSS collapse
+- Define clear breakpoints and layout behavior
+- Avoid fixed widths that break on smaller screens
+- Use fluid containers, min/max widths, and adaptive spacing
+- Prevent horizontal scroll except where intentionally used for structured data regions
+
+2. SIDEBAR / NAVIGATION
+- Desktop: persistent sidebar is acceptable
+- Tablet/mobile: convert sidebar into collapsible drawer, sheet, icon rail, or top navigation pattern
+- Ensure active project context remains visible
+- Ensure critical navigation remains reachable with thumb-friendly interaction
+
+3. CARD AND PANEL RESTRUCTURING
+- Multi-column desktop panels must stack cleanly on tablet/mobile
+- Dense metrics cards must wrap or transform into compact grouped sections
+- Long rows of status tiles must become stacked or horizontally scrollable snap groups
+- Debug artifacts and secondary panels must collapse by default on mobile
+
+4. TABLES / MATRICES / TRACK LISTS
+- Do not leave wide tables unusable on mobile
+- Convert large tables into:
+  - stacked cards
+  - accordion rows
+  - horizontal virtualized panels
+  - drill-down detail views
+- Preserve access to important metadata without forcing zooming
+
+5. STRATEGY / SUGGESTION CARDS
+- Suggestion cards must remain readable on mobile
+- Filters must be usable without consuming the entire viewport
+- Use chip rows, drawers, or collapsible filters where appropriate
+- Selection controls must remain obvious and tap-safe
+- Long evidence sections should collapse/expand cleanly
+
+6. DEPLOY / EXPORT PAGE
+- Pipeline stages must not overflow on mobile
+- Convert long horizontal stage rows into:
+  - stacked steps
+  - responsive progress sections
+  - segmented vertical timeline
+- Primary CTA must remain visible and not drop below confusing fold depth
+- Export status and diagnostics must stay readable
+
+7. OVERVIEW PAGE
+- BPM, bars, tracks, clips, Live version, confidence, style profile must remain visible without broken alignment
+- Desktop summary hero may become stacked summary cards on mobile
+- Do not let large headings consume too much vertical space on small devices
+
+8. TOUCH / INTERACTION
+- Buttons, toggles, chips, and selectors must be thumb-friendly
+- Adequate tap targets
+- Adequate spacing
+- No hover-only interactions for critical workflows
+- Important states must be visible without hover
+
+9. PERFORMANCE
+- Avoid heavy re-rendering on mobile
+- Avoid giant DOM lists without virtualization where needed
+- Lazy-load noncritical panels
+- Defer debug/secondary sections
+- Keep animations lightweight and tasteful
+
+10. MOBILE UX PRINCIPLE
+- Mobile users do not need every desktop element shown the same way
+- Prioritize workflow clarity:
+  Upload -> Analyze -> Review -> Select -> Apply -> Export
+- Secondary metadata can be progressively disclosed
+- Primary actions must stay obvious at every breakpoint
+
+==================================================
+PAGE REQUIREMENTS
+==================================================
+
+HUB / UPLOAD
+- Upload ALS
+- show original filename
+- file size
+- artifact hash
+- detected file readiness
+- “Initiate Analysis Pipeline” must start analysis on existing uploaded artifact
+- must NOT reopen file picker
+- separate “Replace File” action
+
+Mobile requirements:
+- upload card centered and clean
+- stage cards stack vertically or as swipeable progress blocks
+- no clipped filenames
+- action buttons stack cleanly
+- drag/drop area still usable on touch devices where relevant
+
+OVERVIEW
+- real BPM
+- tempo mode
+- tracks
+- clips
+- bars
+- Live version
+- arrangement summary
+- style profile
+- automation summary
+- all from actual uploaded project only
+
+Mobile requirements:
+- hero summary converts into compact stacked metrics
+- keep BPM and project essentials above the fold
+- style profile visualization must remain legible
+- no crushed stat cards
+
+MATRIX
+- real track inventory
+- real clips/devices/routing summary
+- real automation presence
+- track-level detail
+- no fake static rows
+
+Mobile requirements:
+- do not render desktop tables unchanged
+- use accordion or card-based per-track views
+- provide drill-down for devices/clips/automation
+- preserve scanability despite reduced width
+
+STRATEGY
+- real AI suggestions from actual analysis
+- filters by category / priority / exportable / manual-only
+- reasoning + evidence for each recommendation
+- confidence visible
+- affected tracks and bars visible
+
+Mobile requirements:
+- filter controls collapse into sheet/drawer or segmented filter row
+- cards remain selectable and readable
+- confidence, priority, and category remain visible
+- expanded details do not destroy scroll usability
+
+MUTATION PLAN
+- user can select/deselect suggestions
+- clear distinction:
+  - safe exportable mutations
+  - manual-only recommendations
+- select all safe
+- deselect all
+- filter by category
+- apply selected improvements
+
+Mobile requirements:
+- selection summary pinned or easy to access
+- apply button always reachable
+- mutation preview can collapse/expand
+- counts and categories must remain readable on small screens
+
+DEPLOY / EXPORT
+- show full pipeline stage
+- show selected suggestion counts
+- show exportable vs manual-only counts
+- show validation status
+- show compiled artifact state
+- primary CTA must be:
+  - Select Improvements
+  - Apply Selected Changes
+  - Download Modified .als
+  depending on lifecycle
+
+Mobile requirements:
+- pipeline stage tiles become vertical steps or compact cards
+- no infinite-width horizontal progress rows
+- export CTA stays prominent
+- debug artifacts remain collapsed
+- download controls are finger-friendly
+
+==================================================
+AI SUGGESTION QUALITY REQUIREMENTS
+==================================================
+
+Suggestions must be advanced, specific, and musically useful.
+
+No fluff like:
+- “make it better”
+- “improve transitions”
+- “add more energy”
+
+Instead generate suggestions like:
+- Add 8-bar stripped intro from bars 1–9 for DJ-friendly entry
+- Add low-pass automation on atmospheric return before breakdown at bars 61–65
+- Add master utility gain fade over final 8 bars for controlled exit
+- Add send automation burst on percussion bus into transition at bars 93–97
+- Add arrangement locator for build section around bars 81–97
+- Recommend sidechain compression between kick and bass due to sustained overlap
+- Add outro locator and density reduction after bar 165
+- Add filter envelope movement on texture layer due to static spectral profile
+- Introduce contrast event before drop because density remains flat for 32+ bars
+
+Each suggestion must include:
+- suggestionId
+- title
+- category
+- priority
+- confidence
+- reasoning
+- evidence
+- affected tracks
+- target bars
+- safeToExport boolean
+- manualOnly boolean
+- mutationType if exportable
+
+==================================================
+MUTATION MODEL REQUIREMENTS
+==================================================
+
+All selected improvements must be converted into typed mutation objects.
+
+Examples:
+- ADD_LOCATOR
+- ADD_AUTOMATION_ENVELOPE
+- ADD_UTILITY_GAIN_AUTOMATION
+- ADD_FILTER_SWEEP_AUTOMATION
+- ADD_RETURN_SEND_AUTOMATION
+- EXTEND_ARRANGEMENT
+- ADD_OUTRO_SECTION
+- RENAME_TRACK
+- ADD_MIDI_CLIP
+- ADD_TRACK
+- INSERT_TRANSITION_REGION
+
+Each mutation must include:
+- mutationId
+- type
+- enabled
+- category
+- target references
+- payload
+- constraints
+- evidence source
+- exportability status
+
+No AI prose may directly mutate XML.
+
+==================================================
+ALS FORMAT AND COMPILER REQUIREMENTS
+==================================================
+
+Treat Ableton `.als` as a structured file format, not generic XML junk.
+
+Implement with discipline:
+
+- correct decode/encode path
+- correct authoritative BPM extraction
+- round-trip-safe AST
+- preserve unknown nodes
+- preserve untouched subtrees where practical
+- maintain sibling order
+- central ID allocator
+- central reference resolver
+- deterministic compile output
+- validation before export
+
+Must guard against:
+- duplicate Id attributes
+- malformed Id values
+- orphan references
+- invalid automation target refs
+- invalid timeline values
+- invalid node placement
+- dropped unknown sections
+- export marked ready before artifact exists
+
+==================================================
+EXPORTABILITY LOGIC
+==================================================
+
+Not all recommendations are safe to write directly into `.als`.
+
+You must separate:
+1. EXPORTABLE SAFE MUTATIONS
+2. MANUAL-ONLY RECOMMENDATIONS
+
+Rules:
+- only structurally supported changes are written into modified `.als`
+- ambiguous or unsupported changes remain manual-only
+- UI must state exactly what was applied and what remains advisory
+- do not falsely claim manual-only items were written into the file
+
+==================================================
+STATE MANAGEMENT REQUIREMENTS
+==================================================
+
+The app must use one source of truth across all pages.
+
+Implement:
+- project_id-based server state
+- artifact-hash-based invalidation
+- unified lifecycle fetch
+- query invalidation on file replace
+- no stale cached results across uploads
+- no page-specific fake readiness state
+
+Every page must bind to:
+- activeProjectId
+- activeArtifactHash/version
+- lifecycle state
+- latest analysis result id
+- latest mutation plan id
+- export status
+
+==================================================
+BACKEND API REQUIREMENTS
+==================================================
+
+Implement or refactor to a clean contract like:
+
+POST /api/projects/upload
+GET  /api/projects/:id
+GET  /api/projects/:id/status
+POST /api/projects/:id/initiate-pipeline
+GET  /api/projects/:id/analysis
+GET  /api/projects/:id/suggestions
+POST /api/projects/:id/selection
+GET  /api/projects/:id/mutation-plan
+POST /api/projects/:id/apply-selected-mutations
+GET  /api/projects/:id/export-status
+GET  /api/projects/:id/export-artifact
+POST /api/projects/:id/export-als
+
+All responses must be project-specific, deterministic, and structured.
+
+==================================================
+POLLING / READINESS REQUIREMENTS
+==================================================
+
+Fix all deadlocks and fake loops.
+
+Rules:
+- no endless “checking”
+- polling must stop on terminal states
+- explicit states:
+  NOT_AVAILABLE
+  AWAITING_SELECTION
+  READY_TO_COMPILE
+  COMPILING
+  READY
+  FAILED
+- verify actual artifact existence before READY
+- expose exact failure if missing
+- add timeout protection for compile state
+
+==================================================
+BPM / TEMPO REQUIREMENTS
+==================================================
+
+Tempo must be read correctly from the actual ALS structure.
+
+Implement:
+- base_tempo extraction
+- tempo automation detection
+- effective_tempo_mode = FIXED or AUTOMATED
+- precision-safe numeric parsing
+- explicit fallback handling with diagnostics
+- never silently default to 120/130 without warning
+
+Display consistently across Overview, Strategy, and Deploy.
+
+==================================================
+TESTING REQUIREMENTS
+==================================================
+
+You must build real tests, not token tests.
+
+Add:
+1. parser round-trip tests
+2. BPM accuracy tests
+3. lifecycle state transition tests
+4. upload -> initiate pipeline tests
+5. stale-state invalidation tests
+6. suggestion selection flow tests
+7. manual-only safety tests
+8. mutation application tests
+9. export artifact existence tests
+10. modified ALS reparse tests
+11. duplicate-ID / broken-ref invariant tests
+12. cross-page consistency tests
+13. responsive layout tests for critical breakpoints
+14. mobile navigation and CTA visibility tests
+15. no-horizontal-overflow tests on key pages
+
+Use fixture ALS files for:
+- minimal project
+- one MIDI track
+- one audio track
+- automation present
+- locators present
+- return tracks present
+- Live 10
+- Live 11
+- Live 12
+
+Also test UI across representative breakpoints:
+- 1440px desktop
+- 1024px laptop/tablet landscape
+- 768px tablet portrait
+- 430px mobile portrait
+- 390px smaller mobile portrait
+
+==================================================
+OBSERVABILITY / DEBUGGING REQUIREMENTS
+==================================================
+
+Add serious diagnostics.
+
+Create a hidden debug panel showing:
+- activeProjectId
+- artifactId
+- artifact hash
+- Live version
+- BPM source node/path
+- analysis result id
+- selection ids
+- mutation plan id
+- compile state
+- export artifact path
+- validation result
+- last error
+
+Log:
+- upload flow
+- lifecycle changes
+- backend pipeline jobs
+- parser diagnostics
+- BPM source extraction
+- export readiness checks
+- artifact existence verification
+- stale cache mismatches
+- current responsive breakpoint in development mode
+- mobile layout fallback activation for key pages
+
+==================================================
+SECURITY / ROBUSTNESS REQUIREMENTS
+==================================================
+
+Implement practical production protections:
+- validate file type and size
+- safe temp storage
+- avoid arbitrary file path issues
+- sanitize filenames for storage
+- handle malformed ALS gracefully
+- structured errors
+- no leaking internal stack traces to UI
+- safe retries for recoverable jobs
+
+==================================================
+DELIVERY REQUIREMENTS
+==================================================
+
+Do the real work in the repo:
+- inspect current implementation
+- replace weak areas
+- wire frontend/backend correctly
+- remove demo logic in production paths
+- implement parser/compiler hardening
+- implement selection/apply/export flow
+- add tests
+- improve UI consistency
+- optimize responsive behavior across all main screens
+- ensure product feels polished and real
+
+Do not respond with only suggestions or architecture notes.
+Implement the working system.
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+This is complete only if all are true:
+
+1. Uploading an ALS creates a real persisted project
+2. Initiating pipeline analyzes the already-uploaded file
+3. BPM shown is the real BPM from the uploaded ALS
+4. Overview / Matrix / Strategy / Deploy all reflect the same project
+5. AI suggestions are grounded in actual analysis
+6. User can explicitly choose which suggestions to apply
+7. Only safe/exportable mutations are written into the file
+8. Manual-only recommendations are clearly separated
+9. Modified `.als` is compiled using correct Ableton-compatible structure
+10. Export status never hangs forever
+11. Export is only ready when actual artifact exists
+12. Downloaded modified `.als` opens successfully in Ableton
+13. Desktop layout feels premium and cohesive
+14. Tablet/mobile layouts are intentionally optimized, not broken shrunk versions
+15. Primary workflow remains fully usable on smaller screens
+16. No critical horizontal overflow, clipped CTA, or unreadable panels remain
+17. The app feels premium, cohesive, advanced, and production-ready
+
+Execute like an elite engineering team with ownership.
+Be strict, creative, original, and technically correct.
+Do not stop until the real product path works.

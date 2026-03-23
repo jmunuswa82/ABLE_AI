@@ -1,0 +1,564 @@
+{
+  "projectId": "5eb865e4-9c5e-4ea6-bcbc-b4c00dfa3dcd",
+  "summary": "Analyzed a atmospheric techno, minimal techno project with 19 tracks, 126 clips, 0 automated tracks, at 120 BPM — 180 bars total. Found 4 potential improvements. Generated 12 completion actions (0 critical, 7 high priority).",
+  "confidence": 0.95,
+  "completionScore": 1,
+  "styleTags": [
+    "atmospheric techno",
+    "minimal techno",
+    "industrial techno",
+    "dark warehouse techno"
+  ],
+  "actions": [
+    {
+      "id": "32dad836-28c8-4a7d-9749-89490a08b637",
+      "category": "structure",
+      "title": "Add Outro / Exit Section",
+      "description": "No outro section detected. Add an 8–16 bar outro that gradually strips elements back, leaving only kick and a fading element to allow DJ mixing out.",
+      "affectedTracks": [
+        "All tracks"
+      ],
+      "affectedBars": "165–181",
+      "confidence": 0.85,
+      "expectedImpact": "high",
+      "rationale": "Tracks without outros are difficult to mix out gracefully in a live DJ context.",
+      "priority": "high",
+      "startBeat": 656,
+      "endBeat": 720,
+      "targetTrackIds": [],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_locator",
+          "targetTrackId": null,
+          "targetTrackName": null,
+          "startBeat": 656,
+          "endBeat": null,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": null,
+          "notes": null,
+          "locatorName": "Outro",
+          "safe": true,
+          "reason": "Mark outro section boundary"
+        }
+      ],
+      "sectionLabel": "Outro",
+      "safeToExport": true,
+      "manualOnly": false
+    },
+    {
+      "id": "8f65d025-32f6-4bd3-a71a-0ddf6a486216",
+      "category": "structure",
+      "title": "Add Breakdown Section",
+      "description": "Insert a 16–32 bar breakdown (bars 75–106) that removes kick and bass, keeping atmospheric elements. Creates contrast and anticipation before the drop.",
+      "affectedTracks": [
+        "lead 1",
+        "lead 2",
+        "17-seedj_drone_loop_ciotto_144_bpm"
+      ],
+      "affectedBars": "75–107",
+      "confidence": 0.75,
+      "expectedImpact": "high",
+      "rationale": "Breakdowns are essential for energy management in a DJ set context.",
+      "priority": "high",
+      "startBeat": 296,
+      "endBeat": 424,
+      "targetTrackIds": [
+        "track_midi_22_9",
+        "track_midi_30_10",
+        "track_audio_36_0"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_locator",
+          "targetTrackId": null,
+          "targetTrackName": null,
+          "startBeat": 296,
+          "endBeat": null,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": null,
+          "notes": null,
+          "locatorName": "Breakdown",
+          "safe": true,
+          "reason": null
+        },
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": null,
+          "targetTrackName": null,
+          "startBeat": 296,
+          "endBeat": 424,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Volume",
+          "automationPoints": [
+            {
+              "time": 296,
+              "value": 0
+            },
+            {
+              "time": 300,
+              "value": 0
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Mute kick/bass during breakdown via volume automation placeholder"
+        }
+      ],
+      "sectionLabel": "Breakdown",
+      "safeToExport": true,
+      "manualOnly": false
+    },
+    {
+      "id": "2ddbacf1-3dfd-4276-96b7-432b96912e2b",
+      "category": "automation",
+      "title": "Add Filter Sweep Automation",
+      "description": "Automate filter cutoff on key tracks through section transitions (bars 55–91). Build from fully closed to 60–70% open over 4–8 bars leading into the drop, close again entering breakdown.",
+      "affectedTracks": [
+        "lead 1",
+        "lead 2",
+        "Amb"
+      ],
+      "affectedBars": "55–91",
+      "confidence": 0.85,
+      "expectedImpact": "high",
+      "rationale": "Filter sweeps are the primary energy tool in techno and are expected by listeners.",
+      "priority": "high",
+      "startBeat": 216,
+      "endBeat": 360,
+      "targetTrackIds": [
+        "track_midi_22_9",
+        "track_midi_30_10",
+        "track_midi_35_14"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": "track_midi_22_9",
+          "targetTrackName": "lead 1",
+          "startBeat": 216,
+          "endBeat": 360,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Filter Cutoff",
+          "automationPoints": [
+            {
+              "time": 216,
+              "value": 0.15
+            },
+            {
+              "time": 356,
+              "value": 0.75
+            },
+            {
+              "time": 360,
+              "value": 0.75
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Filter sweep for build section"
+        }
+      ],
+      "sectionLabel": null,
+      "safeToExport": true,
+      "manualOnly": false
+    },
+    {
+      "id": "b808c753-ec8c-4c05-95e3-6863ad3dd2c6",
+      "category": "transitions",
+      "title": "Add Tension Sweeps at Section Boundaries",
+      "description": "Add white noise or filtered sweep risers (4–8 bars) before major section changes. Section boundaries at: bar 5 before Intro, bar 15 before Intro. Also add downward pitch automation on synths as the drop hits.",
+      "affectedTracks": [
+        "New FX/sweep track"
+      ],
+      "affectedBars": "1–5",
+      "confidence": 0.82,
+      "expectedImpact": "high",
+      "rationale": "Sweeps signal section changes and build anticipation — critical for floor impact.",
+      "priority": "high",
+      "startBeat": 0,
+      "endBeat": 16,
+      "targetTrackIds": [],
+      "createsNewTrack": true,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_clip",
+          "targetTrackId": null,
+          "targetTrackName": null,
+          "startBeat": 0,
+          "endBeat": 16,
+          "newTrackName": "FX Sweep",
+          "newTrackType": "audio",
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": "audio",
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Riser/sweep transition clip placeholder"
+        }
+      ],
+      "sectionLabel": "Intro",
+      "safeToExport": true,
+      "manualOnly": false
+    },
+    {
+      "id": "a640f9d3-6543-40ce-ada7-c5bb092f2bc1",
+      "category": "ending",
+      "title": "Build Outro Strip-Back Sequence",
+      "description": "Create a 16-bar outro (bars 165–180) where elements drop out gradually: first remove leads/synths (bars 1–4 of outro), then percussion (bars 5–8), leaving kick+bass to bar 12, then only kick to bar 16. Fade kick with volume automation.",
+      "affectedTracks": [
+        "All tracks"
+      ],
+      "affectedBars": "165–181",
+      "confidence": 0.88,
+      "expectedImpact": "high",
+      "rationale": "A proper outro is essential for live DJ mixing — allows smooth transition to next track.",
+      "priority": "high",
+      "startBeat": 656,
+      "endBeat": 720,
+      "targetTrackIds": [],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": null,
+          "targetTrackName": null,
+          "startBeat": 704,
+          "endBeat": 720,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Volume",
+          "automationPoints": [
+            {
+              "time": 704,
+              "value": 1
+            },
+            {
+              "time": 716,
+              "value": 0.3
+            },
+            {
+              "time": 720,
+              "value": 0
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Master volume fade for outro"
+        }
+      ],
+      "sectionLabel": "Outro",
+      "safeToExport": true,
+      "manualOnly": false
+    },
+    {
+      "id": "aa7af2b4-e046-4fc8-a7fb-e340b8e96e61",
+      "category": "sidechain",
+      "title": "Add Sidechain: kick → bass",
+      "description": "No sidechain relationship detected. AI proposes adding a kick-triggered sidechain compressor on 'bass' sourced from 'kick'. Apply through the groove section (bars 1–181). Purpose: Add pumping groove — kick ducking bass is standard in techno/dance. Use Ableton's Compressor with Sidechain > Audio From set to the kick track.",
+      "affectedTracks": [
+        "kick",
+        "bass"
+      ],
+      "affectedBars": "1–181",
+      "confidence": 0.88,
+      "expectedImpact": "high",
+      "rationale": "Add pumping groove — kick ducking bass is standard in techno/dance",
+      "priority": "high",
+      "startBeat": 0,
+      "endBeat": 720,
+      "targetTrackIds": [
+        "track_midi_28_3"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": false,
+      "addsSidechain": true,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_sidechain_proposal",
+          "targetTrackId": "track_midi_28_3",
+          "targetTrackName": "bass",
+          "startBeat": 0,
+          "endBeat": 720,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": false,
+          "reason": "Add Compressor with sidechain input from kick"
+        }
+      ],
+      "sectionLabel": null,
+      "safeToExport": false,
+      "manualOnly": true
+    },
+    {
+      "id": "1ee7b8a0-0d1c-4714-85db-423917a3f0e3",
+      "category": "sidechain",
+      "title": "Add Sidechain: kick → lead 1",
+      "description": "No sidechain relationship detected. AI proposes adding a kick-triggered sidechain compressor on 'lead 1' sourced from 'kick'. Apply through the groove section (bars 1–181). Purpose: Texture pumping — sidechain creates rhythmic movement in pads/synths. Use Ableton's Compressor with Sidechain > Audio From set to the kick track.",
+      "affectedTracks": [
+        "kick",
+        "lead 1"
+      ],
+      "affectedBars": "1–181",
+      "confidence": 0.72,
+      "expectedImpact": "high",
+      "rationale": "Texture pumping — sidechain creates rhythmic movement in pads/synths",
+      "priority": "high",
+      "startBeat": 0,
+      "endBeat": 720,
+      "targetTrackIds": [
+        "track_midi_22_9"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": false,
+      "addsSidechain": true,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_sidechain_proposal",
+          "targetTrackId": "track_midi_22_9",
+          "targetTrackName": "lead 1",
+          "startBeat": 0,
+          "endBeat": 720,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": null,
+          "automationPoints": null,
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": false,
+          "reason": "Add Compressor with sidechain input from kick"
+        }
+      ],
+      "sectionLabel": null,
+      "safeToExport": false,
+      "manualOnly": true
+    },
+    {
+      "id": "d4cc2d7b-ed04-44e7-b51b-8527d7c56bb3",
+      "category": "drums",
+      "title": "Strengthen Percussion Layer",
+      "description": "Add 1–2 additional percussion tracks (shakers, congas, industrial percussion) to create rhythmic complexity. Layer at 1/16th or 1/32nd offsets from the main groove.",
+      "affectedTracks": [
+        "New percussion tracks"
+      ],
+      "affectedBars": null,
+      "confidence": 0.72,
+      "expectedImpact": "medium",
+      "rationale": "Techno benefits from layered percussion for hypnotic groove depth.",
+      "priority": "medium",
+      "startBeat": null,
+      "endBeat": null,
+      "targetTrackIds": [],
+      "createsNewTrack": true,
+      "addsAutomation": false,
+      "addsSidechain": false,
+      "mutationPayloads": [],
+      "sectionLabel": null,
+      "safeToExport": false,
+      "manualOnly": true
+    },
+    {
+      "id": "820af72d-e082-419c-9e4f-3499cf074690",
+      "category": "bass",
+      "title": "Add Bass Filter Automation",
+      "description": "Add filter cutoff automation to 'bass' to create movement. A low-pass filter opening from 200 Hz to 800 Hz over bars 46–91 creates a classic energy build.",
+      "affectedTracks": [
+        "bass"
+      ],
+      "affectedBars": "46–91",
+      "confidence": 0.8,
+      "expectedImpact": "medium",
+      "rationale": "Filter automation on bass is the primary energy tool in techno.",
+      "priority": "medium",
+      "startBeat": 180,
+      "endBeat": 360,
+      "targetTrackIds": [
+        "track_midi_28_3"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": "track_midi_28_3",
+          "targetTrackName": "bass",
+          "startBeat": 180,
+          "endBeat": 360,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Filter Cutoff",
+          "automationPoints": [
+            {
+              "time": 180,
+              "value": 0.25
+            },
+            {
+              "time": 360,
+              "value": 0.75
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": "Filter sweep on bass for build section energy"
+        }
+      ],
+      "sectionLabel": null,
+      "safeToExport": true,
+      "manualOnly": false
+    },
+    {
+      "id": "f171a9cd-344f-46ac-b8f6-f2e58d347cce",
+      "category": "automation",
+      "title": "Add Send Level Automation",
+      "description": "Automate reverb/delay send amounts on key elements (bars 91–118). Throw reverb sends up during breakdown to create space and anticipation.",
+      "affectedTracks": [
+        "A-Reverb"
+      ],
+      "affectedBars": "91–118",
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Automated send throws create depth and atmosphere essential for techno tension.",
+      "priority": "medium",
+      "startBeat": 360,
+      "endBeat": 468,
+      "targetTrackIds": [
+        "track_return_2_0"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [],
+      "sectionLabel": null,
+      "safeToExport": false,
+      "manualOnly": true
+    },
+    {
+      "id": "f09a7b60-c69e-4a71-8b81-d307779071f2",
+      "category": "transitions",
+      "title": "Add Drum Fill at Key Transitions",
+      "description": "Add a 1–2 bar drum fill (bars 3–5) before each major section change. A 1/16th–1/32nd note roll on snare or clap works well.",
+      "affectedTracks": [
+        "toms",
+        "clap",
+        "clap 2"
+      ],
+      "affectedBars": "3–5",
+      "confidence": 0.78,
+      "expectedImpact": "medium",
+      "rationale": "Fills signal transitions and energize the moment of section change.",
+      "priority": "medium",
+      "startBeat": 8,
+      "endBeat": 16,
+      "targetTrackIds": [
+        "track_midi_13_2",
+        "track_midi_15_4",
+        "track_midi_29_5"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": false,
+      "addsSidechain": false,
+      "mutationPayloads": [],
+      "sectionLabel": null,
+      "safeToExport": false,
+      "manualOnly": true
+    },
+    {
+      "id": "f9a4f719-46d6-4a4c-8859-d83c3305c958",
+      "category": "automation",
+      "title": "Add Resonance Automation",
+      "description": "Automate filter resonance on 'bass' through the peak section (bars 100–126). Rising resonance (Q) from 0.5 to 2.0 creates tension and urgency.",
+      "affectedTracks": [
+        "bass"
+      ],
+      "affectedBars": "100–126",
+      "confidence": 0.72,
+      "expectedImpact": "medium",
+      "rationale": "Resonance automation adds harmonic tension absent from purely gain-based dynamics.",
+      "priority": "low",
+      "startBeat": 396.00000000000006,
+      "endBeat": 503.99999999999994,
+      "targetTrackIds": [
+        "track_midi_28_3"
+      ],
+      "createsNewTrack": false,
+      "addsAutomation": true,
+      "addsSidechain": false,
+      "mutationPayloads": [
+        {
+          "mutationType": "add_automation",
+          "targetTrackId": "track_midi_28_3",
+          "targetTrackName": "bass",
+          "startBeat": 396.00000000000006,
+          "endBeat": 503.99999999999994,
+          "newTrackName": null,
+          "newTrackType": null,
+          "automationParameter": "Filter Resonance",
+          "automationPoints": [
+            {
+              "time": 396.00000000000006,
+              "value": 0.3
+            },
+            {
+              "time": 503.99999999999994,
+              "value": 0.85
+            }
+          ],
+          "clipType": null,
+          "notes": null,
+          "locatorName": null,
+          "safe": true,
+          "reason": null
+        }
+      ],
+      "sectionLabel": null,
+      "safeToExport": true,
+      "manualOnly": false
+    }
+  ],
+  "weaknesses": [
+    "Very little automation detected — arrangement feels static and lacks dynamic movement",
+    "No outro section detected — arrangement may end abruptly at bar 720",
+    "2 return track(s) detected but may be underused (no automated sends)",
+    "6 tracks with many clips but zero automation — consider adding filter sweeps, send throws, or gain automation"
+  ],
+  "warnings": [],
+  "rationale": "This atmospheric techno project has been analyzed using rule-based music analysis. Completion suggestions are based on: arrangement structure analysis, role inference (track type detection without relying on names), section energy/density profiling, automation density analysis (0 tracks with automation detected), sidechain graph analysis (2 links detected or proposed), and genre-specific production conventions for atmospheric techno. All suggestions include exact bar placements derived from the parsed arrangement, machine-executable mutation payloads, and confidence scores based on parse quality (100%) and detection certainty.",
+  "generatedAt": "2026-03-23T00:08:29.691070+00:00",
+  "mutationPlanVersion": "1.0.0"
+}

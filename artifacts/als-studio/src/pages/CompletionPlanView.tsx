@@ -145,7 +145,7 @@ export default function CompletionPlanView() {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (projectLoading) {
     return (
-      <div className="p-8 flex items-center gap-3 text-[var(--text-muted)]">
+      <div className="p-4 md:p-8 flex items-center gap-3 text-[var(--text-muted)]">
         <Loader2 className="w-5 h-5 animate-spin" />
         <span className="font-label text-[11px] uppercase tracking-widest">Loading project…</span>
       </div>
@@ -155,9 +155,9 @@ export default function CompletionPlanView() {
   // ── Case A: Project not found ─────────────────────────────────────────────
   if (!project) {
     return (
-      <div className="p-8 max-w-xl mx-auto mt-12 text-center">
+      <div className="p-4 md:p-8 max-w-xl mx-auto mt-12 text-center">
         <div
-          className="rounded-xl p-8"
+          className="rounded-xl p-6 md:p-8"
           style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
         >
           <AlertTriangle className="w-8 h-8 mx-auto mb-4 text-[var(--amber)]" />
@@ -201,7 +201,7 @@ export default function CompletionPlanView() {
   if (isAnalyzing && !plan) {
     return (
       <motion.div
-        className="p-8 max-w-3xl mx-auto space-y-6"
+        className="p-4 md:p-8 max-w-3xl mx-auto space-y-6"
         variants={ANIMATION_VARIANTS.fadeIn}
         initial="initial"
         animate="animate"
@@ -210,7 +210,7 @@ export default function CompletionPlanView() {
           <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
             Neural Completion Strategy
           </p>
-          <h1 className="text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
+          <h1 className="text-[22px] md:text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
             Analysis in Progress
           </h1>
           <p className="text-[var(--text-secondary)] text-[14px]">
@@ -237,7 +237,7 @@ export default function CompletionPlanView() {
     const latestError = (project.jobs ?? []).find((j: any) => j.error)?.error;
     return (
       <motion.div
-        className="p-8 max-w-3xl mx-auto space-y-6"
+        className="p-4 md:p-8 max-w-3xl mx-auto space-y-6"
         variants={ANIMATION_VARIANTS.fadeIn}
         initial="initial"
         animate="animate"
@@ -246,7 +246,7 @@ export default function CompletionPlanView() {
           <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
             Neural Completion Strategy
           </p>
-          <h1 className="text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
+          <h1 className="text-[22px] md:text-[28px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-2">
             Pipeline Failed
           </h1>
         </div>
@@ -303,7 +303,7 @@ export default function CompletionPlanView() {
   // ── Loading plan ──────────────────────────────────────────────────────────
   if (planLoading) {
     return (
-      <div className="p-8 flex items-center gap-3 text-[var(--text-muted)]">
+      <div className="p-4 md:p-8 flex items-center gap-3 text-[var(--text-muted)]">
         <Loader2 className="w-5 h-5 animate-spin" />
         <span className="font-label text-[11px] uppercase tracking-widest">Loading strategy…</span>
       </div>
@@ -336,19 +336,19 @@ export default function CompletionPlanView() {
 
   return (
     <motion.div
-      className="p-8 max-w-5xl mx-auto w-full space-y-8 mb-12"
+      className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 md:space-y-8 mb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
     >
       {/* Header panel */}
-      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel p-8 rounded-3xl relative overflow-hidden bg-[var(--bg-panel)]">
+      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel p-4 md:p-8 rounded-2xl md:rounded-3xl relative overflow-hidden bg-[var(--bg-panel)]">
         <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/20 blur-[80px] rounded-full pointer-events-none" />
 
         <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
           Neural Completion Strategy
         </p>
-        <h1 className="text-[32px] font-display font-bold mb-3 tracking-[-1px] text-white">
+        <h1 className="text-[22px] md:text-[32px] font-display font-bold mb-3 tracking-[-1px] text-white">
           {project.name}
         </h1>
         <p className="text-[var(--text-secondary)] text-[14px] max-w-2xl leading-relaxed">
@@ -403,7 +403,7 @@ export default function CompletionPlanView() {
       {safeActions.length > 0 && (
         <motion.div variants={ANIMATION_VARIANTS.slideUp}>
           <div
-            className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap"
+            className="rounded-xl p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4"
             style={{
               background: "var(--bg-panel)",
               border: selectedIds.size > 0
@@ -475,11 +475,11 @@ export default function CompletionPlanView() {
 
       {/* Category filter */}
       {categories.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory md:flex-wrap md:overflow-visible md:pb-0">
           <button
             onClick={() => setFilter(null)}
             className={cn(
-              "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold",
+              "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap snap-start shrink-0 md:shrink",
               !filter ? "bg-white text-black" : "bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white"
             )}
           >
@@ -490,7 +490,7 @@ export default function CompletionPlanView() {
               key={c}
               onClick={() => setFilter(c)}
               className={cn(
-                "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold",
+                "px-4 py-2 rounded-full text-[10px] font-label uppercase tracking-widest transition-all font-semibold whitespace-nowrap snap-start shrink-0 md:shrink",
                 filter === c
                   ? "bg-primary text-[#271900] shadow-[0_0_15px_rgba(255,183,3,0.4)]"
                   : "bg-[var(--bg-overlay)] text-[var(--text-muted)] hover:text-white"
@@ -535,9 +535,9 @@ function EmptyState({ icon, title, body, action }: {
   action?: React.ReactNode;
 }) {
   return (
-    <div className="p-8 max-w-xl mx-auto mt-12 text-center">
+    <div className="p-4 md:p-8 max-w-xl mx-auto mt-8 md:mt-12 text-center">
       <div
-        className="rounded-xl p-10"
+        className="rounded-xl p-6 md:p-10"
         style={{ background: "var(--bg-panel)", border: "1px solid rgba(81,69,50,0.1)" }}
       >
         {icon}
@@ -575,7 +575,7 @@ function ActionCard({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       className={cn(
-        "glass-panel rounded-xl p-6 border-l-[3px] transition-all",
+        "glass-panel rounded-xl p-4 md:p-6 border-l-[3px] transition-all",
         selected && isSafe
           ? "border-l-primary shadow-[0_0_0_1px_rgba(255,183,3,0.25)]"
           : action.priority === "critical" || action.priority === "high"

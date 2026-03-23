@@ -76,13 +76,13 @@ export default function ProjectDetail() {
 
   return (
     <motion.div
-      className="p-8 max-w-6xl mx-auto space-y-8 w-full mb-12"
+      className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8 w-full mb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
     >
       {/* Hero Header */}
-      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-8 relative overflow-hidden">
+      <motion.div variants={ANIMATION_VARIANTS.slideUp} className="glass-panel rounded-2xl p-4 md:p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
 
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
@@ -91,7 +91,7 @@ export default function ProjectDetail() {
               Structural Overview
             </div>
             <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-[32px] font-display font-bold text-white tracking-[-1px]">
+              <h1 className="text-[22px] md:text-[32px] font-display font-bold text-white tracking-[-1px]">
                 {project.name}
               </h1>
               <div
@@ -324,7 +324,7 @@ function StatBox({ label, value, valueClass = "text-white", icon }: any) {
         {icon}
         <span className="text-[9px] font-label uppercase tracking-[1.8px]">{label}</span>
       </div>
-      <p className={cn("text-[28px] font-display font-bold", valueClass)}>{value}</p>
+      <p className={cn("text-[20px] md:text-[28px] font-display font-bold", valueClass)}>{value}</p>
     </div>
   );
 }
@@ -332,25 +332,25 @@ function StatBox({ label, value, valueClass = "text-white", icon }: any) {
 function TrackRow({ track }: { track: any }) {
   const roleColor = getRoleColor(track.inferredRole);
   return (
-    <div className="px-6 py-4 flex items-center gap-4 text-sm hover:bg-[var(--bg-elevated)] transition-colors group">
+    <div className="px-4 md:px-6 py-3 md:py-4 flex flex-wrap md:flex-nowrap items-center gap-2 md:gap-4 text-sm hover:bg-[var(--bg-elevated)] transition-colors group">
       <div
         className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-lg"
         style={{ backgroundColor: roleColor, boxShadow: `0 0 10px ${roleColor}80` }}
       />
-      <span className="text-white font-display font-medium w-48 truncate group-hover:text-primary transition-colors">
+      <span className="text-white font-display font-medium flex-1 md:w-48 md:flex-none truncate group-hover:text-primary transition-colors">
         {track.name}
       </span>
-      <div className="w-32 shrink-0">
+      <div className="hidden md:block w-32 shrink-0">
         <span className="text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded bg-[var(--bg-card)] border border-[var(--amber-border)] text-[var(--text-secondary)]">
           {track.inferredRole}
         </span>
       </div>
-      <span className="text-[var(--text-code)] text-[11px] font-mono w-16 uppercase">{track.type}</span>
-      <div className="flex gap-4 ml-auto text-[11px] text-[var(--amber-light)] font-mono">
-        <span className="bg-[var(--bg-overlay)] px-2 py-1 rounded border border-[var(--amber-border)]">
+      <span className="hidden md:inline text-[var(--text-code)] text-[11px] font-mono w-16 uppercase">{track.type}</span>
+      <div className="flex gap-2 md:gap-4 ml-auto text-[10px] md:text-[11px] text-[var(--amber-light)] font-mono">
+        <span className="bg-[var(--bg-overlay)] px-1.5 md:px-2 py-0.5 md:py-1 rounded border border-[var(--amber-border)]">
           {track.clipCount} clips
         </span>
-        <span className="bg-[var(--bg-overlay)] px-2 py-1 rounded border border-[var(--amber-border)]">
+        <span className="bg-[var(--bg-overlay)] px-1.5 md:px-2 py-0.5 md:py-1 rounded border border-[var(--amber-border)]">
           {track.deviceCount} fx
         </span>
       </div>
@@ -360,7 +360,7 @@ function TrackRow({ track }: { track: any }) {
 
 function PageSkeleton() {
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6 w-full">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 w-full">
       <div className="h-48 glass-panel animate-pulse rounded-2xl" />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 h-96 glass-panel animate-pulse rounded-2xl" />

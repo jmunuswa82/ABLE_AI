@@ -180,7 +180,7 @@ export default function ExportView() {
 
   if (!project || lifecycle === "LOADING") {
     return (
-      <div className="p-8 flex items-center gap-3 text-[var(--text-muted)]">
+      <div className="p-4 md:p-8 flex items-center gap-3 text-[var(--text-muted)]">
         <Loader2 className="w-5 h-5 animate-spin" />
         <span className="font-label text-[11px] uppercase tracking-widest">Loading…</span>
       </div>
@@ -189,7 +189,7 @@ export default function ExportView() {
 
   return (
     <motion.div
-      className="p-8 max-w-3xl mx-auto w-full space-y-6 mb-12"
+      className="p-4 md:p-8 max-w-3xl mx-auto w-full space-y-6 mb-12"
       variants={ANIMATION_VARIANTS.staggerContainer}
       initial="initial"
       animate="animate"
@@ -199,7 +199,7 @@ export default function ExportView() {
         <p className="text-[10px] font-label uppercase tracking-[1.5px] text-[var(--text-muted)] mb-3">
           Deploy Stage
         </p>
-        <h1 className="text-[30px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-3">
+        <h1 className="text-[22px] md:text-[30px] font-display font-bold tracking-[-1.2px] text-[var(--text-primary)] mb-3">
           Export Modified{" "}
           <span style={{ color: "var(--amber)" }}>.als</span> File
         </h1>
@@ -414,7 +414,7 @@ export default function ExportView() {
               {/* Stats */}
               {exportStatus && (
                 <div
-                  className="grid grid-cols-2 gap-3 mb-5 p-4 rounded-lg"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 p-3 md:p-4 rounded-lg"
                   style={{ background: "var(--bg-card)" }}
                 >
                   <div>
