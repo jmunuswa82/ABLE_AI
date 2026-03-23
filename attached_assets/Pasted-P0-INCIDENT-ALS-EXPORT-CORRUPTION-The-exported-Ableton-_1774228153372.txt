@@ -1,0 +1,287 @@
+P0 INCIDENT — ALS EXPORT CORRUPTION
+
+The exported Ableton file is currently corrupt and Ableton throws:
+
+"Unknown Compound Stream Type"
+
+This means the exported file is NOT a valid Ableton-readable ALS container.
+
+You must now switch to FORENSICS MODE.
+
+This is no longer a UI or feature task.
+
+Your job is to locate exactly where the ALS file becomes invalid and fix the export pipeline.
+
+Treat this like a production data corruption incident.
+
+Do not continue working on UI, responsive layout, dashboards, analytics, or suggestion logic until this is solved.
+
+Your only mission is:
+
+MAKE THE EXPORTED .ALS FILE STRUCTURALLY VALID.
+
+------------------------------------------------
+
+ROOT PROBLEM
+
+The system currently exports a file called:
+
+raw_2_ai_patch.als
+
+Ableton rejects it before XML parsing with:
+
+"Unknown Compound Stream Type"
+
+This means one of the following is happening:
+
+• The exporter writes raw XML and renames it `.als`
+• The exporter writes a ZIP archive renamed `.als`
+• The exporter writes debug artifacts into the file
+• The exporter truncates the file stream
+• The exporter corrupts the header
+• The exporter changes compression incorrectly
+• The exporter appends JSON metadata
+• The exporter merges patch packages with ALS
+• The exporter does not preserve the original container format
+
+Your task is to discover WHICH one.
+
+------------------------------------------------
+
+STEP 1 — TRACE THE ENTIRE ALS EXPORT PIPELINE
+
+Locate every code path related to:
+
+upload
+decode
+parse
+mutation
+compile
+write
+download
+
+Search for:
+
+".als"
+writeFile
+stream
+gzip
+zlib
+zip
+archiver
+compression
+encode
+buffer
+artifact
+download
+
+Create a clear call graph showing:
+
+UPLOAD ALS
+↓
+DECODE
+↓
+PARSE
+↓
+PROJECT GRAPH
+↓
+MUTATION ENGINE
+↓
+XML SERIALIZER
+↓
+CONTAINER ENCODER
+↓
+FILE WRITER
+↓
+DOWNLOAD STREAM
+
+You must identify exactly where the container becomes invalid.
+
+------------------------------------------------
+
+STEP 2 — BYTE-LEVEL HEADER INSPECTION
+
+Add diagnostics that print the first 64 bytes of:
+
+1) original uploaded ALS
+2) exported ALS
+
+Example output format:
+
+SOURCE ALS HEADER (HEX):
+xx xx xx xx xx xx ...
+
+EXPORTED ALS HEADER (HEX):
+xx xx xx xx xx xx ...
+
+Also log:
+
+source file size
+export file size
+detected container type
+detected compression
+decode path used
+encode path used
+
+------------------------------------------------
+
+STEP 3 — IMPLEMENT ALS FORMAT DETECTOR
+
+Before parsing, detect the container type using magic bytes.
+
+Detect if the uploaded file is:
+
+• plain XML
+• gzip-compressed XML
+• other binary stream
+• unsupported
+
+Store:
+
+project.sourceFormat
+project.compressionType
+
+Do not guess.
+
+------------------------------------------------
+
+STEP 4 — PRESERVE ORIGINAL CONTAINER STRATEGY
+
+The safest export strategy is:
+
+READ ORIGINAL CONTAINER
+DECODE
+MODIFY XML
+RE-ENCODE USING SAME FORMAT
+
+Never invent a new container.
+
+Never rename a ZIP to `.als`.
+
+Never mix debug bundles into `.als`.
+
+------------------------------------------------
+
+STEP 5 — HARD SEPARATION OF EXPORT TYPES
+
+Ensure two completely separate export paths:
+
+1) FINAL ALS
+2) DEBUG PACKAGE ZIP
+
+They must never share a writer.
+
+The `.als` export must contain:
+
+ONLY the Ableton project.
+
+No JSON.
+No markdown.
+No patch metadata.
+No AI analysis.
+No debug logs.
+
+------------------------------------------------
+
+STEP 6 — VALIDATE OUTPUT BEFORE MARKING READY
+
+Before export state becomes READY:
+
+Run container validation.
+
+Checks:
+
+• file exists
+• size > 0
+• container format recognized
+• container matches expected format
+• parser can reopen the file
+• XML extraction succeeds
+
+If any check fails:
+
+state = FAILED
+
+Never show READY.
+
+------------------------------------------------
+
+STEP 7 — ROUND TRIP TEST
+
+Implement automated test:
+
+LOAD ALS
+DECODE
+ENCODE (without mutation)
+SAVE
+REOPEN
+
+If this fails, export pipeline is broken.
+
+Do not continue until this passes.
+
+------------------------------------------------
+
+STEP 8 — SAFE MUTATION ROUND TRIP
+
+Test minimal mutation:
+
+Add locator
+Export
+Reopen
+
+Verify:
+
+XML parses
+Mutation exists
+
+------------------------------------------------
+
+STEP 9 — EXPORT FORENSICS PANEL
+
+Add debug info:
+
+source format
+output format
+source header hex
+output header hex
+source file size
+output file size
+xml parse success
+container validation result
+artifact path
+last export error
+
+------------------------------------------------
+
+STEP 10 — REGRESSION TEST FOR CURRENT BUG
+
+Write a test that reproduces:
+
+"Unknown Compound Stream Type"
+
+Lock the fix with an automated test.
+
+------------------------------------------------
+
+CRITICAL RULES
+
+• Never write ZIP as `.als`
+• Never write raw XML as `.als`
+• Never merge debug artifacts with `.als`
+• Never mark export ready without validation
+• Never skip container detection
+
+------------------------------------------------
+
+SUCCESS CONDITION
+
+Exported ALS must:
+
+1. pass container validation
+2. reopen with parser
+3. open in Ableton
+4. contain safe mutations
+5. pass automated tests
+
+Do not stop until this is achieved.

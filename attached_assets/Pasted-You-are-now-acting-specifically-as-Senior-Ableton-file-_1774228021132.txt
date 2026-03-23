@@ -1,0 +1,363 @@
+You are now acting specifically as:
+- Senior Ableton file-format engineer
+- Senior binary/container engineer
+- Senior XML/compiler engineer
+- Senior QA/reliability engineer
+
+This is not a general product prompt.
+This is a file-format rescue mission.
+
+==================================================
+PRIMARY FAILURE TO FIX
+==================================================
+
+The exported modified `.als` file is corrupt and Ableton throws:
+
+“Unknown Compound Stream Type”
+
+This indicates the generated output is not a valid Ableton-readable `.als` stream/container.
+
+Previously there was also an XML-level corruption error:
+- Illegal value for 'Id' attribute
+
+So there may be two layers of failure:
+1. container/stream generation failure
+2. XML content/reference failure
+
+You must solve them in the correct order:
+FIRST fix container correctness
+THEN fix XML graph correctness
+
+==================================================
+NON-NEGOTIABLE GOAL
+==================================================
+
+The system must export a modified `.als` that:
+1. is encoded/stored in the correct Ableton-readable format
+2. is byte-valid as an `.als`
+3. can be opened by Ableton without “Unknown Compound Stream Type”
+4. can be opened without XML corruption errors
+5. contains the selected safe mutations actually applied
+
+==================================================
+TOP PRIORITY RULE
+==================================================
+
+Ignore noncritical UI work until export correctness is fixed.
+
+Do not spend time on:
+- visual polish
+- animations
+- mobile tweaks
+- dashboard cosmetics
+- secondary analytics views
+
+Only work on the critical path:
+read original `.als`
+understand its container format
+preserve or correctly reconstruct the container
+apply safe mutations
+write valid output
+verify the output can be read back
+
+==================================================
+PHASE 1 — DETERMINE THE REAL ALS CONTAINER FORMAT IN THIS APP
+==================================================
+
+Inspect the current codebase and find exactly how `.als` files are being:
+
+- uploaded
+- stored
+- decoded
+- parsed
+- mutated
+- re-encoded
+- written to disk
+- streamed to download
+
+Trace the bytes, not just the UI state.
+
+Identify whether the current exporter is incorrectly doing any of these:
+- writing raw XML directly to `.als`
+- writing gz/xml inconsistently
+- writing JSON/package data into `.als`
+- zipping multiple artifacts and renaming to `.als`
+- truncating stream bytes
+- corrupting headers
+- converting line endings or text encodings incorrectly
+- wrapping final output in wrong archive/container format
+- writing temp/debug metadata into the final `.als`
+
+Add logging to inspect:
+- output file first 64 bytes in hex
+- original file first 64 bytes in hex
+- detected source format
+- detected output format
+- output byte length
+- whether output can be round-tripped by the parser before download
+
+==================================================
+PHASE 2 — IMPLEMENT A STRICT FORMAT DETECTOR
+==================================================
+
+Before parsing, implement a format detection layer for the uploaded `.als`.
+
+The detector must determine whether the source file is:
+- plain XML
+- gzip-compressed XML
+- other binary/container form
+- unsupported/invalid
+
+Do not assume.
+
+Implement deterministic detection using:
+- magic bytes / header inspection
+- safe sniffing
+- validation checks
+
+Store detected format metadata on the project:
+- source_format
+- compression_type
+- parse_mode
+- decode_path_used
+
+If the file format is unsupported, fail clearly.
+Do not continue with fake parsing.
+
+==================================================
+PHASE 3 — PRESERVE THE ORIGINAL CONTAINER STRATEGY
+==================================================
+
+The safest export strategy is:
+
+If the original ALS uses a specific container/compression format,
+the modified export must preserve that same outer format unless there is a proven, tested reason not to.
+
+Implement export as:
+1. decode original container correctly
+2. parse underlying XML safely
+3. mutate XML via ProjectGraph
+4. serialize XML
+5. re-encode using the SAME valid outer container format as the source when possible
+
+Do not invent a new export envelope.
+
+==================================================
+PHASE 4 — SEPARATE FINAL ALS FROM DEBUG ARTIFACTS COMPLETELY
+==================================================
+
+The final exported `.als` must never be polluted by:
+- patch package ZIP contents
+- JSON manifests
+- completion plans
+- debug metadata
+- instructions markdown
+- analysis payloads
+
+These must remain separate files only.
+
+Audit the entire export path and guarantee:
+- `.als` export path writes only the final Ableton file
+- ZIP/package path writes debug bundle only
+- no shared writer accidentally mixes them
+- no renamed ZIP ever becomes `.als`
+
+This is mandatory.
+
+==================================================
+PHASE 5 — ADD CONTAINER-LEVEL VALIDATION BEFORE DOWNLOAD
+==================================================
+
+Before marking export READY, validate the final file at the binary/container layer.
+
+Add these checks:
+1. output file exists
+2. size is non-zero and reasonable
+3. detected output format is valid
+4. output format matches allowed Ableton-readable container strategy
+5. parser can re-open the exported file using the same detection path
+6. underlying XML can be extracted successfully
+7. only then continue to XML validation
+
+If container validation fails:
+- mark export FAILED
+- never show READY
+- expose exact diagnostic reason
+
+==================================================
+PHASE 6 — THEN FIX XML GRAPH CORRECTNESS
+==================================================
+
+Once container-level validity is restored, validate XML-level correctness.
+
+Maintain and harden:
+- unique valid Id attributes
+- no malformed Id strings
+- all references resolve
+- required node ordering
+- no orphan automation targets
+- no invalid timeline values
+- no dropped unknown sections needed for round-trip safety
+
+Use:
+- round-trip-safe XML AST
+- centralized ID allocator
+- centralized reference resolver
+- typed mutation engine only
+
+Do not mutate XML from raw AI prose.
+Do not build XML with regex hacks.
+
+==================================================
+PHASE 7 — IMPLEMENT REAL ROUND-TRIP TESTS
+==================================================
+
+Add tests that prove the file itself is valid, not just the UI state.
+
+Mandatory tests:
+
+1. SOURCE FORMAT DETECTION TESTS
+- detect known valid uploaded `.als` fixture format correctly
+
+2. CONTAINER ROUND-TRIP TEST
+- read original `.als`
+- decode
+- immediately re-encode without mutation
+- exported file must still be readable by the parser
+- if possible compare structural equivalence of XML
+
+3. SAFE MUTATION ROUND-TRIP TEST
+- load fixture `.als`
+- apply one minimal safe mutation
+- export
+- re-open exported `.als`
+- ensure parser succeeds
+- ensure mutation exists
+
+4. NO-FAKE-ALS TEST
+- ensure `.als` exporter never writes zip/package bytes
+- assert magic bytes/header/path are correct for the chosen format
+
+5. EXPORT ARTIFACT SEPARATION TEST
+- package ZIP and `.als` must be generated by different paths
+- one cannot be mistaken for the other
+
+6. XML VALIDITY TEST
+- exported XML must parse
+- IDs unique
+- references resolve
+
+7. REGRESSION TEST FOR CURRENT BUG
+- reproduce “Unknown Compound Stream Type” failure from current implementation
+- fix it
+- lock the fix with an automated test
+
+==================================================
+PHASE 8 — DIAGNOSTICS PANEL FOR EXPORT FORENSICS
+==================================================
+
+Add developer diagnostics showing:
+- source file detected format
+- source magic bytes
+- output file detected format
+- output magic bytes
+- source byte size
+- output byte size
+- decode path used
+- encode path used
+- xml extraction success/failure
+- xml validation success/failure
+- export artifact absolute path
+- last export failure reason
+
+This is essential.
+Do not leave export debugging blind.
+
+==================================================
+PHASE 9 — BACKEND CONTRACT CHANGES
+==================================================
+
+Add/export these backend fields:
+
+GET /api/projects/:id/export-status
+must include:
+- state
+- sourceFormat
+- outputFormat
+- containerValidationPassed
+- xmlValidationPassed
+- compiledArtifactExists
+- compiledArtifactSize
+- compiledArtifactPath
+- lastErrorCode
+- lastErrorMessage
+
+Possible error codes:
+- INVALID_SOURCE_FORMAT
+- OUTPUT_CONTAINER_INVALID
+- OUTPUT_NOT_REOPENABLE
+- XML_PARSE_FAILED
+- XML_REFERENCE_INVALID
+- XML_ID_INVALID
+- ARTIFACT_MISSING
+- EXPORT_STREAM_MISMATCH
+
+==================================================
+PHASE 10 — IMPLEMENT SAFE EXPORT STRATEGY
+==================================================
+
+Until full mutation support is perfect, implement the exporter with progressive strictness:
+
+Level 1:
+- re-export original ALS unchanged through your read/write path
+- verify it reopens successfully
+
+Level 2:
+- apply tiny safe mutations only:
+  - locator insertion
+  - track rename
+  - metadata-safe updates
+- verify reopen success
+
+Level 3:
+- apply more complex safe mutations:
+  - automation envelopes
+  - utility gain automation
+  - send automation
+- verify reopen success
+
+Level 4:
+- only after proven safe, enable more complex mutation families
+
+Do not enable high-risk mutations before the lower-risk round-trip path is proven.
+
+==================================================
+PHASE 11 — STRICT PRIORITIZATION
+==================================================
+
+Execution priority must be:
+
+1. inspect current exporter
+2. identify exactly why output is not a valid `.als` stream/container
+3. fix output container generation
+4. prove round-trip reopen works without mutations
+5. fix XML mutation correctness
+6. prove safe mutation round-trip works
+7. only then resume broader UI/product work
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+This task is complete only if:
+
+1. exported `.als` is no longer throwing “Unknown Compound Stream Type”
+2. exported `.als` can be reopened by the app’s own parser
+3. exported `.als` opens in Ableton
+4. no ZIP/package/debug bundle is masquerading as `.als`
+5. XML inside exported `.als` is valid
+6. selected safe mutations actually exist in the reopened output
+7. automated regression tests cover this exact failure class
+
+Do not stop at recommendations.
+Do the real code changes required to make the file valid.

@@ -159,8 +159,18 @@ The job runner produces these artifact types:
 3. Python patcher applies mutations (locators, automation, clips) to original ALS bytes
 4. Patcher validates with baseline-diff strategy: pre-existing violations in source ALS are ignored; only newly-introduced violations block the export
 5. Synthetic `AutomationTarget` elements are inserted when resolving PointeeIds for unmapped parameters
-6. Patched bytes written to `{uploadBase}_ai_patch.als`; artifact registered as `patched_als` in DB
-7. Project status → `exported`; ExportView shows READY with download button
+6. Patched bytes serialised via `_serialize_als_gzip()` — Ableton-compatible serialisation that fixes lxml quirks
+7. Patched bytes written to `{uploadBase}_ai_patch.als`; artifact registered as `patched_als` in DB
+8. Project status → `exported`; ExportView shows READY with download button
+
+**ALS Serialisation** (`_serialize_als_gzip` in als_patcher.py):
+Ableton Live requires specific byte-level formatting that lxml doesn't produce by default. The serialiser fixes:
+1. XML declaration must use double quotes (`"1.0"` not `'1.0'`)
+2. Self-closing tags must have a space before `/>` (e.g. `<Tag Value="x" />` not `<Tag Value="x"/>`)
+3. Attributes containing JSON (e.g. ViewData) must use single-quote delimiters with literal `"` inside
+4. Character entities must be hex (`&#x0D;`) not decimal (`&#13;`)
+5. Gzip OS byte must be 0x03 (Unix), not Python's default 0xFF
+Round-trip tested: vanilla round-trip produces byte-identical XML to the original.
 
 **Trust Labels**:
 - `SAFE_LOCATOR_ONLY` — only locators added

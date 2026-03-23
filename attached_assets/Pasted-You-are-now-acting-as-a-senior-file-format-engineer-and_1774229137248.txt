@@ -1,0 +1,442 @@
+You are now acting as a senior file-format engineer and compiler engineer building a safe Ableton Live `.als` reader/writer.
+
+This is not a generic app task.
+This is a deep structure and correctness task.
+
+Your job is to inspect the repo and implement a robust internal “ALS Structure Guide” in code and docs, then refactor the parser/compiler around it so the app stops generating corrupt `.als` files.
+
+==================================================
+MISSION
+==================================================
+
+Create and apply a practical, implementation-focused Ableton ALS deep structure guide that covers:
+
+1. correct XML root structure
+2. safe track/device ordering rules
+3. strict ID generation and reference rules
+4. automation/envelope layout rules
+5. tempo structure and extraction rules
+
+This guide must not remain theoretical.
+It must be converted into:
+- code invariants
+- parser rules
+- compiler rules
+- validators
+- regression tests
+- developer docs
+
+The objective is to prevent the common corruption classes that break exported `.als` files.
+
+==================================================
+IMPORTANT ENGINEERING RULE
+==================================================
+
+Treat Ableton `.als` as a partially known, round-trip-sensitive project format.
+
+That means:
+- do not assume you fully know every node
+- do not discard unknown sections
+- do not regenerate the whole file from scratch unless unavoidable
+- preserve untouched regions where possible
+- mutate through typed graph operations
+- validate before export
+
+==================================================
+DELIVERABLES
+==================================================
+
+Implement all of the following:
+
+1. ALS format structure guide document inside the repo
+2. source-code invariants matching that guide
+3. parser updates based on the guide
+4. compiler updates based on the guide
+5. pre-export validator based on the guide
+6. fixture-based tests for all major invariants
+7. diagnostics explaining exactly which rule failed when export breaks
+
+==================================================
+PART 1 — XML ROOT STRUCTURE GUIDE
+==================================================
+
+Inspect real fixture `.als` files and derive a practical root-structure guide.
+
+Document and enforce:
+
+- root element name
+- required top-level sections
+- stable top-level ordering constraints
+- project/song metadata regions
+- transport/tempo related regions
+- tracks container regions
+- return/master track regions
+- automation-related regions
+- locator/arrangement regions
+- mixer/routing regions
+- version-variant regions across Live 10/11/12 where detectable
+
+Implement rules:
+
+1. Never remove required top-level containers
+2. Never reorder critical top-level siblings unless proven safe
+3. Preserve unknown top-level nodes
+4. Preserve attributes on untouched nodes
+5. Preserve XML tree order as much as possible
+
+Add a validator function such as:
+validateRootStructure(ast) -> diagnostics
+
+Diagnostics must identify:
+- missing required region
+- duplicated top-level region
+- unexpected mutation to required region
+- ordering violation in known critical sections
+
+==================================================
+PART 2 — TRACK / DEVICE ORDERING GUIDE
+==================================================
+
+Build a practical track ordering guide from fixtures and current parser behavior.
+
+Document and enforce:
+
+- track collection layout
+- MIDI track vs audio track vs return track vs master track representation
+- ordering expectations among:
+  - regular tracks
+  - return tracks
+  - master track
+- ordering of track subregions such as:
+  - mixer/settings
+  - device chain
+  - clip containers
+  - automation/envelopes
+  - routing state
+  - sends/returns
+- ordering of devices inside device chains
+- safe insertion points for:
+  - new tracks
+  - new devices
+  - locators
+  - new clips
+  - automation targets
+
+Implement compiler helpers such as:
+- findSafeTrackInsertionPoint(...)
+- findSafeDeviceInsertionPoint(...)
+- findSafeLocatorInsertionPoint(...)
+- findSafeEnvelopeInsertionPoint(...)
+
+Rules:
+1. Do not append nodes arbitrarily
+2. Do not insert devices into the wrong track subtree
+3. Do not place return/master structures into normal track containers
+4. Preserve original device order on untouched tracks
+5. Preserve unknown child nodes within tracks
+
+Add validation for:
+- malformed track subtree layout
+- missing device chain region
+- invalid device placement
+- clip container misplaced
+- return/master ordering corruption
+
+==================================================
+PART 3 — ID GENERATION AND REFERENCE RULES
+==================================================
+
+This is mandatory and central.
+
+Create a strict repo-level “ALS Identity Rules” guide and enforce it in code.
+
+First inspect real ALS fixtures to understand how identity attributes and references behave.
+
+Then implement these rules:
+
+A. ID PRESERVATION
+- existing IDs from source ALS must remain unchanged whenever possible
+
+B. CENTRALIZED ALLOCATION
+- all new IDs must come from one allocator only
+- no scattered local ID generation
+- no frontend-generated IDs
+- no random ad hoc string concatenation
+
+C. UNIQUENESS
+- every newly created ID must be globally unique within the exported project
+
+D. FORMAT SAFETY
+- new IDs must match the numeric/string pattern actually observed in valid fixtures
+- if project uses numeric IDs, do not invent UUID-style IDs
+- if project uses a constrained pattern, honor that pattern
+
+E. REFERENCE CONSISTENCY
+- every reference to tracks/devices/parameters/envelopes must resolve
+- if a new node creates a new target reference, the referenced target must exist
+- if a node is cloned or inserted, all relevant references must be updated consistently
+
+F. NO REUSE IN SAME COMPILE PASS
+- deleted or replaced IDs must not be accidentally reused during the same export
+
+Implement:
+- scanExistingIds(ast)
+- allocateNewId(kind)
+- registerReference(source, target)
+- validateReferenceClosure(ast/projectGraph)
+
+Validation must detect:
+- duplicate IDs
+- malformed IDs
+- missing referenced target
+- broken envelope target references
+- broken device parameter references
+- orphan clip/device/track references
+
+==================================================
+PART 4 — AUTOMATION / ENVELOPE LAYOUT GUIDE
+==================================================
+
+Build a safe guide for automation structure using fixtures.
+
+You must inspect how automation/envelopes are actually represented in source ALS files and document:
+
+- where envelope containers live
+- how envelopes target a track/device/parameter
+- how points/events are stored
+- timeline/value encoding style
+- ordering of automation points
+- whether envelope points must be strictly sorted
+- how empty or missing envelopes are represented
+- what minimum structure is required for a valid envelope
+
+Implement safe mutation rules for automation:
+1. never create an envelope without a valid target
+2. never write point values outside valid expected ranges when known
+3. keep automation points time-sorted
+4. avoid duplicate points at identical time unless format explicitly supports it
+5. preserve untouched existing envelopes exactly where possible
+
+Provide typed automation mutation APIs like:
+- addAutomationEnvelope(targetRef, points)
+- appendEnvelopePoints(envelopeId, points)
+- createUtilityGainAutomation(trackId, points)
+- createSendAutomation(trackId, sendRef, points)
+
+Validation must detect:
+- envelope without target
+- points unsorted
+- invalid time values
+- invalid value encoding
+- duplicate/malformed envelope container structure
+- envelope attached to nonexistent track/device/parameter
+
+==================================================
+PART 5 — TEMPO STRUCTURE GUIDE
+==================================================
+
+Build a tempo structure guide from real fixtures.
+
+Document and enforce:
+
+- authoritative source for base tempo
+- where tempo appears in project/song structure
+- distinction between base tempo and tempo automation if present
+- how decimal values are encoded
+- version differences if any
+- fallback logic when tempo cannot be extracted safely
+
+Implement:
+- extractBaseTempo(ast)
+- detectTempoAutomation(ast)
+- validateTempoStructure(ast)
+
+Rules:
+1. Never guess BPM if explicit tempo exists
+2. Never silently overwrite parsed tempo with hardcoded defaults
+3. If fallback is used, record diagnostic
+4. Distinguish:
+   - baseTempo
+   - tempoMode (FIXED/AUTOMATED)
+   - tempoAutomationPointCount
+5. Use exact numeric parsing and serialization discipline
+
+Validation must detect:
+- missing authoritative tempo node
+- malformed tempo value
+- conflicting tempo sources
+- tempo automation target mismatch if applicable
+
+==================================================
+PART 6 — ROUND-TRIP-SAFE AST STRATEGY
+==================================================
+
+Refactor the XML handling around round-trip safety.
+
+Requirements:
+- preserve node ordering
+- preserve unknown nodes
+- preserve untouched attributes
+- preserve untouched text values
+- avoid full regeneration of untouched subtrees when possible
+- support surgical mutation of known-safe subtrees
+
+Implement AST metadata that records:
+- original node order
+- original attributes
+- whether node/subtree was mutated
+- passthrough-safe regions
+
+Compiler strategy:
+- unchanged subtrees should be emitted as close to source as possible
+- changed subtrees must still honor ordering and identity rules
+
+==================================================
+PART 7 — SAFE MUTATION TIERS
+==================================================
+
+Implement mutation support in tiers.
+
+Tier 1 — safest
+- rename track
+- add locator
+- add metadata-safe annotations if supported
+- simple arrangement markers
+
+Tier 2 — moderate
+- add basic automation envelope
+- add utility gain automation
+- add send automation
+
+Tier 3 — higher risk
+- add clips
+- add tracks
+- add device chain changes
+
+Do not enable higher tiers unless lower tiers pass round-trip reopen tests.
+
+==================================================
+PART 8 — PRE-EXPORT VALIDATOR
+==================================================
+
+Build a validator that runs before any `.als` is marked export-ready.
+
+Validation categories:
+1. container validation
+2. XML well-formedness
+3. root structure validation
+4. track/device ordering validation
+5. ID uniqueness validation
+6. reference closure validation
+7. automation/envelope validation
+8. tempo structure validation
+9. mutation application verification
+
+Return structured diagnostics:
+- code
+- severity
+- path/node
+- summary
+- likely cause
+- suggested fix
+
+Example error codes:
+- ROOT_STRUCTURE_INVALID
+- TRACK_ORDER_INVALID
+- DEVICE_CHAIN_INVALID
+- ALS_ID_DUPLICATE
+- ALS_ID_FORMAT_INVALID
+- ALS_REFERENCE_MISSING
+- ALS_ENVELOPE_INVALID
+- ALS_TEMPO_INVALID
+- ALS_MUTATION_INSERTION_INVALID
+
+==================================================
+PART 9 — TEST FIXTURES AND REGRESSION SUITE
+==================================================
+
+Create or improve fixture-driven tests using representative ALS files.
+
+Mandatory tests:
+1. root structure parse test
+2. no-mutation round-trip test
+3. track ordering preservation test
+4. ID uniqueness validation test
+5. reference closure validation test
+6. envelope parse/serialize test
+7. tempo extraction accuracy test
+8. safe locator insertion test
+9. safe automation insertion test
+10. regression test for corrupted export cases
+
+If possible include fixture coverage for:
+- minimal project
+- one MIDI track
+- one audio track
+- project with returns
+- project with master automation
+- project with locators
+- Live 10
+- Live 11
+- Live 12
+
+==================================================
+PART 10 — DEVELOPER DOCUMENTATION
+==================================================
+
+Create a repo document such as:
+
+docs/als-deep-structure-guide.md
+
+It must include sections:
+- what is known vs unknown
+- root structure rules
+- track/device ordering rules
+- ID/reference rules
+- automation/envelope rules
+- tempo rules
+- safe mutation tiers
+- export validation rules
+- common corruption classes and how this repo prevents them
+
+This document must be practical and derived from the repo’s actual implementation and fixtures, not generic filler.
+
+==================================================
+PART 11 — IMPLEMENTATION DISCIPLINE
+==================================================
+
+Do not do these things:
+- do not write raw XML directly and rename to `.als`
+- do not rebuild whole project from assumptions
+- do not discard unknown nodes
+- do not generate IDs in multiple places
+- do not insert envelopes without validated targets
+- do not guess BPM when source tempo exists
+- do not mark export ready if validation fails
+
+Do these things:
+- inspect current implementation
+- identify weak assumptions
+- replace brittle logic with strict helpers
+- add invariants and tests
+- make corruption impossible or loudly blocked
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+This task is complete only if:
+
+1. the repo contains a real ALS deep structure guide
+2. parser/compiler logic follows that guide
+3. root structure is validated before export
+4. track/device ordering is preserved or safely mutated
+5. IDs are centrally allocated and references validate
+6. automation/envelope creation is target-safe and structurally valid
+7. tempo extraction uses authoritative ALS structure
+8. tests lock the behavior
+9. exported `.als` corruption rate is materially reduced
+10. developers can diagnose exactly which structure rule failed
+
+Do not stop at notes or partial scaffolding.
+Implement the guide in code, validation, tests, and docs.

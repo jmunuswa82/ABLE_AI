@@ -29,6 +29,8 @@ from __future__ import annotations
 import gzip
 import io
 import logging
+import re
+import struct
 from typing import List, Dict, Any, Optional, Tuple, Set
 
 from lxml import etree
@@ -62,6 +64,65 @@ PARAM_TAG_PATTERNS: Dict[str, List[str]] = {
     "Feedback":         ["Feedback"],
     "Transpose":        ["TransposeSemitones"],
 }
+
+
+# ─── Ableton-compatible serialisation ────────────────────────────────────────
+
+_GZIP_OS_UNIX = 0x03
+
+def _serialize_als_gzip(root: etree._Element, compresslevel: int = 6) -> bytes:
+    """
+    Serialise an lxml tree to gzip-compressed XML that Ableton Live can open.
+
+    Fixes five lxml serialisation incompatibilities:
+    1. XML declaration — lxml uses single quotes; Ableton requires double quotes.
+    2. Self-closing tags — lxml omits the space before />; Ableton expects it.
+    3. Attribute quoting — lxml double-quotes attributes containing JSON and
+       escapes inner quotes as &quot;. Ableton uses single-quote delimiters
+       with literal double quotes inside the value.
+    4. Character entity format — lxml uses decimal (&#13;), Ableton uses hex (&#x0D;).
+    5. Gzip OS byte — Python writes 0xFF; Ableton expects 0x03 (Unix).
+    """
+    xml_bytes = etree.tostring(
+        root,
+        xml_declaration=True,
+        encoding="UTF-8",
+        pretty_print=False,
+    )
+
+    xml_bytes = xml_bytes.replace(
+        b"<?xml version='1.0' encoding='UTF-8'?>",
+        b'<?xml version="1.0" encoding="UTF-8"?>',
+    )
+
+    xml_bytes = re.sub(rb'(?<! )/>', b' />', xml_bytes)
+
+    def _restore_single_quote_attr(m: re.Match) -> bytes:
+        prefix = m.group(1)
+        val = m.group(2).replace(b"&quot;", b'"')
+        if b"'" in val:
+            return m.group(0)
+        return prefix + b"'" + val + b"'"
+
+    xml_bytes = re.sub(
+        rb'(\b\w+=)"([^"]*&quot;[^"]*)"',
+        _restore_single_quote_attr,
+        xml_bytes,
+    )
+
+    xml_bytes = xml_bytes.replace(b"&#13;", b"&#x0D;")
+    xml_bytes = xml_bytes.replace(b"&#10;", b"&#x0A;")
+    xml_bytes = xml_bytes.replace(b"&#9;", b"&#x09;")
+
+    if not xml_bytes.endswith(b"\n"):
+        xml_bytes += b"\n"
+
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0, compresslevel=compresslevel) as gz:
+        gz.write(xml_bytes)
+    raw = bytearray(buf.getvalue())
+    raw[9] = _GZIP_OS_UNIX
+    return bytes(raw)
 
 
 # ─── Central ID Allocator ─────────────────────────────────────────────────────
@@ -641,20 +702,10 @@ class ALSPatcher:
                 f"(ignored — not introduced by patch)"
             )
 
-        # Serialise to gzip XML
         als_bytes: Optional[bytes] = None
         validation_passed = False
         try:
-            xml_bytes = etree.tostring(
-                self.root,
-                xml_declaration=True,
-                encoding="UTF-8",
-                pretty_print=False,
-            )
-            buf = io.BytesIO()
-            with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as gz:
-                gz.write(xml_bytes)
-            candidate = buf.getvalue()
+            candidate = _serialize_als_gzip(self.root)
 
             # Post-apply validation (full decompression, duplicate Id check)
             valid, err = validate_als_bytes(candidate)
